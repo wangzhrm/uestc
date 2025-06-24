@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nash Equilibrium Game | Pricing Strategy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin: 20px 0;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #4a9fe3;
+            padding-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #4a9fe3;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a9d6ff;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .game-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .matrix-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .matrix-title {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #4a9fe3;
+        }
+        
+        .payoff-matrix {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .payoff-matrix th, .payoff-matrix td {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #4a9fe3;
+        }
+        
+        .payoff-matrix th {
+            background: rgba(26, 42, 108, 0.7);
+            font-weight: bold;
+        }
+        
+        .payoff-cell {
+            background: rgba(74, 159, 227, 0.15);
+            font-weight: bold;
+            font-size: 1.1rem;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .payoff-cell:hover {
+            background: rgba(74, 159, 227, 0.3);
+        }
+        
+        .payoff-cell.selected {
+            background: rgba(125, 255, 178, 0.3);
+            box-shadow: 0 0 0 2px #7dffb2;
+        }
+        
+        .player-a {
+            color: #ff9e7d;
+        }
+        
+        .player-b {
+            color: #7dffb2;
+        }
+        
+        .quiz-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .quiz-title {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #4a9fe3;
+        }
+        
+        .question {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        
+        .question-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #ff9e7d;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: rgba(74, 159, 227, 0.2);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .option:hover {
+            background: rgba(74, 159, 227, 0.3);
+            transform: translateX(5px);
+        }
+        
+        .option input {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .submit-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(to right, #4a9fe3, #1a2a6c);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .feedback-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .feedback-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #4a9fe3;
+            text-align: center;
+        }
+        
+        .feedback-content {
+            line-height: 1.6;
+        }
+        
+        .correct {
+            color: #7dffb2;
+            font-weight: bold;
+        }
+        
+        .incorrect {
+            color: #ff9e7d;
+            font-weight: bold;
+        }
+        
+        .explanation {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #4a9fe3;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #a9d6ff;
+            font-size: 0.9rem;
+        }
+        
+        .nash-info {
+            background: rgba(26, 42, 108, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #4a9fe3;
+        }
+        
+        .nash-info h3 {
+            color: #4a9fe3;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .cell-label {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        .strategy-map {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        
+        .strategy-item {
+            background: rgba(74, 159, 227, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .game-section {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-chess-board"></i> Nash Equilibrium Game</h1>
+            <p class="subtitle">Analyze the payoff matrix for Company A and Company B to identify all Nash Equilibria in their pricing strategies.</p>
+        </header>
+        
+        <div class="nash-info">
+            <h3><i class="fas fa-lightbulb"></i> What is a Nash Equilibrium?</h3>
+            <p>A Nash Equilibrium occurs when no player can benefit by changing their strategy while the other players keep their strategies unchanged. In this game, you need to identify all strategy combinations where both companies are making their best response to the other's strategy.</p>
+            <div class="strategy-map">
+                <div class="strategy-item"><strong>Cell 1:</strong> (Maintain, Maintain)</div>
+                <div class="strategy-item"><strong>Cell 2:</strong> (Maintain, Reduce)</div>
+                <div class="strategy-item"><strong>Cell 3:</strong> (Reduce, Maintain)</div>
+                <div class="strategy-item"><strong>Cell 4:</strong> (Reduce, Reduce)</div>
+            </div>
+        </div>
+        
+        <div class="game-section">
+            <div class="matrix-container">
+                <h2 class="matrix-title">Payoff Matrix</h2>
+                <table class="payoff-matrix">
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th colspan="2">Company B</th>
+                    </tr>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th>Maintain Price</th>
+                        <th>Reduce Price</th>
+                    </tr>
+                    <tr>
+                        <th rowspan="2">Company A</th>
+                        <th>Maintain Price</th>
+                        <td class="payoff-cell" data-cell="1">
+                            <span class="cell-label">Cell 1</span>
+                            (<span class="player-a" id="a1">0</span>, 
+                            <span class="player-b" id="b1">0</span>)
+                        </td>
+                        <td class="payoff-cell" data-cell="2">
+                            <span class="cell-label">Cell 2</span>
+                            (<span class="player-a" id="a2">0</span>, 
+                            <span class="player-b" id="b2">0</span>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Reduce Price</th>
+                        <td class="payoff-cell" data-cell="3">
+                            <span class="cell-label">Cell 3</span>
+                            (<span class="player-a" id="a3">0</span>, 
+                            <span class="player-b" id="b3">0</span>)
+                        </td>
+                        <td class="payoff-cell" data-cell="4">
+                            <span class="cell-label">Cell 4</span>
+                            (<span class="player-a" id="a4">0</span>, 
+                            <span class="player-b" id="b4">0</span>)
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="quiz-container">
+                <h2 class="quiz-title">Identify Nash Equilibria</h2>
+                <div class="question">
+                    <h3 class="question-title">Select all Nash Equilibria:</h3>
+                    <div class="options">
+                        <label class="option">
+                            <input type="checkbox" name="nash" value="1">
+                            Cell 1: (Maintain, Maintain)
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="nash" value="2">
+                            Cell 2: (Maintain, Reduce)
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="nash" value="3">
+                            Cell 3: (Reduce, Maintain)
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="nash" value="4">
+                            Cell 4: (Reduce, Reduce)
+                        </label>
+                        <label class="option">
+                            <input type="checkbox" name="nash" value="0">
+                            There is no Nash Equilibrium
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="submit-btn" id="submitBtn">
+                    <i class="fas fa-check-circle"></i> Submit Answers
+                </button>
+                
+                <button class="submit-btn" id="newGameBtn" style="background: linear-gradient(to right, #ff9e7d, #b21f1f); margin-top: 10px;">
+                    <i class="fas fa-redo-alt"></i> New Game
+                </button>
+            </div>
+        </div>
+        
+        <div class="feedback-container" id="feedbackContainer">
+            <h2 class="feedback-title">Results & Explanation</h2>
+            <div class="feedback-content" id="feedbackContent">
+                <!-- Results will be displayed here -->
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Game Theory Exercise | Nash Equilibrium Analysis | Created with HTML, CSS & JavaScript</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let correctNashCells = [];
+            let explanation = "";
+            
+            // Initialize the game
+            initializeGame();
+            
+            // Set up event listeners
+            document.getElementById('submitBtn').addEventListener('click', checkAnswers);
+            document.getElementById('newGameBtn').addEventListener('click', initializeGame);
+            
+            // Set up matrix cell click events
+            document.querySelectorAll('.payoff-cell').forEach(cell => {
+                cell.addEventListener('click', function() {
+                    const cellNum = this.getAttribute('data-cell');
+                    const checkbox = document.querySelector(`input[value="${cellNum}"]`);
+                    
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        this.classList.toggle('selected', checkbox.checked);
+                    }
+                });
+            });
+            
+            // Set up checkbox change events to update cell selection
+            document.querySelectorAll('input[name="nash"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const cellNum = this.value;
+                    if (cellNum !== "0") {
+                        const cell = document.querySelector(`.payoff-cell[data-cell="${cellNum}"]`);
+                        if (cell) {
+                            cell.classList.toggle('selected', this.checked);
+                        }
+                    }
+                    
+                    // If "no Nash" is checked, uncheck others
+                    if (this.value === "0" && this.checked) {
+                        document.querySelectorAll('input[name="nash"]:not([value="0"])').forEach(cb => {
+                            cb.checked = false;
+                            const cell = document.querySelector(`.payoff-cell[data-cell="${cb.value}"]`);
+                            if (cell) cell.classList.remove('selected');
+                        });
+                    }
+                    
+                    // If any cell is checked, uncheck "no Nash"
+                    if (this.value !== "0" && this.checked) {
+                        document.querySelector('input[value="0"]').checked = false;
+                    }
+                });
+            });
+            
+            function initializeGame() {
+                // Reset UI
+                document.querySelectorAll('.payoff-cell').forEach(cell => {
+                    cell.classList.remove('selected');
+                });
+                document.querySelectorAll('input[name="nash"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                document.getElementById('feedbackContainer').style.display = 'none';
+                
+                // Generate a new game scenario
+                const {payoffs, nashCells, explanation: exp} = generateGameScenario();
+                correctNashCells = nashCells;
+                explanation = exp;
+                
+                // Populate the payoff matrix
+                document.getElementById('a1').textContent = payoffs.a1;
+                document.getElementById('b1').textContent = payoffs.b1;
+                document.getElementById('a2').textContent = payoffs.a2;
+                document.getElementById('b2').textContent = payoffs.b2;
+                document.getElementById('a3').textContent = payoffs.a3;
+                document.getElementById('b3').textContent = payoffs.b3;
+                document.getElementById('a4').textContent = payoffs.a4;
+                document.getElementById('b4').textContent = payoffs.b4;
+            }
+            
+            function checkAnswers() {
+                // Get user selections
+                const selectedNash = [];
+                document.querySelectorAll('input[name="nash"]:checked').forEach(checkbox => {
+                    selectedNash.push(checkbox.value);
+                });
+                
+                if (selectedNash.length === 0) {
+                    alert('Please select at least one option before submitting.');
+                    return;
+                }
+                
+                // Determine if answers are correct
+                const isNoNashCorrect = correctNashCells.length === 0 && selectedNash.includes("0");
+                const isNashCorrect = correctNashCells.length > 0 && 
+                    correctNashCells.every(cell => selectedNash.includes(cell)) &&
+                    selectedNash.length === correctNashCells.length &&
+                    !selectedNash.includes("0");
+                
+                const isCorrect = isNoNashCorrect || isNashCorrect;
+                
+                // Prepare feedback
+                let feedbackHTML = `
+                    <p>Your selection: <span class="${isCorrect ? 'correct' : 'incorrect'}">
+                        ${formatSelection(selectedNash)}
+                    </span></p>
+                    <p>Correct answer: <span class="correct">
+                        ${correctNashCells.length === 0 ? "There is no Nash Equilibrium" : 
+                          correctNashCells.map(cell => `Cell ${cell}`).join(' and ')}
+                    </span></p>
+                    <div class="explanation">
+                        <h3><i class="fas fa-info-circle"></i> Explanation:</h3>
+                        <p>${explanation}</p>
+                    </div>
+                `;
+                
+                // Display feedback
+                document.getElementById('feedbackContent').innerHTML = feedbackHTML;
+                document.getElementById('feedbackContainer').style.display = 'block';
+                
+                // Scroll to feedback
+                document.getElementById('feedbackContainer').scrollIntoView({behavior: 'smooth'});
+            }
+            
+            function formatSelection(selection) {
+                if (selection.includes("0")) {
+                    return "There is no Nash Equilibrium";
+                }
+                return selection.map(cell => `Cell ${cell}`).join(', ');
+            }
+            
+            function generateGameScenario() {
+                // Generate random payoffs between 10 and 100
+                const payoffs = {
+                    a1: Math.floor(Math.random() * 91) + 10,
+                    b1: Math.floor(Math.random() * 91) + 10,
+                    a2: Math.floor(Math.random() * 91) + 10,
+                    b2: Math.floor(Math.random() * 91) + 10,
+                    a3: Math.floor(Math.random() * 91) + 10,
+                    b3: Math.floor(Math.random() * 91) + 10,
+                    a4: Math.floor(Math.random() * 91) + 10,
+                    b4: Math.floor(Math.random() * 91) + 10
+                };
+                
+                // Determine Nash equilibria
+                const nashCells = [];
+                let explanation = "";
+                
+                // Check each cell for Nash equilibrium
+                // Cell 1: (Maintain, Maintain)
+                if (payoffs.a1 >= payoffs.a3 && payoffs.b1 >= payoffs.b2) {
+                    nashCells.push("1");
+                }
+                
+                // Cell 2: (Maintain, Reduce)
+                if (payoffs.a2 >= payoffs.a4 && payoffs.b2 >= payoffs.b1) {
+                    nashCells.push("2");
+                }
+                
+                // Cell 3: (Reduce, Maintain)
+                if (payoffs.a3 >= payoffs.a1 && payoffs.b3 >= payoffs.b4) {
+                    nashCells.push("3");
+                }
+                
+                // Cell 4: (Reduce, Reduce)
+                if (payoffs.a4 >= payoffs.a2 && payoffs.b4 >= payoffs.b3) {
+                    nashCells.push("4");
+                }
+                
+                // Generate explanation based on the situation
+                if (nashCells.length === 0) {
+                    explanation = "There is no Nash Equilibrium in this game. This means there is no strategy combination where both companies are simultaneously making their best response to the other's strategy. In such situations, companies might constantly adjust their strategies in response to each other.";
+                } else if (nashCells.length === 1) {
+                    explanation = `There is one Nash Equilibrium at Cell ${nashCells[0]}. This means there is a stable outcome where neither company can improve their payoff by unilaterally changing their strategy.`;
+                } else if (nashCells.length === 2) {
+                    explanation = `There are two Nash Equilibria at Cells ${nashCells.join(' and ')}. This creates multiple stable outcomes where neither company can improve their payoff by changing strategy alone. In such cases, companies might coordinate on one equilibrium or the other.`;
+                }
+                
+                // Add detailed payoff analysis to explanation
+                explanation += `<br><br><strong>Detailed Analysis:</strong><br>`;
+                explanation += `<ul>`;
+                explanation += `<li><strong>Cell 1 (Maintain, Maintain)</strong>: 
+                    A gets ${payoffs.a1} vs ${payoffs.a3} if switches to Reduce. 
+                    B gets ${payoffs.b1} vs ${payoffs.b2} if switches to Reduce. 
+                    ${nashCells.includes("1") ? "✓ Nash Equilibrium" : "✗ Not Nash"}</li>`;
+                explanation += `<li><strong>Cell 2 (Maintain, Reduce)</strong>: 
+                    A gets ${payoffs.a2} vs ${payoffs.a4} if switches to Reduce. 
+                    B gets ${payoffs.b2} vs ${payoffs.b1} if switches to Maintain. 
+                    ${nashCells.includes("2") ? "✓ Nash Equilibrium" : "✗ Not Nash"}</li>`;
+                explanation += `<li><strong>Cell 3 (Reduce, Maintain)</strong>: 
+                    A gets ${payoffs.a3} vs ${payoffs.a1} if switches to Maintain. 
+                    B gets ${payoffs.b3} vs ${payoffs.b4} if switches to Reduce. 
+                    ${nashCells.includes("3") ? "✓ Nash Equilibrium" : "✗ Not Nash"}</li>`;
+                explanation += `<li><strong>Cell 4 (Reduce, Reduce)</strong>: 
+                    A gets ${payoffs.a4} vs ${payoffs.a2} if switches to Maintain. 
+                    B gets ${payoffs.b4} vs ${payoffs.b3} if switches to Maintain. 
+                    ${nashCells.includes("4") ? "✓ Nash Equilibrium" : "✗ Not Nash"}</li>`;
+                explanation += `</ul>`;
+                
+                return {
+                    payoffs,
+                    nashCells,
+                    explanation
+                };
+            }
+        });
+    </script>
+</body>
+</html>
