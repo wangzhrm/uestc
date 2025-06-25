@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cost Curves Matching Activity</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50, #1a2a6c);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(to right, #2c3e50, #4a6491);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.1) 0%, transparent 20%);
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            position: relative;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 30px;
+            gap: 30px;
+        }
+        
+        .graph-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .graph-title {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .graph-container {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        
+        .graph-image {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+        }
+        
+        .activity-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            border-left: 5px solid #2196F3;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 0 8px 8px 0;
+            color: #2c3e50;
+        }
+        
+        .instructions h3 {
+            color: #0d47a1;
+            margin-bottom: 10px;
+        }
+        
+        .instructions p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+        }
+        
+        .matching-form {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .form-group {
+            display: contents;
+        }
+        
+        label {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            text-align: right;
+            padding-right: 15px;
+        }
+        
+        select {
+            padding: 12px 15px;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            background-color: #f8f9fa;
+            transition: all 0.3s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #2980b9;
+            box-shadow: 0 0 8px rgba(52, 152, 219, 0.5);
+            background-color: white;
+        }
+        
+        button {
+            grid-column: span 2;
+            padding: 16px;
+            background: linear-gradient(to right, #27ae60, #2ecc71);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        button:hover {
+            background: linear-gradient(to right, #219653, #27ae60);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            display: none;
+            color: white;
+        }
+        
+        .correct {
+            background: linear-gradient(to right, #27ae60, #2ecc71);
+        }
+        
+        .incorrect {
+            background: linear-gradient(to right, #c0392b, #e74c3c);
+        }
+        
+        .result-title {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .feedback {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .answer-list {
+            list-style-type: none;
+            margin: 20px 0;
+        }
+        
+        .answer-list li {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .icon {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+        
+        .cost-curve-info {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            color: #2c3e50;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .cost-curve-info h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .curve-def {
+            margin: 15px 0;
+            padding: 12px;
+            border-left: 4px solid;
+            background: #f0f7ff;
+        }
+        
+        .mc-def { border-color: #e74c3c; }
+        .atc-def { border-color: #3498db; }
+        .avc-def { border-color: #2ecc71; }
+        .afc-def { border-color: #f39c12; }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .matching-form {
+                grid-template-columns: 1fr;
+            }
+            
+            label {
+                text-align: left;
+                padding-right: 0;
+                padding-bottom: 5px;
+            }
+            
+            button {
+                grid-column: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cost Curves Matching Activity</h1>
+            <p class="subtitle">Match the cost curves (MC, AFC, AVC, ATC) to the labeled curves (A, B, C, D) on the graph. Test your understanding of microeconomics cost concepts!</p>
+        </header>
+        
+        <div class="content">
+            <div class="graph-section">
+                <h2 class="graph-title">Cost Curves Diagram</h2>
+                <div class="graph-container">
+                    <img src="https://tonysew.wordpress.com/wp-content/uploads/2025/06/8e1e13bd-6932-4cff-8644-2affa5476c38.png" alt="Cost Curves Graph" class="graph-image">
+                </div>
+                
+                <div class="cost-curve-info">
+                    <h3>Cost Curve Definitions</h3>
+                    <div class="curve-def mc-def">
+                        <strong>Marginal Cost (MC)</strong>: The cost of producing one additional unit of output.
+                    </div>
+                    <div class="curve-def atc-def">
+                        <strong>Average Total Cost (ATC)</strong>: Total cost divided by the quantity of output.
+                    </div>
+                    <div class="curve-def avc-def">
+                        <strong>Average Variable Cost (AVC)</strong>: Variable cost divided by the quantity of output.
+                    </div>
+                    <div class="curve-def afc-def">
+                        <strong>Average Fixed Cost (AFC)</strong>: Fixed cost divided by the quantity of output.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="activity-section">
+                <div class="instructions">
+                    <h3>Activity Instructions</h3>
+                    <p>➊ Examine the cost curves diagram showing the relationship between cost and output.</p>
+                    <p>➋ Using the dropdown menus, match each curve (A, B, C, D) to the correct cost type.</p>
+                    <p>➌ Click "Check Answers" to evaluate your matching.</p>
+                    <p>➍ The correct answers are:</p>
+                    <ul>
+                        <li>A = Marginal Cost (MC)</li>
+                        <li>B = Average Total Cost (ATC)</li>
+                        <li>C = Average Variable Cost (AVC)</li>
+                        <li>D = Average Fixed Cost (AFC)</li>
+                    </ul>
+                </div>
+                
+                <form id="matching-form" class="matching-form">
+                    <div class="form-group">
+                        <label for="curve-a">Curve A:</label>
+                        <select id="curve-a">
+                            <option value="">Select a cost type</option>
+                            <option value="MC">Marginal Cost (MC)</option>
+                            <option value="AFC">Average Fixed Cost (AFC)</option>
+                            <option value="AVC">Average Variable Cost (AVC)</option>
+                            <option value="ATC">Average Total Cost (ATC)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="curve-b">Curve B:</label>
+                        <select id="curve-b">
+                            <option value="">Select a cost type</option>
+                            <option value="MC">Marginal Cost (MC)</option>
+                            <option value="AFC">Average Fixed Cost (AFC)</option>
+                            <option value="AVC">Average Variable Cost (AVC)</option>
+                            <option value="ATC">Average Total Cost (ATC)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="curve-c">Curve C:</label>
+                        <select id="curve-c">
+                            <option value="">Select a cost type</option>
+                            <option value="MC">Marginal Cost (MC)</option>
+                            <option value="AFC">Average Fixed Cost (AFC)</option>
+                            <option value="AVC">Average Variable Cost (AVC)</option>
+                            <option value="ATC">Average Total Cost (ATC)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="curve-d">Curve D:</label>
+                        <select id="curve-d">
+                            <option value="">Select a cost type</option>
+                            <option value="MC">Marginal Cost (MC)</option>
+                            <option value="AFC">Average Fixed Cost (AFC)</option>
+                            <option value="AVC">Average Variable Cost (AVC)</option>
+                            <option value="ATC">Average Total Cost (ATC)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="button" id="check-btn">Check Answers</button>
+                </form>
+                
+                <div id="result" class="result">
+                    <h3 class="result-title">Your Results</h3>
+                    <p class="feedback">Here's how you did:</p>
+                    <ul class="answer-list" id="answer-list">
+                        <!-- Results will be inserted here -->
+                    </ul>
+                    <p class="feedback" id="summary"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('check-btn').addEventListener('click', function() {
+            const answers = {
+                a: document.getElementById('curve-a').value,
+                b: document.getElementById('curve-b').value,
+                c: document.getElementById('curve-c').value,
+                d: document.getElementById('curve-d').value
+            };
+            
+            const correctAnswers = {
+                a: 'MC',
+                b: 'ATC',
+                c: 'AVC',
+                d: 'AFC'
+            };
+            
+            let allCorrect = true;
+            let correctCount = 0;
+            let resultsHTML = '';
+            
+            // Check each answer
+            for (const curve in answers) {
+                const userAnswer = answers[curve];
+                const correctAnswer = correctAnswers[curve];
+                const isCorrect = userAnswer === correctAnswer;
+                
+                if (isCorrect) {
+                    correctCount++;
+                } else {
+                    allCorrect = false;
+                }
+                
+                resultsHTML += `
+                    <li>
+                        <span class="icon">${isCorrect ? '✓' : '✗'}</span>
+                        Curve ${curve.toUpperCase()}: You selected <strong>${userAnswer || 'nothing'}</strong>
+                        ${isCorrect ? 
+                            '<span class="result-detail">(Correct!)</span>' : 
+                            `<span class="result-detail">(Should be ${correctAnswer})</span>`}
+                    </li>
+                `;
+            }
+            
+            // Update results display
+            document.getElementById('answer-list').innerHTML = resultsHTML;
+            document.getElementById('result').style.display = 'block';
+            
+            // Update styling based on performance
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result ' + (allCorrect ? 'correct' : 'incorrect');
+            
+            // Update summary
+            const summary = document.getElementById('summary');
+            if (allCorrect) {
+                summary.innerHTML = `🎉 Perfect! You got all ${correctCount} correct! 🎉`;
+            } else {
+                summary.innerHTML = `You got ${correctCount} out of 4 correct. Review the cost curves and try again!`;
+            }
+        });
+    </script>
+</body>
+</html>
