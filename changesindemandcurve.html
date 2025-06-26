@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demand Curve Quiz</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            padding: 30px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        h1 {
+            color: #1a2a6c;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #b21f1f;
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        
+        .quiz-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .graph-container {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .graph-title {
+            color: #1a2a6c;
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .graph {
+            width: 100%;
+            height: 300px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .graph img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .quiz-card {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .scenario {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1a2a6c;
+            text-align: center;
+            padding: 15px;
+            background: #f0f5ff;
+            border-radius: 10px;
+            border-left: 5px solid #1a2a6c;
+        }
+        
+        .question {
+            font-size: 1.2rem;
+            margin-bottom: 25px;
+            font-weight: 500;
+            color: #333;
+            text-align: center;
+        }
+        
+        .options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .option {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .option:hover {
+            background: #f5f8ff;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .option.selected {
+            border-color: #1a2a6c;
+            background: #e6eeff;
+        }
+        
+        .option.correct {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        
+        .option.incorrect {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #1a2a6c;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .btn:hover {
+            background: #0d1a4d;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            display: none;
+            padding: 25px;
+            background: #f9f9f9;
+            border-radius: 15px;
+            margin-top: 20px;
+            border-left: 5px solid #1a2a6c;
+        }
+        
+        .result h3 {
+            color: #1a2a6c;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .explanation {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .correct-answer {
+            color: #4CAF50;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .incorrect-answer {
+            color: #f44336;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .demand-types {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .demand-type {
+            padding: 15px;
+            border-radius: 10px;
+            background: #f5f8ff;
+        }
+        
+        .demand-type h4 {
+            color: #1a2a6c;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .demand-type ul {
+            padding-left: 20px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        
+        .demand-type li {
+            margin-bottom: 8px;
+        }
+        
+        .refresh-btn {
+            background: #b21f1f;
+        }
+        
+        .refresh-btn:hover {
+            background: #8a1919;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #777;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .options {
+                grid-template-columns: 1fr;
+            }
+            
+            .demand-types {
+                grid-template-columns: 1fr;
+            }
+            
+            .quiz-area {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Demand Curve Quiz</h1>
+            <div class="subtitle">Test your understanding of demand curve movements and shifts</div>
+        </header>
+        
+        <div class="quiz-area">
+            <div class="graph-container">
+                <div class="graph-title">Demand Curve Reference</div>
+                <div class="graph">
+                    <img src="https://tonysew.wordpress.com/wp-content/uploads/2025/06/bdb1ef84-9544-40a3-825b-6cbec8eb04bc.png" alt="Demand Curve Diagram">
+                </div>
+                <div class="graph-legend">
+                    <p style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: #555;">
+                        A: Movement along curve | B: Shift of entire curve
+                    </p>
+                </div>
+            </div>
+            
+            <div class="quiz-card">
+                <div class="scenario" id="scenario">Loading scenario...</div>
+                <div class="question">What type of change in the demand curve will this situation cause?</div>
+                
+                <div class="options">
+                    <div class="option" data-value="A">
+                        <strong>A: Upward movement along the demand curve</strong>
+                        <div>(Quantity demanded decreases due to price increase)</div>
+                    </div>
+                    
+                    <div class="option" data-value="B">
+                        <strong>B: Downward movement along the demand curve</strong>
+                        <div>(Quantity demanded increases due to price decrease)</div>
+                    </div>
+                    
+                    <div class="option" data-value="C">
+                        <strong>C: Leftward shift in the demand curve</strong>
+                        <div>(Decrease in demand at every price level)</div>
+                    </div>
+                    
+                    <div class="option" data-value="D">
+                        <strong>D: Rightward shift in the demand curve</strong>
+                        <div>(Increase in demand at every price level)</div>
+                    </div>
+                </div>
+                
+                <button class="btn" id="submit-btn">Submit Answer</button>
+                
+                <div class="result" id="result">
+                    <h3 id="result-title">Result</h3>
+                    <div class="explanation" id="explanation"></div>
+                    <button class="btn refresh-btn" id="refresh-btn">Try Another Question</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demand-types">
+            <div class="demand-type">
+                <h4>Movement Along the Curve (Price Change)</h4>
+                <ul>
+                    <li>Occurs when the price of the product itself changes</li>
+                    <li>Shows change in quantity demanded</li>
+                    <li>Does not shift the entire curve</li>
+                </ul>
+            </div>
+            
+            <div class="demand-type">
+                <h4>Shift of the Curve (Non-Price Factors)</h4>
+                <ul>
+                    <li>Occurs due to changes in external factors</li>
+                    <li>Shows change in demand at every price level</li>
+                    <li>Shifts the entire curve left or right</li>
+                </ul>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Demand Curve Quiz | Refresh the page for a new scenario</p>
+        </footer>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Quiz scenarios data
+            const scenarios = [
+                {
+                    situation: "Increase in the price of music downloads",
+                    correctAnswer: "A",
+                    explanation: "This causes an upward movement along the demand curve (Point A in the diagram) because the price of the product itself is increasing. Quantity demanded decreases due to the price increase, but the demand curve itself doesn't shift."
+                },
+                {
+                    situation: "Decrease in the price of music downloads",
+                    correctAnswer: "B",
+                    explanation: "This causes a downward movement along the demand curve (Point B in the diagram) because the price of the product itself is decreasing. Quantity demanded increases due to the price decrease, but the demand curve itself doesn't shift."
+                },
+                {
+                    situation: "Decrease in consumer income",
+                    correctAnswer: "C",
+                    explanation: "This causes a leftward shift of the demand curve (Point C in the diagram) because a decrease in income reduces demand for normal goods at every price level. The entire curve shifts to the left."
+                },
+                {
+                    situation: "Consumers now prefer watching short videos over listening to music",
+                    correctAnswer: "C",
+                    explanation: "This causes a leftward shift of the demand curve (Point C in the diagram) because a change in consumer preferences away from music reduces demand at every price level. The entire curve shifts to the left."
+                },
+                {
+                    situation: "Increase in the price of digital music players",
+                    correctAnswer: "C",
+                    explanation: "This causes a leftward shift of the demand curve (Point C in the diagram) because digital music players are complementary goods. When their price increases, demand for music downloads decreases at every price level."
+                },
+                {
+                    situation: "Increase in consumer income",
+                    correctAnswer: "D",
+                    explanation: "This causes a rightward shift of the demand curve (Point D in the diagram) because an increase in income increases demand for normal goods at every price level. The entire curve shifts to the right."
+                },
+                {
+                    situation: "Consumer preference for downloaded music increases",
+                    correctAnswer: "D",
+                    explanation: "This causes a rightward shift of the demand curve (Point D in the diagram) because a change in consumer preferences toward music increases demand at every price level. The entire curve shifts to the right."
+                },
+                {
+                    situation: "Population increases",
+                    correctAnswer: "D",
+                    explanation: "This causes a rightward shift of the demand curve (Point D in the diagram) because with more consumers, demand for music downloads increases at every price level. The entire curve shifts to the right."
+                },
+                {
+                    situation: "CDs become more expensive",
+                    correctAnswer: "D",
+                    explanation: "This causes a rightward shift of the demand curve (Point D in the diagram) because CDs are substitute goods. When their price increases, demand for music downloads increases at every price level."
+                }
+            ];
+            
+            // DOM elements
+            const scenarioEl = document.getElementById('scenario');
+            const options = document.querySelectorAll('.option');
+            const submitBtn = document.getElementById('submit-btn');
+            const resultEl = document.getElementById('result');
+            const resultTitle = document.getElementById('result-title');
+            const explanationEl = document.getElementById('explanation');
+            const refreshBtn = document.getElementById('refresh-btn');
+            
+            let currentScenario = null;
+            let selectedOption = null;
+            
+            // Initialize quiz
+            function initQuiz() {
+                // Select random scenario
+                currentScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+                scenarioEl.textContent = currentScenario.situation;
+                
+                // Reset UI
+                resultEl.style.display = 'none';
+                options.forEach(opt => {
+                    opt.classList.remove('selected', 'correct', 'incorrect');
+                });
+                selectedOption = null;
+                submitBtn.disabled = false;
+            }
+            
+            // Event listeners
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selection from other options
+                    options.forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    
+                    // Select this option
+                    this.classList.add('selected');
+                    selectedOption = this.dataset.value;
+                });
+            });
+            
+            submitBtn.addEventListener('click', function() {
+                if (!selectedOption) {
+                    alert('Please select an answer before submitting.');
+                    return;
+                }
+                
+                // Disable submit button
+                this.disabled = true;
+                
+                // Show result
+                const isCorrect = selectedOption === currentScenario.correctAnswer;
+                
+                // Update result title
+                resultTitle.textContent = isCorrect ? 
+                    "✓ Correct Answer!" : 
+                    "✗ Incorrect Answer";
+                
+                // Update explanation
+                explanationEl.innerHTML = `
+                    <p>Your answer: <span class="${isCorrect ? 'correct-answer' : 'incorrect-answer'}">${selectedOption}</span></p>
+                    <p>Correct answer: <span class="correct-answer">${currentScenario.correctAnswer}</span></p>
+                    <p><strong>Explanation:</strong> ${currentScenario.explanation}</p>
+                    <p style="margin-top: 15px;"><strong>Refer to the diagram:</strong> This change corresponds to point ${currentScenario.correctAnswer} in the diagram.</p>
+                `;
+                
+                // Highlight options
+                options.forEach(opt => {
+                    if (opt.dataset.value === currentScenario.correctAnswer) {
+                        opt.classList.add('correct');
+                    } else if (opt.dataset.value === selectedOption && !isCorrect) {
+                        opt.classList.add('incorrect');
+                    }
+                });
+                
+                // Show result section
+                resultEl.style.display = 'block';
+            });
+            
+            refreshBtn.addEventListener('click', initQuiz);
+            
+            // Initialize the quiz
+            initQuiz();
+        });
+    </script>
+</body>
+</html>
