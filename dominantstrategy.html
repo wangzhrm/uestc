@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Strategy Game Theory</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin: 20px 0;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #4a9fe3;
+            padding-bottom: 15px;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            color: #4a9fe3;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            color: #a9d6ff;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .game-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .matrix-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        
+        .matrix-title {
+            text-align: center;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #4a9fe3;
+        }
+        
+        .payoff-matrix {
+            width: 100%;
+            min-width: 280px;
+            border-collapse: collapse;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            table-layout: fixed;
+        }
+        
+        .payoff-matrix th, .payoff-matrix td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #4a9fe3;
+        }
+        
+        .payoff-matrix th {
+            background: rgba(26, 42, 108, 0.7);
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        
+        .payoff-cell {
+            background: rgba(74, 159, 227, 0.15);
+            font-weight: bold;
+            font-size: 1rem;
+            white-space: nowrap;
+        }
+        
+        .player-a {
+            color: #ff9e7d;
+        }
+        
+        .player-b {
+            color: #7dffb2;
+        }
+        
+        .quiz-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .quiz-title {
+            text-align: center;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #4a9fe3;
+        }
+        
+        .question {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        
+        .question-title {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: #ff9e7d;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: rgba(74, 159, 227, 0.2);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .option:hover {
+            background: rgba(74, 159, 227, 0.3);
+            transform: translateX(5px);
+        }
+        
+        .option input {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .submit-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(to right, #4a9fe3, #1a2a6c);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .feedback-container {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .feedback-title {
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+            color: #4a9fe3;
+            text-align: center;
+        }
+        
+        .feedback-content {
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+        
+        .correct {
+            color: #7dffb2;
+            font-weight: bold;
+        }
+        
+        .incorrect {
+            color: #ff9e7d;
+            font-weight: bold;
+        }
+        
+        .explanation {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #4a9fe3;
+            border-radius: 0 5px 5px 0;
+            font-size: 0.95rem;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 15px;
+            color: #a9d6ff;
+            font-size: 0.85rem;
+        }
+        
+        /* Mobile-specific adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .game-section {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .matrix-title, .quiz-title {
+                font-size: 1.2rem;
+            }
+            
+            .payoff-matrix th, .payoff-matrix td {
+                padding: 8px 6px;
+                font-size: 0.9rem;
+            }
+            
+            .payoff-cell {
+                font-size: 0.9rem;
+            }
+            
+            .quiz-container {
+                padding: 15px;
+            }
+            
+            .question {
+                padding: 12px;
+            }
+            
+            .question-title {
+                font-size: 1rem;
+            }
+            
+            .option {
+                padding: 8px;
+                font-size: 0.95rem;
+            }
+            
+            .submit-btn {
+                padding: 12px;
+                font-size: 1rem;
+            }
+            
+            .feedback-title {
+                font-size: 1.2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.6rem;
+            }
+            
+            .payoff-matrix th, .payoff-matrix td {
+                padding: 6px 4px;
+                font-size: 0.85rem;
+            }
+            
+            .payoff-cell {
+                font-size: 0.85rem;
+            }
+            
+            .option {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pricing Strategy Game Theory</h1>
+            <p class="subtitle">Analyze the payoff matrix for Company A and Company B to determine their dominant pricing strategies. Each company can choose to maintain or reduce their prices.</p>
+        </header>
+        
+        <div class="game-section">
+            <div class="matrix-container">
+                <h2 class="matrix-title">Payoff Matrix</h2>
+                <table class="payoff-matrix">
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th colspan="2">Company B</th>
+                    </tr>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th>Maintain</th>
+                        <th>Reduce</th>
+                    </tr>
+                    <tr>
+                        <th rowspan="2">Company A</th>
+                        <th>Maintain</th>
+                        <td class="payoff-cell">
+                            (<span class="player-a" id="a1">45</span>, 
+                            <span class="player-b" id="b1">45</span>)
+                        </td>
+                        <td class="payoff-cell">
+                            (<span class="player-a" id="a2">30</span>, 
+                            <span class="player-b" id="b2">60</span>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Reduce</th>
+                        <td class="payoff-cell">
+                            (<span class="player-a" id="a3">60</span>, 
+                            <span class="player-b" id="b3">30</span>)
+                        </td>
+                        <td class="payoff-cell">
+                            (<span class="player-a" id="a4">35</span>, 
+                            <span class="player-b" id="b4">35</span>)
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="quiz-container">
+                <h2 class="quiz-title">Strategy Analysis</h2>
+                <div class="question">
+                    <h3 class="question-title">1. What is Company A's dominant strategy?</h3>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="companyA" value="A">
+                            Maintain the price
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="companyA" value="B">
+                            Reduce the price
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="companyA" value="C">
+                            No dominant strategy
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <h3 class="question-title">2. What is Company B's dominant strategy?</h3>
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="companyB" value="A">
+                            Maintain the price
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="companyB" value="B">
+                            Reduce the price
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="companyB" value="C">
+                            No dominant strategy
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="submit-btn" id="submitBtn">Submit Answers</button>
+            </div>
+        </div>
+        
+        <div class="feedback-container" id="feedbackContainer">
+            <h2 class="feedback-title">Results & Explanation</h2>
+            <div class="feedback-content" id="feedbackContent">
+                <!-- Results will be displayed here -->
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Game Theory Exercise | Dominant Strategy Analysis | Reload page for a new scenario</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Generate random payoffs and determine game situation
+            const {payoffs, correctAnswers, explanation} = generateGameSituation();
+            
+            // Populate the payoff matrix
+            document.getElementById('a1').textContent = payoffs.a1;
+            document.getElementById('b1').textContent = payoffs.b1;
+            document.getElementById('a2').textContent = payoffs.a2;
+            document.getElementById('b2').textContent = payoffs.b2;
+            document.getElementById('a3').textContent = payoffs.a3;
+            document.getElementById('b3').textContent = payoffs.b3;
+            document.getElementById('a4').textContent = payoffs.a4;
+            document.getElementById('b4').textContent = payoffs.b4;
+            
+            // Store the correct answers for validation
+            let storedCorrectAnswers = {
+                companyA: correctAnswers.companyA,
+                companyB: correctAnswers.companyB,
+                explanation: explanation
+            };
+            
+            // Handle form submission
+            document.getElementById('submitBtn').addEventListener('click', function() {
+                // Get user selections
+                const companyAAnswer = document.querySelector('input[name="companyA"]:checked')?.value;
+                const companyBAnswer = document.querySelector('input[name="companyB"]:checked')?.value;
+                
+                if (!companyAAnswer || !companyBAnswer) {
+                    alert('Please answer both questions before submitting.');
+                    return;
+                }
+                
+                // Check answers
+                const aCorrect = companyAAnswer === storedCorrectAnswers.companyA;
+                const bCorrect = companyBAnswer === storedCorrectAnswers.companyB;
+                
+                // Prepare feedback
+                let feedbackHTML = `
+                    <p>Your answer for Company A: <span class="${aCorrect ? 'correct' : 'incorrect'}">
+                        ${getAnswerText(companyAAnswer)}
+                    </span> ${aCorrect ? '✓ Correct!' : '✗ Incorrect'}</p>
+                    <p>Your answer for Company B: <span class="${bCorrect ? 'correct' : 'incorrect'}">
+                        ${getAnswerText(companyBAnswer)}
+                    </span> ${bCorrect ? '✓ Correct!' : '✗ Incorrect'}</p>
+                    <div class="explanation">
+                        <h3>Explanation:</h3>
+                        <p>${storedCorrectAnswers.explanation}</p>
+                    </div>
+                `;
+                
+                // Display feedback
+                document.getElementById('feedbackContent').innerHTML = feedbackHTML;
+                document.getElementById('feedbackContainer').style.display = 'block';
+                
+                // Scroll to feedback
+                document.getElementById('feedbackContainer').scrollIntoView({behavior: 'smooth'});
+            });
+            
+            // Helper function to get answer text
+            function getAnswerText(value) {
+                switch(value) {
+                    case 'A': return 'Maintain the price';
+                    case 'B': return 'Reduce the price';
+                    case 'C': return 'No dominant strategy';
+                    default: return '';
+                }
+            }
+            
+            // Game generation function
+            function generateGameSituation() {
+                // Generate random payoffs between 10 and 100
+                const payoffs = {
+                    a1: Math.floor(Math.random() * 91) + 10,
+                    b1: Math.floor(Math.random() * 91) + 10,
+                    a2: Math.floor(Math.random() * 91) + 10,
+                    b2: Math.floor(Math.random() * 91) + 10,
+                    a3: Math.floor(Math.random() * 91) + 10,
+                    b3: Math.floor(Math.random() * 91) + 10,
+                    a4: Math.floor(Math.random() * 91) + 10,
+                    b4: Math.floor(Math.random() * 91) + 10
+                };
+                
+                // Determine dominant strategies
+                let companyADominant = 'C'; // Default: no dominant strategy
+                let companyBDominant = 'C';
+                let explanation = '';
+                
+                // Check for Company A dominant strategy
+                const maintainBetterWhenBMaintains = payoffs.a1 > payoffs.a3;
+                const maintainBetterWhenBReduces = payoffs.a2 > payoffs.a4;
+                const reduceBetterWhenBMaintains = payoffs.a3 > payoffs.a1;
+                const reduceBetterWhenBReduces = payoffs.a4 > payoffs.a2;
+                
+                if (maintainBetterWhenBMaintains && maintainBetterWhenBReduces) {
+                    companyADominant = 'A';
+                } else if (reduceBetterWhenBMaintains && reduceBetterWhenBReduces) {
+                    companyADominant = 'B';
+                }
+                
+                // Check for Company B dominant strategy
+                const maintainBetterWhenAMaintains = payoffs.b1 > payoffs.b2;
+                const maintainBetterWhenAReduces = payoffs.b3 > payoffs.b4;
+                const reduceBetterWhenAMaintains = payoffs.b2 > payoffs.b1;
+                const reduceBetterWhenAReduces = payoffs.b4 > payoffs.b3;
+                
+                if (maintainBetterWhenAMaintains && maintainBetterWhenAReduces) {
+                    companyBDominant = 'A';
+                } else if (reduceBetterWhenAMaintains && reduceBetterWhenAReduces) {
+                    companyBDominant = 'B';
+                }
+                
+                // Generate explanation based on the situation
+                if (companyADominant !== 'C' && companyBDominant !== 'C') {
+                    explanation = `Both companies have dominant strategies. Company A should ${companyADominant === 'A' ? 'maintain' : 'reduce'} the price because it yields better results regardless of Company B's choice. Similarly, Company B should ${companyBDominant === 'A' ? 'maintain' : 'reduce'} the price. This situation leads to a predictable equilibrium.`;
+                } else if (companyADominant !== 'C') {
+                    explanation = `Company A has a dominant strategy to ${companyADominant === 'A' ? 'maintain' : 'reduce'} the price, as it yields better results regardless of Company B's choice. Company B has no dominant strategy because its optimal choice depends on what Company A does.`;
+                } else if (companyBDominant !== 'C') {
+                    explanation = `Company B has a dominant strategy to ${companyBDominant === 'A' ? 'maintain' : 'reduce'} the price, as it yields better results regardless of Company A's choice. Company A has no dominant strategy because its optimal choice depends on what Company B does.`;
+                } else {
+                    explanation = `Neither company has a dominant strategy. For Company A, the optimal choice depends on what Company B does. Similarly, Company B's optimal choice depends on Company A's decision. This situation creates a more complex strategic environment.`;
+                }
+                
+                // Add detailed payoff analysis to explanation
+                explanation += `<br><br><strong>Detailed Analysis:</strong><br>`;
+                explanation += `- Company A: When B maintains, A gets ${payoffs.a1} by maintaining vs ${payoffs.a3} by reducing. When B reduces, A gets ${payoffs.a2} by maintaining vs ${payoffs.a4} by reducing.<br>`;
+                explanation += `- Company B: When A maintains, B gets ${payoffs.b1} by maintaining vs ${payoffs.b2} by reducing. When A reduces, B gets ${payoffs.b3} by maintaining vs ${payoffs.b4} by reducing.`;
+                
+                return {
+                    payoffs,
+                    correctAnswers: {
+                        companyA: companyADominant,
+                        companyB: companyBDominant
+                    },
+                    explanation
+                };
+            }
+        });
+    </script>
+</body>
+</html>
