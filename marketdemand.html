@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bread Price Survey - Student</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: #ff6b6b;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 20px;
+        }
+        
+        .survey-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+        }
+        
+        .results-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 15px;
+        }
+        
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #2575fc;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title i {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+        
+        .price-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .price-option {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .price-option:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            border-color: #ff6b6b;
+        }
+        
+        .price-option.selected {
+            background: #e3f2fd;
+            border-color: #42a5f5;
+            transform: translateY(-3px);
+        }
+        
+        .price-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2575fc;
+        }
+        
+        .price-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .quantity-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            background: #2575fc;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .quantity-display {
+            margin: 0 15px;
+            font-size: 1.2rem;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        .submit-section {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .submit-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+        
+        .submit-btn i {
+            margin-right: 10px;
+        }
+        
+        .submit-btn:hover {
+            background: #ff5252;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            min-width: 120px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2575fc;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #42a5f5;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #1976d2;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .response-message {
+            text-align: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .student-counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 15px;
+            border-radius: 50px;
+            font-size: 1.2rem;
+        }
+        
+        .animation-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .floating-bread {
+            position: absolute;
+            font-size: 2rem;
+            opacity: 0.3;
+            animation: float 15s infinite linear;
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="animation-area" id="animationArea"></div>
+    
+    <div class="container">
+        <header>
+            <div class="student-counter">
+                <i class="fas fa-users"></i> <span id="studentCount">0</span> Students Participated
+            </div>
+            <h1>Bread Price Survey</h1>
+            <p class="subtitle">Share your buying preferences at different price points</p>
+        </header>
+        
+        <div class="content">
+            <div class="survey-section">
+                <h2 class="section-title"><i class="fas fa-pencil-alt"></i> Your Preferences</h2>
+                
+                <div class="instructions">
+                    <h3>How to participate:</h3>
+                    <ol>
+                        <li>For each price point, select how many breads you would buy</li>
+                        <li>Use the <i class="fas fa-plus"></i> and <i class="fas fa-minus"></i> buttons to adjust quantities</li>
+                        <li>Click <i class="fas fa-paper-plane"></i> Submit Response when finished</li>
+                        <li>View real-time results on the right side</li>
+                    </ol>
+                </div>
+                
+                <div class="price-grid" id="priceGrid">
+                    <!-- Price options will be generated by JavaScript -->
+                </div>
+                
+                <div class="response-message success" id="successMessage">
+                    <i class="fas fa-check-circle"></i> Thank you for your response! Results have been updated.
+                </div>
+                
+                <div class="response-message error" id="errorMessage">
+                    <i class="fas fa-exclamation-circle"></i> Error: <span id="errorText"></span>
+                </div>
+                
+                <div class="submit-section">
+                    <button class="submit-btn" id="submitBtn">
+                        <i class="fas fa-paper-plane"></i> Submit Response
+                    </button>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="section-title"><i class="fas fa-chart-bar"></i> Survey Results</h2>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalResponses">0</div>
+                        <div class="stat-label">Total Responses</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="peakPrice">0.00</div>
+                        <div class="stat-label">Peak Price</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="avgBread">0.0</div>
+                        <div class="stat-label">Avg per Person</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="resultsChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Bread Price Survey System &copy; 2023 | Student Edition</p>
+        </footer>
+    </div>
+
+    <script>
+        // Price points for the survey
+        const pricePoints = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+        
+        // Initialize student chart
+        const studentCtx = document.getElementById('resultsChart').getContext('2d');
+        let studentChart = new Chart(studentCtx, {
+            type: 'bar',
+            data: {
+                labels: pricePoints.map(p => p + ' CNY'),
+                datasets: [{
+                    label: 'Quantity Willing to Buy',
+                    data: pricePoints.map(() => 0),
+                    backgroundColor: '#36A2EB',
+                    borderColor: '#1E88E5',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Bread Demand at Different Price Points',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Total Quantity'
+                        },
+                        ticks: {
+                            precision: 0
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Price (CNY)'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Create floating bread animation
+        function createFloatingBread() {
+            const animationArea = document.getElementById('animationArea');
+            const bread = document.createElement('div');
+            bread.className = 'floating-bread';
+            bread.innerHTML = '<i class="fas fa-bread-slice"></i>';
+            bread.style.left = Math.random() * 100 + 'vw';
+            bread.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            bread.style.fontSize = (Math.random() * 1 + 1) + 'rem';
+            bread.style.opacity = Math.random() * 0.4 + 0.1;
+            animationArea.appendChild(bread);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                bread.remove();
+            }, 20000);
+        }
+        
+        // Initialize survey
+        function initSurvey() {
+            const priceGrid = document.getElementById('priceGrid');
+            priceGrid.innerHTML = '';
+            
+            pricePoints.forEach(price => {
+                const priceOption = document.createElement('div');
+                priceOption.className = 'price-option';
+                priceOption.dataset.price = price;
+                
+                priceOption.innerHTML = `
+                    <div class="price-value">${price} CNY</div>
+                    <div class="price-label">per bread</div>
+                    <div class="quantity-selector">
+                        <button class="quantity-btn minus"><i class="fas fa-minus"></i></button>
+                        <div class="quantity-display" id="qty-${price}">0</div>
+                        <button class="quantity-btn plus"><i class="fas fa-plus"></i></button>
+                    </div>
+                `;
+                
+                priceGrid.appendChild(priceOption);
+                
+                // Add event listeners for quantity buttons
+                const plusBtn = priceOption.querySelector('.plus');
+                const minusBtn = priceOption.querySelector('.minus');
+                const qtyDisplay = priceOption.querySelector('.quantity-display');
+                
+                plusBtn.addEventListener('click', () => {
+                    let qty = parseInt(qtyDisplay.textContent);
+                    qtyDisplay.textContent = qty + 1;
+                    
+                    // Visual feedback
+                    priceOption.classList.add('selected');
+                    setTimeout(() => priceOption.classList.remove('selected'), 300);
+                });
+                
+                minusBtn.addEventListener('click', () => {
+                    let qty = parseInt(qtyDisplay.textContent);
+                    if (qty > 0) {
+                        qtyDisplay.textContent = qty - 1;
+                        
+                        // Visual feedback
+                        priceOption.classList.add('selected');
+                        setTimeout(() => priceOption.classList.remove('selected'), 300);
+                    }
+                });
+            });
+            
+            // Load initial results
+            loadSurveyData();
+        }
+        
+        // Submit survey response
+        document.getElementById('submitBtn').addEventListener('click', () => {
+            // Collect data
+            const response = {};
+            let totalBread = 0;
+            
+            pricePoints.forEach(price => {
+                const qty = parseInt(document.getElementById(`qty-${price}`).textContent);
+                response[price] = qty;
+                totalBread += qty;
+            });
+            
+            // Validate response
+            if (totalBread === 0) {
+                showError("Please select at least one bread to purchase!");
+                return;
+            }
+            
+            // Save response to local storage
+            saveResponse(response);
+            
+            // Update chart
+            updateResultsChart();
+            
+            // Show success message
+            const message = document.getElementById('successMessage');
+            message.style.display = 'block';
+            
+            // Create celebratory bread animations
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => createFloatingBread(), i * 200);
+            }
+            
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+            
+            // Reset form
+            pricePoints.forEach(price => {
+                document.getElementById(`qty-${price}`).textContent = '0';
+            });
+        });
+        
+        // Save response to local storage
+        function saveResponse(response) {
+            // Get existing responses or initialize
+            const responses = JSON.parse(localStorage.getItem('breadSurveyResponses') || '[]');
+            
+            // Add new response
+            responses.push(response);
+            
+            // Save back to storage
+            localStorage.setItem('breadSurveyResponses', JSON.stringify(responses));
+        }
+        
+        // Load survey data and update chart
+        function loadSurveyData() {
+            const responses = JSON.parse(localStorage.getItem('breadSurveyResponses') || '[]');
+            
+            if (responses.length > 0) {
+                updateResultsChart();
+            }
+        }
+        
+        // Update the chart with current data
+        function updateResultsChart() {
+            const responses = JSON.parse(localStorage.getItem('breadSurveyResponses') || '[]');
+            const responseCount = responses.length;
+            
+            // Update response counter
+            document.getElementById('totalResponses').textContent = responseCount;
+            document.getElementById('studentCount').textContent = responseCount;
+            
+            // If no responses, reset chart
+            if (responseCount === 0) {
+                studentChart.data.datasets[0].data = pricePoints.map(() => 0);
+                studentChart.update();
+                return;
+            }
+            
+            // Calculate total quantity for each price point
+            const totals = pricePoints.map(price => {
+                return responses.reduce((sum, response) => sum + (response[price] || 0), 0);
+            });
+            
+            // Update student chart data
+            studentChart.data.datasets[0].data = totals;
+            studentChart.update();
+            
+            // Calculate statistics
+            let maxQuantity = 0;
+            let peakPrice = 0;
+            let totalBread = 0;
+            
+            totals.forEach((quantity, index) => {
+                totalBread += quantity;
+                if (quantity > maxQuantity) {
+                    maxQuantity = quantity;
+                    peakPrice = pricePoints[index];
+                }
+            });
+            
+            // Update statistics
+            document.getElementById('peakPrice').textContent = peakPrice.toFixed(2);
+            document.getElementById('avgBread').textContent = (totalBread / responseCount).toFixed(1);
+        }
+        
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            document.getElementById('errorText').textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Initialize the survey when page loads
+        window.onload = function() {
+            initSurvey();
+            
+            // Create initial floating breads
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => createFloatingBread(), i * 1000);
+            }
+            
+            // Update results every 10 seconds to capture other responses
+            setInterval(updateResultsChart, 10000);
+        };
+    </script>
+</body>
+</html>
