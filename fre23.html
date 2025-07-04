@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Quiz - Day 23</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a5276, #2874a6, #3498db);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        header {
+            background: linear-gradient(to right, #154360, #1a5276, #2874a6);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        h1 {
+            font-size: 2.3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .day-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+        
+        .mode-container {
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .mode-title {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .mode-options {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 25px;
+            margin-top: 20px;
+        }
+        
+        .mode-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px 25px;
+            width: 260px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 3px solid transparent;
+            text-align: center;
+        }
+        
+        .mode-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd;
+        }
+        
+        .mode-card.learning:hover {
+            border-color: #198754;
+        }
+        
+        .mode-card.sequenced:hover {
+            border-color: #0dcaf0;
+        }
+        
+        .mode-card.scrambled:hover {
+            border-color: #ffc107;
+        }
+        
+        .mode-icon {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+        }
+        
+        .learning .mode-icon {
+            color: #198754;
+        }
+        
+        .sequenced .mode-icon {
+            color: #0dcaf0;
+        }
+        
+        .scrambled .mode-icon {
+            color: #ffc107;
+        }
+        
+        .mode-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .mode-desc {
+            color: #6c757d;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        .progress-container {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            height: 18px;
+            margin: 20px 0 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.6s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            100% {
+                left: 100%;
+            }
+        }
+        
+        .quiz-content {
+            padding: 30px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            display: none;
+        }
+        
+        .learning-content {
+            padding: 30px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            display: none;
+        }
+        
+        .question-container {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .learning-container {
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .word {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #2c3e50;
+            margin: 30px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.1);
+            background: linear-gradient(45deg, #1a5276, #2874a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        
+        .meaning {
+            font-size: 2.2rem;
+            color: #198754;
+            font-weight: 600;
+            margin: 20px 0 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: inline-block;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .options-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+            width: 100%;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+        
+        .option {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px 15px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .option:hover {
+            background: #e9ecef;
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.5), transparent);
+            transform: translateX(-100%);
+        }
+        
+        .option:hover::before {
+            animation: optionShimmer 1.5s infinite;
+        }
+        
+        @keyframes optionShimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+        
+        .option.selected {
+            background: #d1ecf1;
+            border-color: #0dcaf0;
+        }
+        
+        .option.correct {
+            background: #d4edda;
+            border-color: #28a745;
+            animation: pulse 0.5s;
+        }
+        
+        .option.incorrect {
+            background: #f8d7da;
+            border-color: #dc3545;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-8px); }
+            100% { transform: translateX(0); }
+        }
+        
+        .counter {
+            font-size: 1.2rem;
+            color: #6c757d;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        
+        .learning-counter {
+            font-size: 1.2rem;
+            color: #6c757d;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        
+        .result-container {
+            text-align: center;
+            padding: 30px;
+            display: none;
+            animation: fadeIn 0.8s ease;
+        }
+        
+        .score {
+            font-size: 5.5rem;
+            font-weight: 800;
+            color: #0d6efd;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.1);
+            background: linear-gradient(45deg, #1a5276, #2874a6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .score-text {
+            font-size: 1.6rem;
+            margin-bottom: 30px;
+            color: #495057;
+            font-weight: 500;
+        }
+        
+        .wrong-words-container {
+            background: #f8f9fa;
+            border-radius: 18px;
+            padding: 25px;
+            margin: 25px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            text-align: left;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .wrong-words-title {
+            color: #dc3545;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .wrong-word {
+            padding: 14px 18px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+        
+        .wrong-word:hover {
+            background: #e9ecef;
+        }
+        
+        .wrong-word:last-child {
+            border-bottom: none;
+        }
+        
+        .word-def {
+            font-weight: 700;
+            color: #212529;
+            font-size: 1.2rem;
+        }
+        
+        .meaning-text {
+            color: #495057;
+            text-align: right;
+            font-size: 1.1rem;
+            flex: 1;
+            max-width: 60%;
+            padding-left: 15px;
+        }
+        
+        .btn-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto 0;
+        }
+        
+        .btn {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 16px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .download-btn {
+            background: #198754;
+        }
+        
+        .download-btn:hover {
+            background: #157347;
+        }
+        
+        .restart-btn {
+            background: #6c757d;
+        }
+        
+        .restart-btn:hover {
+            background: #5a6268;
+        }
+        
+        .mode-btn {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .mode-btn:hover {
+            background: #e0a800;
+        }
+        
+        .prev-btn {
+            background: #6c757d;
+        }
+        
+        .prev-btn:hover {
+            background: #5a6268;
+        }
+        
+        .next-btn {
+            background: #0dcaf0;
+        }
+        
+        .next-btn:hover {
+            background: #0dcaf0;
+        }
+        
+        .floating {
+            position: absolute;
+            opacity: 0.1;
+            z-index: 1;
+        }
+        
+        .floating-1 {
+            top: 20px;
+            left: 20px;
+            font-size: 5rem;
+            transform: rotate(-15deg);
+        }
+        
+        .floating-2 {
+            bottom: 20px;
+            right: 20px;
+            font-size: 4rem;
+            transform: rotate(15deg);
+        }
+        
+        .floating-3 {
+            top: 50%;
+            left: 30px;
+            font-size: 3.5rem;
+            transform: rotate(10deg);
+        }
+        
+        .floating-4 {
+            bottom: 40%;
+            right: 30px;
+            font-size: 3rem;
+            transform: rotate(-5deg);
+        }
+        
+        .statistics {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            min-width: 150px;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 1rem;
+            color: #6c757d;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 15px;
+            }
+            
+            header {
+                padding: 20px 15px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .day-indicator {
+                position: relative;
+                top: 0;
+                right: 0;
+                display: block;
+                margin: 10px auto;
+                width: fit-content;
+            }
+            
+            .subtitle {
+                font-size: 0.95rem;
+            }
+            
+            .quiz-content, .learning-content {
+                padding: 20px 15px;
+            }
+            
+            .word {
+                font-size: 2.2rem;
+                margin: 20px 0;
+            }
+            
+            .meaning {
+                font-size: 1.8rem;
+                padding: 15px;
+            }
+            
+            .option {
+                padding: 16px 12px;
+                font-size: 1.1rem;
+            }
+            
+            .score {
+                font-size: 4.5rem;
+            }
+            
+            .score-text {
+                font-size: 1.3rem;
+            }
+            
+            .mode-options {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .mode-card {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .wrong-word {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .meaning-text {
+                text-align: left;
+                padding-left: 0;
+                max-width: 100%;
+            }
+            
+            .floating {
+                display: none;
+            }
+            
+            .statistics {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stat-box {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="floating floating-1"><i class="fas fa-water"></i></div>
+        <div class="floating floating-2"><i class="fas fa-cloud"></i></div>
+        <div class="floating floating-3"><i class="fas fa-ship"></i></div>
+        <div class="floating floating-4"><i class="fas fa-anchor"></i></div>
+        
+        <header>
+            <div class="header-content">
+                <h1><i class="fas fa-language"></i> Vocabulary Quiz - Day 23</h1>
+                <div class="subtitle">Test your vocabulary knowledge for Day 23</div>
+                <div class="day-indicator">Day 23 of 48</div>
+            </div>
+        </header>
+        
+        <!-- Mode Selection Screen -->
+        <div class="mode-container" id="modeContainer">
+            <div class="mode-title">Select Your Learning Mode</div>
+            <div class="mode-options">
+                <div class="mode-card learning" data-mode="learning">
+                    <div class="mode-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="mode-name">Learning Mode</div>
+                    <div class="mode-desc">Study vocabulary with meanings displayed. Perfect for initial learning and review.</div>
+                </div>
+                <div class="mode-card sequenced" data-mode="sequenced">
+                    <div class="mode-icon"><i class="fas fa-list-ol"></i></div>
+                    <div class="mode-name">Sequenced Test</div>
+                    <div class="mode-desc">Test your knowledge in the original word order. Ideal for structured practice.</div>
+                </div>
+                <div class="mode-card scrambled" data-mode="scrambled">
+                    <div class="mode-icon"><i class="fas fa-random"></i></div>
+                    <div class="mode-name">Scrambled Test</div>
+                    <div class="mode-desc">Challenge yourself with words in random order. Best for comprehensive review.</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Learning Mode Content -->
+        <div class="learning-content" id="learningContent">
+            <div class="learning-container" id="learningContainer">
+                <div class="word" id="learningWord">pressure</div>
+                <div class="meaning" id="learningMeaning">压力，压强，强制，迫使</div>
+                <div class="learning-counter" id="learningCounter">1 of 72</div>
+            </div>
+            
+            <div class="btn-container">
+                <button class="btn prev-btn" id="prevBtn">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button class="btn mode-btn" id="changeModeBtn">
+                    <i class="fas fa-exchange-alt"></i> Change Mode
+                </button>
+                <button class="btn next-btn" id="nextBtn">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Quiz Content (for test modes) -->
+        <div class="quiz-content" id="quizContent">
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="counter" id="counter">Question 1 of 72</div>
+            
+            <div class="question-container" id="questionContainer">
+                <div class="word" id="word">pressure</div>
+                <div class="options-container" id="optionsContainer">
+                    <!-- Options will be generated by JavaScript -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div class="result-container" id="resultContainer">
+            <h2>Quiz Completed!</h2>
+            <div class="score" id="finalScore">0%</div>
+            <div class="score-text" id="scoreText">You answered 0 out of 72 questions correctly</div>
+            
+            <div class="statistics" id="statisticsContainer">
+                <div class="stat-box">
+                    <div class="stat-value" id="correctStat">0</div>
+                    <div class="stat-label">Correct Answers</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="incorrectStat">0</div>
+                    <div class="stat-label">Incorrect Answers</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="timeStat">00:00</div>
+                    <div class="stat-label">Time Taken</div>
+                </div>
+            </div>
+            
+            <div class="wrong-words-container" id="wrongWordsContainer">
+                <div class="wrong-words-title">Words to Review</div>
+                <div class="wrong-words" id="wrongWordsList">
+                    <!-- Incorrect words will be listed here -->
+                </div>
+            </div>
+            
+            <div class="btn-container">
+                <button class="btn download-btn" id="downloadBtn">
+                    <i class="fas fa-download"></i> Download Words to Review
+                </button>
+                <button class="btn restart-btn" id="restartBtn">
+                    <i class="fas fa-redo"></i> Restart Quiz
+                </button>
+                <button class="btn mode-btn" id="modeBtn">
+                    <i class="fas fa-exchange-alt"></i> Change Mode
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary data for Day 23
+        const vocabulary = [
+            { word: "pressure", meaning: "压力，压强，强制，迫使" },
+            { word: "conviction", meaning: "定罪，坚信，确信" },
+            { word: "tranquility", meaning: "宁静，安静" },
+            { word: "facilitate", meaning: "使便利，使容易，推动" },
+            { word: "grand", meaning: "宏伟的，大的" },
+            { word: "acumen", meaning: "敏锐，精明" },
+            { word: "dissertation", meaning: "专题论文" },
+            { word: "heap", meaning: "堆，大量，使成堆" },
+            { word: "blame", meaning: "责怪，责备" },
+            { word: "frame", meaning: "框架，给~镶框" },
+            { word: "installment", meaning: "分期付款" },
+            { word: "symbolism", meaning: "符号的使用，象征主义" },
+            { word: "ascribe", meaning: "把~归因于" },
+            { word: "abstract", meaning: "抽象的，摘要，梗概" },
+            { word: "disruption", meaning: "动乱，打乱，破坏" },
+            { word: "self-esteem", meaning: "自尊，自负" },
+            { word: "literate", meaning: "有读写能力有文化博学的" },
+            { word: "extinction", meaning: "灭绝，绝种，熄灭" },
+            { word: "endanger", meaning: "危及，危害" },
+            { word: "perception", meaning: "看法，感觉，洞察力" },
+            { word: "prediction", meaning: "预言，预料，预报" },
+            { word: "foster", meaning: "培养培育鼓励，促进，领养" },
+            { word: "ancestral", meaning: "祖先的，祖传的" },
+            { word: "rekindle", meaning: "重新点燃，使复苏" },
+            { word: "revival", meaning: "复原，苏醒，复活" },
+            { word: "inevitable", meaning: "不可避免的，必然发生的" },
+            { word: "disenchantment", meaning: "失望，不抱幻想" },
+            { word: "acupuncture", meaning: "针刺疗法，针灸" },
+            { word: "loath", meaning: "不情愿的，勉强的" },
+            { word: "orthodox", meaning: "正统的，传统的" },
+            { word: "popularity", meaning: "普及，流行" },
+            { word: "amplify", meaning: "详述，放大声音等" },
+            { word: "reliance", meaning: "依靠，依赖" },
+            { word: "nightmare", meaning: "噩梦，可怕的事物" },
+            { word: "leap", meaning: "跳跃，激增，跳，冲" },
+            { word: "conscious", meaning: "自觉的，意识到的" },
+            { word: "divine", meaning: "神的，神授的，天赐的" },
+            { word: "decompose", meaning: "使分解，使腐烂" },
+            { word: "spot on", meaning: "恰好的，准确的" },
+            { word: "investigate", meaning: "调查" },
+            { word: "underneath", meaning: "在下面，下部" },
+            { word: "division", meaning: "分隔，分配，分歧，部门" },
+            { word: "gamble", meaning: "赌博，打赌，投机，冒险" },
+            { word: "ancient", meaning: "古老的，年老的" },
+            { word: "strand", meaning: "股，缕，部分，方面" },
+            { word: "specimen", meaning: "范例，样品，样本，标本" },
+            { word: "motive", meaning: "动机，目的" },
+            { word: "furious", meaning: "狂怒的，激烈的" },
+            { word: "alternative", meaning: "可供替代的，非传统的" },
+            { word: "access", meaning: "进入使用通道，机会，权利" },
+            { word: "whaling", meaning: "捕鲸" },
+            { word: "exhilaration", meaning: "高兴，兴奋" },
+            { word: "inland", meaning: "内陆的，向内地或内陆" },
+            { word: "migrate", meaning: "候鸟等迁徙，移居" },
+            { word: "barrel", meaning: "桶，圆筒" },
+            { word: "claim", meaning: "要求，声称，主张，索赔" },
+            { word: "digest", meaning: "消化，领会，文摘" },
+            { word: "decipher", meaning: "破译，解释" },
+            { word: "extraordinary", meaning: "不同寻常，非常的" },
+            { word: "aluminum", meaning: "铝" },
+            { word: "stale", meaning: "不新鲜的，陈腐的" },
+            { word: "snap up", meaning: "抢购" },
+            { word: "tan", meaning: "棕褐色，晒黑，硝皮" },
+            { word: "hang on", meaning: "抓住，坚持下去，别挂断" },
+            { word: "impair", meaning: "损害，削弱" },
+            { word: "inescapable", meaning: "不可逃避，难免的" },
+            { word: "adolescent", meaning: "青少年， 青春期" },
+            { word: "associate", meaning: "使联合， 交往， 伙伴副的" },
+            { word: "guinea", meaning: "几尼（英国旧货币单位）" },
+            { word: "layer", meaning: "层，层次" },
+            { word: "cable", meaning: "缆绳，电缆，电报" },
+            { word: "wedge", meaning: "锲子，锲形，锲入" }
+        ];
+
+        // DOM Elements
+        const modeContainer = document.getElementById('modeContainer');
+        const learningContent = document.getElementById('learningContent');
+        const quizContent = document.getElementById('quizContent');
+        const resultContainer = document.getElementById('resultContainer');
+        
+        const learningWord = document.getElementById('learningWord');
+        const learningMeaning = document.getElementById('learningMeaning');
+        const learningCounter = document.getElementById('learningCounter');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const changeModeBtn = document.getElementById('changeModeBtn');
+        
+        const wordElement = document.getElementById('word');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const progressBar = document.getElementById('progressBar');
+        const counterElement = document.getElementById('counter');
+        
+        const finalScoreElement = document.getElementById('finalScore');
+        const scoreTextElement = document.getElementById('scoreText');
+        const wrongWordsList = document.getElementById('wrongWordsList');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const modeBtn = document.getElementById('modeBtn');
+        
+        // Stats elements
+        const correctStat = document.getElementById('correctStat');
+        const incorrectStat = document.getElementById('incorrectStat');
+        const timeStat = document.getElementById('timeStat');
+        
+        // Quiz state
+        let currentMode = null;
+        let currentIndex = 0;
+        let score = 0;
+        let wrongAnswers = [];
+        let testWords = [];
+        let isScrambled = false;
+        let startTime = null;
+        let timerInterval = null;
+
+        // Mode selection
+        document.querySelectorAll('.mode-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const mode = card.dataset.mode;
+                currentMode = mode;
+                modeContainer.style.display = 'none';
+                
+                if (mode === 'learning') {
+                    currentIndex = 0;
+                    updateLearningCard();
+                    learningContent.style.display = 'block';
+                } else {
+                    // Prepare test mode
+                    testWords = [...vocabulary];
+                    isScrambled = mode === 'scrambled';
+                    
+                    if (isScrambled) {
+                        shuffleArray(testWords);
+                    }
+                    
+                    currentIndex = 0;
+                    score = 0;
+                    wrongAnswers = [];
+                    startTime = new Date();
+                    
+                    // Start timer
+                    if (timerInterval) clearInterval(timerInterval);
+                    timerInterval = setInterval(updateTimer, 1000);
+                    
+                    showQuestion();
+                    quizContent.style.display = 'block';
+                }
+            });
+        });
+
+        // Update timer display
+        function updateTimer() {
+            if (!startTime) return;
+            
+            const now = new Date();
+            const diff = Math.floor((now - startTime) / 1000);
+            const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
+            const seconds = (diff % 60).toString().padStart(2, '0');
+            
+            timeStat.textContent = `${minutes}:${seconds}`;
+        }
+
+        // Learning mode navigation
+        prevBtn.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateLearningCard();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentIndex < vocabulary.length - 1) {
+                currentIndex++;
+                updateLearningCard();
+            }
+        });
+
+        changeModeBtn.addEventListener('click', () => {
+            learningContent.style.display = 'none';
+            modeContainer.style.display = 'block';
+        });
+
+        // Update learning card
+        function updateLearningCard() {
+            const word = vocabulary[currentIndex];
+            learningWord.textContent = word.word;
+            learningMeaning.textContent = word.meaning;
+            learningCounter.textContent = `${currentIndex + 1} of ${vocabulary.length}`;
+            
+            // Disable previous button on first word
+            prevBtn.disabled = currentIndex === 0;
+            
+            // Disable next button on last word
+            nextBtn.disabled = currentIndex === vocabulary.length - 1;
+        }
+
+        // Display current question in test mode
+        function showQuestion() {
+            const currentWord = testWords[currentIndex];
+            wordElement.textContent = currentWord.word;
+            
+            // Clear previous options
+            optionsContainer.innerHTML = '';
+            
+            // Generate options (1 correct + 2 random incorrect)
+            const options = [currentWord.meaning];
+            
+            // Add 2 random incorrect meanings
+            while (options.length < 3) {
+                const randomIndex = Math.floor(Math.random() * vocabulary.length);
+                const randomMeaning = vocabulary[randomIndex].meaning;
+                if (randomIndex !== currentIndex && !options.includes(randomMeaning)) {
+                    options.push(randomMeaning);
+                }
+            }
+            
+            // Shuffle options
+            shuffleArray(options);
+            
+            // Create option elements
+            options.forEach(option => {
+                const optionElement = document.createElement('div');
+                optionElement.classList.add('option');
+                optionElement.textContent = option;
+                optionElement.addEventListener('click', () => selectOption(optionElement, option));
+                optionsContainer.appendChild(optionElement);
+            });
+            
+            // Update progress
+            updateProgress();
+        }
+
+        // Select an option in test mode
+        function selectOption(optionElement, selectedMeaning) {
+            // Disable all options to prevent multiple selections
+            document.querySelectorAll('.option').forEach(opt => {
+                opt.style.pointerEvents = 'none';
+            });
+            
+            // Get the current word
+            const currentWord = testWords[currentIndex];
+            
+            // Check if answer is correct
+            const isCorrect = selectedMeaning === currentWord.meaning;
+            
+            // Visual feedback
+            if (isCorrect) {
+                optionElement.classList.add('correct');
+                score++;
+            } else {
+                optionElement.classList.add('incorrect');
+                
+                // Also show the correct option
+                document.querySelectorAll('.option').forEach(opt => {
+                    if (opt.textContent === currentWord.meaning) {
+                        opt.classList.add('correct');
+                    }
+                });
+                
+                // Store wrong answer
+                wrongAnswers.push({
+                    word: currentWord.word,
+                    meaning: currentWord.meaning,
+                    selected: selectedMeaning
+                });
+            }
+            
+            // Move to next question after a delay
+            setTimeout(() => {
+                if (currentIndex < testWords.length - 1) {
+                    currentIndex++;
+                    showQuestion();
+                } else {
+                    showResults();
+                }
+            }, 1200);
+        }
+
+        // Update progress bar and counter
+        function updateProgress() {
+            const progress = ((currentIndex) / testWords.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            counterElement.textContent = `Question ${currentIndex + 1} of ${testWords.length}`;
+        }
+
+        // Show results
+        function showResults() {
+            // Stop timer
+            if (timerInterval) clearInterval(timerInterval);
+            
+            const percentage = Math.round((score / testWords.length) * 100);
+            
+            // Update result elements
+            finalScoreElement.textContent = `${percentage}%`;
+            scoreTextElement.textContent = `You answered ${score} out of ${testWords.length} questions correctly`;
+            
+            // Update statistics
+            correctStat.textContent = score;
+            incorrectStat.textContent = testWords.length - score;
+            
+            // Show wrong words
+            wrongWordsList.innerHTML = '';
+            if (wrongAnswers.length > 0) {
+                wrongAnswers.forEach(item => {
+                    const wordElement = document.createElement('div');
+                    wordElement.classList.add('wrong-word');
+                    wordElement.innerHTML = `
+                        <div class="word-def">${item.word}</div>
+                        <div class="meaning-text">${item.meaning}</div>
+                    `;
+                    wrongWordsList.appendChild(wordElement);
+                });
+            } else {
+                wrongWordsContainer.innerHTML = '<div class="wrong-words-title">Perfect Score! All answers correct!</div>';
+            }
+            
+            // Hide quiz, show results
+            quizContent.style.display = 'none';
+            resultContainer.style.display = 'block';
+        }
+
+        // Download wrong words as text file
+        downloadBtn.addEventListener('click', () => {
+            if (wrongAnswers.length === 0) {
+                alert("You have no words to review. Great job!");
+                return;
+            }
+            
+            let content = 'Vocabulary Words to Review (Day 23):\n\n';
+            
+            wrongAnswers.forEach((item, index) => {
+                content += `${index + 1}. ${item.word} - ${item.meaning}\n`;
+            });
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'vocabulary-review-day23.txt';
+            document.body.appendChild(a);
+            a.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        });
+
+        // Restart quiz
+        restartBtn.addEventListener('click', () => {
+            // Reset quiz state
+            currentIndex = 0;
+            score = 0;
+            wrongAnswers = [];
+            startTime = new Date();
+            
+            if (isScrambled) {
+                shuffleArray(testWords);
+            }
+            
+            // Restart timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            // Show quiz, hide results
+            resultContainer.style.display = 'none';
+            quizContent.style.display = 'block';
+            
+            // Start quiz again
+            showQuestion();
+        });
+
+        // Change mode button
+        modeBtn.addEventListener('click', () => {
+            resultContainer.style.display = 'none';
+            modeContainer.style.display = 'block';
+        });
+
+        // Helper function to shuffle array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+    </script>
+</body>
+</html>
