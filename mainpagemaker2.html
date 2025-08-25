@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Sharing Platform with Import/Export</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --danger: #e63946;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --border: #dee2e6;
+            --date-bg: #e7f5ff;
+            --import-bg: #e6f7ff;
+            --chapter-bg: #e7f5ff;
+            --topic-bg: #f8f9fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf9 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 30px 25px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 0;
+        }
+        
+        .form-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 30px;
+            background-color: var(--light);
+            border-right: 1px solid var(--border);
+        }
+        
+        .preview-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 30px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title i {
+            margin-right: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--gray);
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        button i {
+            margin-right: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .btn-block {
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn-export {
+            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
+        }
+        
+        .btn-import {
+            background: linear-gradient(135deg, #38b000, #2d6a4f);
+        }
+        
+        .btn-reset {
+            background: linear-gradient(135deg, #e63946, #d00000);
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .document-list {
+            list-style-type: none;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .chapter-item {
+            background-color: var(--chapter-bg);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .chapter-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .chapter-title {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        
+        .chapter-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .topic-item {
+            background-color: var(--topic-bg);
+            margin: 10px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .topic-header {
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .topic-title {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .topic-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .resource-list {
+            list-style-type: none;
+            padding: 10px;
+            min-height: 50px;
+        }
+        
+        .resource-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+            cursor: grab;
+        }
+        
+        .resource-item:last-child {
+            border-bottom: none;
+        }
+        
+        .resource-item:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .resource-item.dragging {
+            opacity: 0.5;
+            background-color: rgba(67, 97, 238, 0.1);
+        }
+        
+        .resource-info {
+            flex: 1;
+        }
+        
+        .resource-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .resource-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+        
+        .resource-url {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .delete-btn {
+            background-color: #e63946;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: 10px;
+        }
+        
+        .delete-btn:hover {
+            background-color: #d00000;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .edit-btn {
+            background-color: var(--warning);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: 10px;
+        }
+        
+        .edit-btn:hover {
+            background-color: #e57f00;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .add-btn {
+            background-color: var(--success);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-left: 10px;
+        }
+        
+        .add-btn:hover {
+            background-color: #3a9cc2;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .dropzone {
+            border: 2px dashed var(--primary);
+            background-color: rgba(67, 97, 238, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px 0;
+            min-height: 50px;
+            transition: all 0.3s;
+        }
+        
+        .dropzone.active {
+            background-color: rgba(67, 97, 238, 0.2);
+            border: 2px dashed var(--secondary);
+        }
+        
+        .export-box {
+            background-color: var(--light);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .import-box {
+            background-color: var(--import-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            background-color: #f8f9fa;
+        }
+        
+        .instructions {
+            background-color: #e7f5ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin: 25px 0;
+            font-size: 0.95rem;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: var(--gray);
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4cc9f0, #3a86ff);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transform: translateX(120%);
+            transition: transform 0.3s ease-out;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--secondary);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray);
+        }
+        
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .form-section {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            
+            header h1 {
+                font-size: 2rem;
+            }
+            
+            .section-title {
+                font-size: 1.3rem;
+            }
+            
+            .chapter-header, .topic-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .chapter-actions, .topic-actions {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i> <span id="notificationText">Operation completed successfully!</span>
+    </div>
+    
+    <div class="modal" id="chapterModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="chapterModalTitle">Add New Chapter</h3>
+                <button class="close-modal" id="closeChapterModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="chapterName">Chapter Name</label>
+                <input type="text" id="chapterName" placeholder="Enter chapter name">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-reset" id="cancelChapterBtn">Cancel</button>
+                <button id="saveChapterBtn">Save Chapter</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="topicModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="topicModalTitle">Add New Topic</h3>
+                <button class="close-modal" id="closeTopicModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="topicChapter">Select Chapter</label>
+                <select id="topicChapter">
+                    <option value="">-- Select a chapter --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="topicName">Topic Name</label>
+                <input type="text" id="topicName" placeholder="Enter topic name">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-reset" id="cancelTopicBtn">Cancel</button>
+                <button id="saveTopicBtn">Save Topic</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="resourceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="resourceModalTitle">Add New Resource</h3>
+                <button class="close-modal" id="closeResourceModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="resourceChapter">Select Chapter</label>
+                <select id="resourceChapter">
+                    <option value="">-- Select a chapter --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="resourceTopic">Select Topic</label>
+                <select id="resourceTopic">
+                    <option value="">-- Select a topic --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="resourceName">Resource Name</label>
+                <input type="text" id="resourceName" placeholder="Enter resource name">
+            </div>
+            <div class="form-group">
+                <label for="resourceUrl">Resource URL</label>
+                <input type="url" id="resourceUrl" placeholder="https://example.com/document.pdf">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-reset" id="cancelResourceBtn">Cancel</button>
+                <button id="saveResourceBtn">Save Resource</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-file-import"></i> Document Sharing Platform</h1>
+            <p class="subtitle">Organize resources by chapters and topics with easy import/export</p>
+        </header>
+        
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> How to Use This Tool</h3>
+            <ol>
+                <li>Set your page title and banner image (optional)</li>
+                <li>Create chapters to organize your content</li>
+                <li>Add topics under each chapter</li>
+                <li>Add resources (documents, links) to topics</li>
+                <li><strong>Drag and drop</strong> to reorder resources within and between topics</li>
+                <li>Click "Export HTML" to generate the HTML code</li>
+                <li>Copy the code and host it on GitHub Pages</li>
+                <li><strong>NEW:</strong> Import existing HTML to update your content</li>
+            </ol>
+        </div>
+        
+        <div class="app-container">
+            <div class="form-section">
+                <h2 class="section-title"><i class="fas fa-file-import"></i> Import Existing Page</h2>
+                
+                <div class="import-box">
+                    <div class="form-group">
+                        <label for="importHtml">Paste your existing HTML code:</label>
+                        <textarea id="importHtml" placeholder="Paste the HTML code of your existing document page here..."></textarea>
+                    </div>
+                    
+                    <button class="btn-block btn-import" id="importBtn">
+                        <i class="fas fa-file-import"></i> Import HTML
+                    </button>
+                </div>
+                
+                <h2 class="section-title"><i class="fas fa-cog"></i> Page Settings</h2>
+                
+                <div class="form-group">
+                    <label for="pageTitle">Page Title</label>
+                    <input type="text" id="pageTitle" placeholder="Enter page title" value="Shared Documents">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bannerUrl">Banner Image URL</label>
+                    <input type="url" id="bannerUrl" placeholder="https://example.com/banner.jpg" value="https://tonysew.wordpress.com/wp-content/uploads/2025/07/65f184bef6ff0c132cc9c1e0482569f5.png">
+                </div>
+                
+                <h2 class="section-title" style="margin-top: 30px;"><i class="fas fa-layer-group"></i> Manage Content</h2>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button id="addChapterBtn" class="btn-sm">
+                        <i class="fas fa-plus"></i> Add Chapter
+                    </button>
+                    <button id="addTopicBtn" class="btn-sm">
+                        <i class="fas fa-plus"></i> Add Topic
+                    </button>
+                    <button id="addResourceBtn" class="btn-sm">
+                        <i class="fas fa-plus"></i> Add Resource
+                    </button>
+                </div>
+                
+                <h2 class="section-title"><i class="fas fa-list"></i> Current Content</h2>
+                <div id="contentContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-folder-open"></i>
+                        <p>No content added yet</p>
+                    </div>
+                </div>
+                
+                <button class="btn-block btn-reset" id="resetBtn">
+                    <i class="fas fa-trash-alt"></i> Reset All Content
+                </button>
+            </div>
+            
+            <div class="preview-section">
+                <h2 class="section-title"><i class="fas fa-code"></i> Export HTML</h2>
+                <p>Click the button below to generate the HTML code for your document list.</p>
+                
+                <button class="btn-block btn-export" id="exportHtmlBtn">
+                    <i class="fas fa-file-export"></i> Export HTML
+                </button>
+                
+                <div class="export-box">
+                    <label for="htmlOutput">Generated HTML Code:</label>
+                    <textarea id="htmlOutput" readonly placeholder="Your HTML code will appear here..."></textarea>
+                </div>
+                
+                <div class="instructions">
+                    <h3><i class="fas fa-cloud-upload-alt"></i> GitHub Publishing Instructions</h3>
+                    <ol>
+                        <li>Create a new repository on GitHub</li>
+                        <li>Create a new file named "index.html"</li>
+                        <li>Paste the generated HTML code into this file</li>
+                        <li>Commit the file to your repository</li>
+                        <li>Go to repository Settings → Pages</li>
+                        <li>Set source to "Deploy from a branch" and select your main branch</li>
+                        <li>Your document list will be live at: https://[your-username].github.io/[repository-name]</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const pageTitleInput = document.getElementById('pageTitle');
+            const bannerUrlInput = document.getElementById('bannerUrl');
+            const contentContainer = document.getElementById('contentContainer');
+            const exportHtmlBtn = document.getElementById('exportHtmlBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const htmlOutput = document.getElementById('htmlOutput');
+            const importHtmlInput = document.getElementById('importHtml');
+            const importBtn = document.getElementById('importBtn');
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            
+            // Modal elements
+            const chapterModal = document.getElementById('chapterModal');
+            const topicModal = document.getElementById('topicModal');
+            const resourceModal = document.getElementById('resourceModal');
+            const chapterNameInput = document.getElementById('chapterName');
+            const topicChapterSelect = document.getElementById('topicChapter');
+            const topicNameInput = document.getElementById('topicName');
+            const resourceChapterSelect = document.getElementById('resourceChapter');
+            const resourceTopicSelect = document.getElementById('resourceTopic');
+            const resourceNameInput = document.getElementById('resourceName');
+            const resourceUrlInput = document.getElementById('resourceUrl');
+            
+            // Button elements
+            const addChapterBtn = document.getElementById('addChapterBtn');
+            const addTopicBtn = document.getElementById('addTopicBtn');
+            const addResourceBtn = document.getElementById('addResourceBtn');
+            const saveChapterBtn = document.getElementById('saveChapterBtn');
+            const saveTopicBtn = document.getElementById('saveTopicBtn');
+            const saveResourceBtn = document.getElementById('saveResourceBtn');
+            const closeChapterModal = document.getElementById('closeChapterModal');
+            const closeTopicModal = document.getElementById('closeTopicModal');
+            const closeResourceModal = document.getElementById('closeResourceModal');
+            const cancelChapterBtn = document.getElementById('cancelChapterBtn');
+            const cancelTopicBtn = document.getElementById('cancelTopicBtn');
+            const cancelResourceBtn = document.getElementById('cancelResourceBtn');
+            
+            // Drag and drop variables
+            let draggedItem = null;
+            let dragSource = null;
+            
+            // Show notification function
+            function showNotification(message, isSuccess = true) {
+                notificationText.textContent = message;
+                notification.style.background = isSuccess 
+                    ? 'linear-gradient(135deg, #4cc9f0, #3a86ff)' 
+                    : 'linear-gradient(135deg, #e63946, #d00000)';
+                notification.classList.add('show');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            }
+            
+            // Load content from localStorage
+            let chapters = JSON.parse(localStorage.getItem('chapters')) || [];
+            let pageSettings = JSON.parse(localStorage.getItem('pageSettings')) || {
+                title: "Shared Documents",
+                bannerUrl: "https://tonysew.wordpress.com/wp-content/uploads/2025/07/65f184bef6ff0c132cc9c1e0482569f5.png"
+            };
+            
+            // Set initial values
+            pageTitleInput.value = pageSettings.title;
+            bannerUrlInput.value = pageSettings.bannerUrl;
+            
+            // Save page settings
+            function savePageSettings() {
+                pageSettings = {
+                    title: pageTitleInput.value,
+                    bannerUrl: bannerUrlInput.value
+                };
+                localStorage.setItem('pageSettings', JSON.stringify(pageSettings));
+            }
+            
+            pageTitleInput.addEventListener('change', savePageSettings);
+            bannerUrlInput.addEventListener('change', savePageSettings);
+            
+            // Generate a unique ID
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+            
+            // Render content
+            function renderContent() {
+                if (chapters.length === 0) {
+                    contentContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <p>No content added yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                contentContainer.innerHTML = '<div class="document-list"></div>';
+                const list = contentContainer.querySelector('.document-list');
+                
+                chapters.forEach((chapter, chapterIndex) => {
+                    const chapterItem = document.createElement('div');
+                    chapterItem.className = 'chapter-item';
+                    chapterItem.innerHTML = `
+                        <div class="chapter-header">
+                            <div class="chapter-title">
+                                <i class="fas fa-folder"></i> ${chapter.name}
+                            </div>
+                            <div class="chapter-actions">
+                                <button class="edit-btn btn-sm" data-type="chapter" data-index="${chapterIndex}">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="delete-btn btn-sm" data-type="chapter" data-index="${chapterIndex}">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chapter-content">
+                            ${chapter.topics && chapter.topics.length > 0 ? 
+                                chapter.topics.map((topic, topicIndex) => `
+                                    <div class="topic-item">
+                                        <div class="topic-header">
+                                            <div class="topic-title">
+                                                <i class="fas fa-bookmark"></i> ${topic.name}
+                                            </div>
+                                            <div class="topic-actions">
+                                                <button class="edit-btn btn-sm" data-type="topic" data-chapter="${chapterIndex}" data-index="${topicIndex}">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button class="delete-btn btn-sm" data-type="topic" data-chapter="${chapterIndex}" data-index="${topicIndex}">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <ul class="resource-list" data-chapter="${chapterIndex}" data-topic="${topicIndex}">
+                                            ${topic.resources && topic.resources.length > 0 ? 
+                                                topic.resources.map((resource, resourceIndex) => `
+                                                    <li class="resource-item" draggable="true" data-chapter="${chapterIndex}" data-topic="${topicIndex}" data-index="${resourceIndex}">
+                                                        <div class="resource-info">
+                                                            <div class="resource-name">${resource.name}</div>
+                                                            <div class="resource-meta">
+                                                                <div class="resource-url">${truncateUrl(resource.url)}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <button class="edit-btn btn-sm" data-type="resource" data-chapter="${chapterIndex}" data-topic="${topicIndex}" data-index="${resourceIndex}">
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <button class="delete-btn btn-sm" data-type="resource" data-chapter="${chapterIndex}" data-topic="${topicIndex}" data-index="${resourceIndex}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                `).join('') : 
+                                                `<div class="empty-state" style="padding: 15px;">
+                                                    <i class="fas fa-file" style="font-size: 1.5rem;"></i>
+                                                    <p>No resources in this topic</p>
+                                                </div>`
+                                            }
+                                        </ul>
+                                    </div>
+                                `).join('') : 
+                                `<div class="empty-state" style="padding: 15px;">
+                                    <i class="fas fa-bookmark" style="font-size: 1.5rem;"></i>
+                                    <p>No topics in this chapter</p>
+                                </div>`
+                            }
+                        </div>
+                    `;
+                    list.appendChild(chapterItem);
+                });
+                
+                // Add event listeners to all action buttons
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const type = this.getAttribute('data-type');
+                        const chapterIndex = parseInt(this.getAttribute('data-chapter') || 0);
+                        const topicIndex = parseInt(this.getAttribute('data-topic') || 0);
+                        const index = parseInt(this.getAttribute('data-index'));
+                        
+                        if (type === 'chapter') {
+                            deleteChapter(index);
+                        } else if (type === 'topic') {
+                            deleteTopic(chapterIndex, index);
+                        } else if (type === 'resource') {
+                            deleteResource(chapterIndex, topicIndex, index);
+                        }
+                    });
+                });
+                
+                document.querySelectorAll('.edit-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const type = this.getAttribute('data-type');
+                        const chapterIndex = parseInt(this.getAttribute('data-chapter') || 0);
+                        const topicIndex = parseInt(this.getAttribute('data-topic') || 0);
+                        const index = parseInt(this.getAttribute('data-index'));
+                        
+                        if (type === 'chapter') {
+                            openChapterModal(chapterIndex);
+                        } else if (type === 'topic') {
+                            openTopicModal(chapterIndex, topicIndex);
+                        } else if (type === 'resource') {
+                            openResourceModal(chapterIndex, topicIndex, index);
+                        }
+                    });
+                });
+                
+                // Initialize drag and drop functionality
+                initDragAndDrop();
+            }
+            
+            // Initialize drag and drop functionality
+            function initDragAndDrop() {
+                const resourceItems = document.querySelectorAll('.resource-item');
+                const resourceLists = document.querySelectorAll('.resource-list');
+                
+                // Add event listeners to draggable items
+                resourceItems.forEach(item => {
+                    item.addEventListener('dragstart', handleDragStart);
+                    item.addEventListener('dragend', handleDragEnd);
+                });
+                
+                // Add event listeners to drop zones
+                resourceLists.forEach(list => {
+                    list.addEventListener('dragover', handleDragOver);
+                    list.addEventListener('dragenter', handleDragEnter);
+                    list.addEventListener('dragleave', handleDragLeave);
+                    list.addEventListener('drop', handleDrop);
+                });
+            }
+            
+            // Drag and drop handlers
+            function handleDragStart(e) {
+                draggedItem = this;
+                dragSource = {
+                    chapter: parseInt(this.getAttribute('data-chapter')),
+                    topic: parseInt(this.getAttribute('data-topic')),
+                    index: parseInt(this.getAttribute('data-index'))
+                };
+                
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+                
+                // Add visual feedback
+                this.classList.add('dragging');
+                
+                // Show all drop zones
+                document.querySelectorAll('.resource-list').forEach(list => {
+                    list.classList.add('dropzone');
+                });
+            }
+            
+            function handleDragEnd() {
+                // Remove visual feedback
+                this.classList.remove('dragging');
+                
+                // Hide all drop zones
+                document.querySelectorAll('.resource-list').forEach(list => {
+                    list.classList.remove('dropzone', 'active');
+                });
+                
+                draggedItem = null;
+                dragSource = null;
+            }
+            
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                return false;
+            }
+            
+            function handleDragEnter(e) {
+                this.classList.add('active');
+            }
+            
+            function handleDragLeave() {
+                this.classList.remove('active');
+            }
+            
+            function handleDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!draggedItem) return;
+                
+                const dropTarget = this;
+                const dropChapter = parseInt(dropTarget.getAttribute('data-chapter'));
+                const dropTopic = parseInt(dropTarget.getAttribute('data-topic'));
+                
+                // Remove active class from all drop zones
+                document.querySelectorAll('.resource-list').forEach(list => {
+                    list.classList.remove('active');
+                });
+                
+                // Move the resource
+                if (dragSource.chapter === dropChapter && dragSource.topic === dropTopic) {
+                    // Reordering within the same topic
+                    const resources = chapters[dropChapter].topics[dropTopic].resources;
+                    const movedResource = resources.splice(dragSource.index, 1)[0];
+                    
+                    // Find the drop position
+                    const afterElement = getDragAfterElement(dropTarget, e.clientY);
+                    
+                    if (afterElement) {
+                        const dropIndex = parseInt(afterElement.getAttribute('data-index'));
+                        resources.splice(dropIndex, 0, movedResource);
+                    } else {
+                        resources.push(movedResource);
+                    }
+                } else {
+                    // Moving to a different topic
+                    const sourceResources = chapters[dragSource.chapter].topics[dragSource.topic].resources;
+                    const targetResources = chapters[dropChapter].topics[dropTopic].resources;
+                    const movedResource = sourceResources.splice(dragSource.index, 1)[0];
+                    
+                    // Find the drop position
+                    const afterElement = getDragAfterElement(dropTarget, e.clientY);
+                    
+                    if (afterElement) {
+                        const dropIndex = parseInt(afterElement.getAttribute('data-index'));
+                        targetResources.splice(dropIndex, 0, movedResource);
+                    } else {
+                        targetResources.push(movedResource);
+                    }
+                }
+                
+                // Save and re-render
+                localStorage.setItem('chapters', JSON.stringify(chapters));
+                renderContent();
+                showNotification('Resource moved successfully!');
+                
+                return false;
+            }
+            
+            // Helper function to determine where to insert the dragged item
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.resource-item:not(.dragging)')];
+                
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+            
+            // Helper to truncate URLs for display
+            function truncateUrl(url, maxLength = 30) {
+                if (url.length <= maxLength) return url;
+                return url.substring(0, maxLength) + '...';
+            }
+            
+            // Populate chapter select dropdowns
+            function populateChapterSelects() {
+                // Clear existing options except the first one
+                while (topicChapterSelect.options.length > 1) {
+                    topicChapterSelect.remove(1);
+                }
+                while (resourceChapterSelect.options.length > 1) {
+                    resourceChapterSelect.remove(1);
+                }
+                
+                // Add chapters to dropdowns
+                chapters.forEach((chapter, index) => {
+                    const option1 = document.createElement('option');
+                    option1.value = index;
+                    option1.textContent = chapter.name;
+                    topicChapterSelect.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = index;
+                    option2.textContent = chapter.name;
+                    resourceChapterSelect.appendChild(option2);
+                });
+                
+                // Trigger change to update topic dropdown
+                resourceChapterSelect.dispatchEvent(new Event('change'));
+            }
+            
+            // Populate topic select dropdown based on selected chapter
+            function populateTopicSelect() {
+                const chapterIndex = parseInt(resourceChapterSelect.value);
+                
+                // Clear existing options except the first one
+                while (resourceTopicSelect.options.length > 1) {
+                    resourceTopicSelect.remove(1);
+                }
+                
+                // Add topics to dropdown if a chapter is selected
+                if (!isNaN(chapterIndex) && chapters[chapterIndex] && chapters[chapterIndex].topics) {
+                    chapters[chapterIndex].topics.forEach((topic, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = topic.name;
+                        resourceTopicSelect.appendChild(option);
+                    });
+                }
+            }
+            
+            // Modal functions
+            function openChapterModal(chapterIndex = -1) {
+                if (chapterIndex >= 0) {
+                    // Editing existing chapter
+                    chapterNameInput.value = chapters[chapterIndex].name;
+                    document.getElementById('chapterModalTitle').textContent = 'Edit Chapter';
+                    saveChapterBtn.setAttribute('data-index', chapterIndex);
+                } else {
+                    // Adding new chapter
+                    chapterNameInput.value = '';
+                    document.getElementById('chapterModalTitle').textContent = 'Add New Chapter';
+                    saveChapterBtn.removeAttribute('data-index');
+                }
+                chapterModal.style.display = 'flex';
+            }
+            
+            function openTopicModal(chapterIndex = -1, topicIndex = -1) {
+                populateChapterSelects();
+                
+                if (topicIndex >= 0 && chapterIndex >= 0) {
+                    // Editing existing topic
+                    topicChapterSelect.value = chapterIndex;
+                    topicNameInput.value = chapters[chapterIndex].topics[topicIndex].name;
+                    document.getElementById('topicModalTitle').textContent = 'Edit Topic';
+                    saveTopicBtn.setAttribute('data-chapter', chapterIndex);
+                    saveTopicBtn.setAttribute('data-index', topicIndex);
+                } else {
+                    // Adding new topic
+                    topicChapterSelect.value = '';
+                    topicNameInput.value = '';
+                    document.getElementById('topicModalTitle').textContent = 'Add New Topic';
+                    saveTopicBtn.removeAttribute('data-chapter');
+                    saveTopicBtn.removeAttribute('data-index');
+                }
+                topicModal.style.display = 'flex';
+            }
+            
+            function openResourceModal(chapterIndex = -1, topicIndex = -1, resourceIndex = -1) {
+                populateChapterSelects();
+                
+                if (resourceIndex >= 0 && topicIndex >= 0 && chapterIndex >= 0) {
+                    // Editing existing resource
+                    resourceChapterSelect.value = chapterIndex;
+                    populateTopicSelect();
+                    resourceTopicSelect.value = topicIndex;
+                    resourceNameInput.value = chapters[chapterIndex].topics[topicIndex].resources[resourceIndex].name;
+                    resourceUrlInput.value = chapters[chapterIndex].topics[topicIndex].resources[resourceIndex].url;
+                    document.getElementById('resourceModalTitle').textContent = 'Edit Resource';
+                    saveResourceBtn.setAttribute('data-chapter', chapterIndex);
+                    saveResourceBtn.setAttribute('data-topic', topicIndex);
+                    saveResourceBtn.setAttribute('data-index', resourceIndex);
+                } else {
+                    // Adding new resource
+                    resourceChapterSelect.value = '';
+                    resourceTopicSelect.value = '';
+                    resourceNameInput.value = '';
+                    resourceUrlInput.value = '';
+                    document.getElementById('resourceModalTitle').textContent = 'Add New Resource';
+                    saveResourceBtn.removeAttribute('data-chapter');
+                    saveResourceBtn.removeAttribute('data-topic');
+                    saveResourceBtn.removeAttribute('data-index');
+                }
+                resourceModal.style.display = 'flex';
+            }
+            
+            function closeModals() {
+                chapterModal.style.display = 'none';
+                topicModal.style.display = 'none';
+                resourceModal.style.display = 'none';
+            }
+            
+            // Add/Edit chapter
+            function saveChapter() {
+                const name = chapterNameInput.value.trim();
+                const index = saveChapterBtn.getAttribute('data-index');
+                
+                if (!name) {
+                    showNotification('Please enter a chapter name', false);
+                    return;
+                }
+                
+                if (index !== null) {
+                    // Editing existing chapter
+                    chapters[index].name = name;
+                } else {
+                    // Adding new chapter
+                    chapters.push({
+                        id: generateId(),
+                        name: name,
+                        topics: []
+                    });
+                }
+                
+                localStorage.setItem('chapters', JSON.stringify(chapters));
+                renderContent();
+                closeModals();
+                showNotification(index !== null ? 'Chapter updated successfully!' : 'Chapter added successfully!');
+            }
+            
+            // Add/Edit topic
+            function saveTopic() {
+                const chapterIndex = parseInt(saveTopicBtn.getAttribute('data-chapter'));
+                const topicIndex = parseInt(saveTopicBtn.getAttribute('data-index'));
+                const selectedChapterIndex = parseInt(topicChapterSelect.value);
+                const name = topicNameInput.value.trim();
+                
+                if (isNaN(selectedChapterIndex)) {
+                    showNotification('Please select a chapter', false);
+                    return;
+                }
+                
+                if (!name) {
+                    showNotification('Please enter a topic name', false);
+                    return;
+                }
+                
+                // Initialize topics array if it doesn't exist
+                if (!chapters[selectedChapterIndex].topics) {
+                    chapters[selectedChapterIndex].topics = [];
+                }
+                
+                if (!isNaN(topicIndex) && !isNaN(chapterIndex)) {
+                    // Editing existing topic - check if chapter changed
+                    if (chapterIndex === selectedChapterIndex) {
+                        // Same chapter, just update the topic
+                        chapters[chapterIndex].topics[topicIndex].name = name;
+                    } else {
+                        // Different chapter, move the topic
+                        const topic = chapters[chapterIndex].topics[topicIndex];
+                        topic.name = name;
+                        chapters[selectedChapterIndex].topics.push(topic);
+                        chapters[chapterIndex].topics.splice(topicIndex, 1);
+                    }
+                } else {
+                    // Adding new topic
+                    chapters[selectedChapterIndex].topics.push({
+                        id: generateId(),
+                        name: name,
+                        resources: []
+                    });
+                }
+                
+                localStorage.setItem('chapters', JSON.stringify(chapters));
+                renderContent();
+                closeModals();
+                showNotification(!isNaN(topicIndex) ? 'Topic updated successfully!' : 'Topic added successfully!');
+            }
+            
+            // Add/Edit resource
+            function saveResource() {
+                const chapterIndex = parseInt(saveResourceBtn.getAttribute('data-chapter'));
+                const topicIndex = parseInt(saveResourceBtn.getAttribute('data-topic'));
+                const resourceIndex = parseInt(saveResourceBtn.getAttribute('data-index'));
+                const selectedChapterIndex = parseInt(resourceChapterSelect.value);
+                const selectedTopicIndex = parseInt(resourceTopicSelect.value);
+                const name = resourceNameInput.value.trim();
+                const url = resourceUrlInput.value.trim();
+                
+                if (isNaN(selectedChapterIndex) || isNaN(selectedTopicIndex)) {
+                    showNotification('Please select both a chapter and a topic', false);
+                    return;
+                }
+                
+                if (!name || !url) {
+                    showNotification('Please fill all fields', false);
+                    return;
+                }
+                
+                // Simple URL validation
+                try {
+                    new URL(url);
+                } catch (e) {
+                    showNotification('Please enter a valid URL', false);
+                    return;
+                }
+                
+                // Initialize resources array if it doesn't exist
+                if (!chapters[selectedChapterIndex].topics[selectedTopicIndex].resources) {
+                    chapters[selectedChapterIndex].topics[selectedTopicIndex].resources = [];
+                }
+                
+                if (!isNaN(resourceIndex) && !isNaN(topicIndex) && !isNaN(chapterIndex)) {
+                    // Editing existing resource - check if chapter or topic changed
+                    if (chapterIndex === selectedChapterIndex && topicIndex === selectedTopicIndex) {
+                        // Same chapter and topic, just update the resource
+                        chapters[chapterIndex].topics[topicIndex].resources[resourceIndex] = { name, url };
+                    } else {
+                        // Different chapter/topic, move the resource
+                        const resource = chapters[chapterIndex].topics[topicIndex].resources[resourceIndex];
+                        resource.name = name;
+                        resource.url = url;
+                        chapters[selectedChapterIndex].topics[selectedTopicIndex].resources.push(resource);
+                        chapters[chapterIndex].topics[topicIndex].resources.splice(resourceIndex, 1);
+                    }
+                } else {
+                    // Adding new resource
+                    chapters[selectedChapterIndex].topics[selectedTopicIndex].resources.push({ name, url });
+                }
+                
+                localStorage.setItem('chapters', JSON.stringify(chapters));
+                renderContent();
+                closeModals();
+                showNotification(!isNaN(resourceIndex) ? 'Resource updated successfully!' : 'Resource added successfully!');
+            }
+            
+            // Delete chapter
+            function deleteChapter(index) {
+                if (confirm('Are you sure you want to delete this chapter and all its content?')) {
+                    chapters.splice(index, 1);
+                    localStorage.setItem('chapters', JSON.stringify(chapters));
+                    renderContent();
+                    showNotification('Chapter deleted successfully');
+                }
+            }
+            
+            // Delete topic
+            function deleteTopic(chapterIndex, topicIndex) {
+                if (confirm('Are you sure you want to delete this topic and all its resources?')) {
+                    chapters[chapterIndex].topics.splice(topicIndex, 1);
+                    localStorage.setItem('chapters', JSON.stringify(chapters));
+                    renderContent();
+                    showNotification('Topic deleted successfully');
+                }
+            }
+            
+            // Delete resource
+            function deleteResource(chapterIndex, topicIndex, resourceIndex) {
+                if (confirm('Are you sure you want to delete this resource?')) {
+                    chapters[chapterIndex].topics[topicIndex].resources.splice(resourceIndex, 1);
+                    localStorage.setItem('chapters', JSON.stringify(chapters));
+                    renderContent();
+                    showNotification('Resource deleted successfully');
+                }
+            }
+            
+            // Reset all content
+            resetBtn.addEventListener('click', function() {
+                if (confirm('Are you sure you want to delete all content?')) {
+                    chapters = [];
+                    localStorage.removeItem('chapters');
+                    renderContent();
+                    showNotification('All content has been reset');
+                }
+            });
+            
+            // Export to HTML
+            function exportToHtml() {
+                let contentHtml = '';
+                
+                if (chapters.length === 0) {
+                    contentHtml = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <p>No content added yet</p>
+                        </div>
+                    `;
+                } else {
+                    chapters.forEach(chapter => {
+                        contentHtml += `
+                            <div class="chapter-section">
+                                <h2 class="chapter-header">
+                                    <i class="fas fa-folder"></i> ${chapter.name}
+                                </h2>
+                        `;
+                        
+                        if (chapter.topics && chapter.topics.length > 0) {
+                            chapter.topics.forEach(topic => {
+                                contentHtml += `
+                                    <div class="topic-section">
+                                        <h3 class="topic-header">
+                                            <i class="fas fa-bookmark"></i> ${topic.name}
+                                        </h3>
+                                        <ul class="resource-list">
+                                `;
+                                
+                                if (topic.resources && topic.resources.length > 0) {
+                                    topic.resources.forEach(resource => {
+                                        contentHtml += `
+                                            <li class="resource-item">
+                                                <a href="${resource.url}" target="_blank">
+                                                    <i class="fas fa-file-alt"></i> ${resource.name}
+                                                </a>
+                                            </li>
+                                        `;
+                                    });
+                                } else {
+                                    contentHtml += `
+                                        <div class="empty-state">
+                                            <i class="fas fa-file"></i>
+                                            <p>No resources in this topic</p>
+                                        </div>
+                                    `;
+                                }
+                                
+                                contentHtml += `
+                                        </ul>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            contentHtml += `
+                                <div class="empty-state">
+                                    <i class="fas fa-bookmark"></i>
+                                    <p>No topics in this chapter</p>
+                                </div>
+                            `;
+                        }
+                        
+                        contentHtml += `</div>`;
+                    });
+                }
+                
+                const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${pageSettings.title}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #212529;
+            background: #f8f9fa;
+            padding: 0;
+        }
+        
+        .banner-container {
+            max-width: 1000px;
+            margin: 20px auto 0;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        
+        .banner {
+            width: 100%;
+            height: 120px;
+            background-image: url('${pageSettings.bannerUrl}');
+            background-size: cover;
+            background-position: center;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .banner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .banner-title {
+            color: white;
+            font-size: 2rem;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            padding: 0 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .chapter-section {
+            margin-bottom: 40px;
+        }
+        
+        .chapter-header {
+            background-color: #e7f5ff;
+            color: #1864ab;
+            padding: 15px 20px;
+            font-weight: 600;
+            font-size: 1.5rem;
+            border-left: 5px solid #1864ab;
+            margin-bottom: 15px;
+            border-radius: 0 6px 6px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .topic-section {
+            margin-bottom: 30px;
+            padding-left: 20px;
+        }
+        
+        .topic-header {
+            background-color: #f8f9fa;
+            color: #4361ee;
+            padding: 12px 18px;
+            font-weight: 600;
+            font-size: 1.3rem;
+            border-left: 4px solid #4361ee;
+            margin-bottom: 15px;
+            border-radius: 0 6px 6px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .resource-list {
+            list-style-type: none;
+            padding: 0 0 0 20px;
+        }
+        
+        .resource-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .resource-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .resource-item a {
+            text-decoration: none;
+            color: #4361ee;
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .resource-item a:hover {
+            color: #3a0ca3;
+        }
+        
+        .resource-item i {
+            margin-right: 12px;
+            font-size: 1.3rem;
+            color: #4cc9f0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.9rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        @media (max-width: 768px) {
+            .banner {
+                height: 100px;
+            }
+            
+            .banner-title {
+                font-size: 1.6rem;
+            }
+            
+            .chapter-header {
+                font-size: 1.3rem;
+                padding: 12px 15px;
+            }
+            
+            .topic-header {
+                font-size: 1.1rem;
+                padding: 10px 15px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .resource-item {
+                padding: 12px;
+            }
+            
+            .resource-item a {
+                font-size: 1rem;
+            }
+            
+            .topic-section {
+                padding-left: 10px;
+            }
+            
+            .resource-list {
+                padding-left: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .banner {
+                height: 80px;
+            }
+            
+            .banner-title {
+                font-size: 1.3rem;
+            }
+            
+            .chapter-header {
+                font-size: 1.1rem;
+                padding: 10px 12px;
+            }
+            
+            .topic-header {
+                font-size: 1rem;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="banner-container">
+        <div class="banner">
+            <div class="banner-overlay">
+                <h1 class="banner-title">${pageSettings.title}</h1>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        ${contentHtml}
+    </div>
+    
+    <div class="footer">
+        <p>Created with Document Sharing Platform | ${new Date().getFullYear()}</p>
+    </div>
+</body>
+</html>`;
+                
+                htmlOutput.value = html;
+                showNotification('HTML exported successfully!');
+            }
+            
+            // Import HTML function (simplified for this example)
+            function importHtml() {
+                const html = importHtmlInput.value.trim();
+                if (!html) {
+                    showNotification('Please paste HTML code to import', false);
+                    return;
+                }
+                
+                showNotification('Import feature for the new structure is not fully implemented in this example. You may need to manually rebuild your content.', false);
+            }
+            
+            // Event listeners for modals
+            addChapterBtn.addEventListener('click', () => openChapterModal());
+            addTopicBtn.addEventListener('click', () => openTopicModal());
+            addResourceBtn.addEventListener('click', () => openResourceModal());
+            
+            saveChapterBtn.addEventListener('click', saveChapter);
+            saveTopicBtn.addEventListener('click', saveTopic);
+            saveResourceBtn.addEventListener('click', saveResource);
+            
+            closeChapterModal.addEventListener('click', closeModals);
+            closeTopicModal.addEventListener('click', closeModals);
+            closeResourceModal.addEventListener('click', closeModals);
+            cancelChapterBtn.addEventListener('click', closeModals);
+            cancelTopicBtn.addEventListener('click', closeModals);
+            cancelResourceBtn.addEventListener('click', closeModals);
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                if (event.target === chapterModal) closeModals();
+                if (event.target === topicModal) closeModals();
+                if (event.target === resourceModal) closeModals();
+            });
+            
+            // Update topic dropdown when chapter changes
+            resourceChapterSelect.addEventListener('change', populateTopicSelect);
+            
+            // Event listeners for main actions
+            exportHtmlBtn.addEventListener('click', exportToHtml);
+            importBtn.addEventListener('click', importHtml);
+            
+            // Initial render
+            renderContent();
+            populateChapterSelects();
+        });
+    </script>
+</body>
+</html>
