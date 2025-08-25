@@ -435,6 +435,10 @@
             transform: translateX(0);
         }
         
+        .notification.error {
+            background: linear-gradient(135deg, #e63946, #d00000);
+        }
+        
         .modal {
             display: none;
             position: fixed;
@@ -742,9 +746,13 @@
             // Show notification function
             function showNotification(message, isSuccess = true) {
                 notificationText.textContent = message;
-                notification.style.background = isSuccess 
-                    ? 'linear-gradient(135deg, #4cc9f0, #3a86ff)' 
-                    : 'linear-gradient(135deg, #e63946, #d00000)';
+                if (isSuccess) {
+                    notification.style.background = 'linear-gradient(135deg, #4cc9f0, #3a86ff)';
+                    notification.classList.remove('error');
+                } else {
+                    notification.style.background = 'linear-gradient(135deg, #e63946, #d00000)';
+                    notification.classList.add('error');
+                }
                 notification.classList.add('show');
                 
                 setTimeout(() => {
@@ -1555,6 +1563,7 @@
             text-align: center;
             padding: 30px;
             color: #6c757d;
+            margin: 20px 0;
         }
         
         .empty-state i {
@@ -1656,7 +1665,7 @@
                 showNotification('HTML exported successfully!');
             }
             
-            // Import HTML function (simplified for this example)
+            // Import HTML function
             function importHtml() {
                 const html = importHtmlInput.value.trim();
                 if (!html) {
@@ -1664,7 +1673,98 @@
                     return;
                 }
                 
-                showNotification('Import feature for the new structure is not fully implemented in this example. You may need to manually rebuild your content.', false);
+                try {
+                    // Parse the HTML string
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Extract page title
+                    const title = doc.querySelector('title').textContent;
+                    if (title) {
+                        pageTitleInput.value = title;
+                    }
+                    
+                    // Extract banner URL
+                    const bannerStyle = doc.querySelector('.banner')?.style.backgroundImage;
+                    if (bannerStyle) {
+                        const urlMatch = bannerStyle.match(/url\(["']?(.*?)["']?\)/);
+                        if (urlMatch && urlMatch[1]) {
+                            bannerUrlInput.value = urlMatch[1];
+                        }
+                    }
+                    
+                    // Save page settings
+                    savePageSettings();
+                    
+                    // Extract chapters, topics, and resources
+                    const newChapters = [];
+                    const chapterSections = doc.querySelectorAll('.chapter-section');
+                    
+                    chapterSections.forEach(chapterSection => {
+                        const chapterHeader = chapterSection.querySelector('.chapter-header');
+                        if (!chapterHeader) return;
+                        
+                        // Extract chapter name (remove icon and trim)
+                        const chapterName = chapterHeader.textContent.replace(/|||/g, '').trim();
+                        
+                        const chapter = {
+                            id: generateId(),
+                            name: chapterName,
+                            topics: []
+                        };
+                        
+                        // Extract topics
+                        const topicSections = chapterSection.querySelectorAll('.topic-section');
+                        topicSections.forEach(topicSection => {
+                            const topicHeader = topicSection.querySelector('.topic-header');
+                            if (!topicHeader) return;
+                            
+                            // Extract topic name (remove icon and trim)
+                            const topicName = topicHeader.textContent.replace(/|||/g, '').trim();
+                            
+                            const topic = {
+                                id: generateId(),
+                                name: topicName,
+                                resources: []
+                            };
+                            
+                            // Extract resources
+                            const resourceItems = topicSection.querySelectorAll('.resource-item');
+                            resourceItems.forEach(resourceItem => {
+                                const link = resourceItem.querySelector('a');
+                                if (!link) return;
+                                
+                                // Extract resource name (remove icon and trim)
+                                const resourceName = link.textContent.replace(/|||||||||/g, '').trim();
+                                const resourceUrl = link.href;
+                                
+                                topic.resources.push({
+                                    name: resourceName,
+                                    url: resourceUrl
+                                });
+                            });
+                            
+                            chapter.topics.push(topic);
+                        });
+                        
+                        newChapters.push(chapter);
+                    });
+                    
+                    // Update the chapters array
+                    chapters = newChapters;
+                    
+                    // Save to localStorage
+                    localStorage.setItem('chapters', JSON.stringify(chapters));
+                    
+                    // Re-render the content
+                    renderContent();
+                    populateChapterSelects();
+                    
+                    showNotification('HTML imported successfully!');
+                } catch (error) {
+                    console.error('Error importing HTML:', error);
+                    showNotification('Error importing HTML. Please check the format and try again.', false);
+                }
             }
             
             // Event listeners for modals
