@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positive vs. Normative Statements</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .correct {
+            color: #10b981; /* green-500 */
+        }
+        .incorrect {
+            color: #ef4444; /* red-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center py-10">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-4xl mx-4">
+        <h1 class="text-4xl font-bold text-center text-gray-800 mb-6">Positive vs. Normative Statements</h1>
+        <p class="text-center text-lg text-gray-600 mb-8">
+            Evaluate each statement below and decide whether it is a <span class="font-semibold text-blue-600">positive statement</span> (a testable fact) or a <span class="font-semibold text-purple-600">normative statement</span> (a value judgment or opinion).
+        </p>
+
+        <div id="statements-container" class="space-y-6">
+            <!-- Statements will be dynamically inserted here -->
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center items-center mt-8 space-y-4 sm:space-y-0 sm:space-x-4">
+            <button onclick="resetQuiz()" class="px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg shadow-md hover:bg-gray-300 transition duration-300 transform hover:scale-105 w-full sm:w-auto">
+                Reset
+            </button>
+            <button onclick="showAnswers()" class="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg shadow-md hover:bg-blue-700 transition duration-300 transform hover:scale-105 w-full sm:w-auto">
+                Show Answers
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Array of statements and their correct answers
+        const statements = [
+            {
+                text: "An increase in the minimum wage will lead to an increase in unemployment.",
+                type: "positive",
+            },
+            {
+                text: "The government should increase spending on infrastructure to stimulate the economy.",
+                type: "normative",
+            },
+            {
+                text: "Lowering interest rates causes inflation to rise.",
+                type: "positive",
+            },
+            {
+                text: "Every citizen should have access to free healthcare, regardless of their income.",
+                type: "normative",
+            },
+            {
+                text: "A tariff on imported goods will raise the domestic price of those goods.",
+                type: "positive",
+            }
+        ];
+
+        // Get the container element for the statements
+        const container = document.getElementById('statements-container');
+
+        // Function to create and render a single statement item
+        function renderStatement(statement, index) {
+            const statementDiv = document.createElement('div');
+            statementDiv.className = "bg-gray-50 p-6 rounded-xl shadow-inner flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6";
+            statementDiv.id = `statement-${index}`;
+
+            const statementText = document.createElement('p');
+            statementText.className = "flex-1 text-gray-700 text-lg leading-relaxed font-medium";
+            statementText.textContent = statement.text;
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = "flex items-center space-x-2";
+
+            const positiveBtn = document.createElement('button');
+            positiveBtn.textContent = "Positive";
+            positiveBtn.className = "px-4 py-2 text-sm font-medium rounded-lg border border-transparent bg-blue-100 text-blue-800 hover:bg-blue-200 transition duration-300 ease-in-out";
+            positiveBtn.onclick = () => checkAnswer(index, 'positive');
+
+            const normativeBtn = document.createElement('button');
+            normativeBtn.textContent = "Normative";
+            normativeBtn.className = "px-4 py-2 text-sm font-medium rounded-lg border border-transparent bg-purple-100 text-purple-800 hover:bg-purple-200 transition duration-300 ease-in-out";
+            normativeBtn.onclick = () => checkAnswer(index, 'normative');
+
+            const resultSpan = document.createElement('span');
+            resultSpan.className = "text-md font-bold ml-4";
+            resultSpan.id = `result-${index}`;
+
+            buttonContainer.appendChild(positiveBtn);
+            buttonContainer.appendChild(normativeBtn);
+            statementDiv.appendChild(statementText);
+            statementDiv.appendChild(buttonContainer);
+            statementDiv.appendChild(resultSpan);
+
+            container.appendChild(statementDiv);
+        }
+
+        // Function to render all statements
+        function renderQuiz() {
+            container.innerHTML = '';
+            statements.forEach((stmt, index) => renderStatement(stmt, index));
+        }
+
+        // Check the user's answer
+        function checkAnswer(index, choice) {
+            const resultSpan = document.getElementById(`result-${index}`);
+            const statementItem = statements[index];
+            const statementDiv = document.getElementById(`statement-${index}`);
+            
+            // Disable buttons after selection
+            const buttons = statementDiv.querySelectorAll('button');
+            buttons.forEach(btn => btn.disabled = true);
+            
+            if (choice === statementItem.type) {
+                resultSpan.textContent = "Correct!";
+                resultSpan.className = "text-md font-bold ml-4 correct";
+            } else {
+                resultSpan.textContent = "Incorrect.";
+                resultSpan.className = "text-md font-bold ml-4 incorrect";
+            }
+        }
+
+        // Reset the quiz to its initial state
+        function resetQuiz() {
+            renderQuiz();
+        }
+
+        // Reveal the correct answers for all statements
+        function showAnswers() {
+            statements.forEach((stmt, index) => {
+                const resultSpan = document.getElementById(`result-${index}`);
+                resultSpan.textContent = `Answer: ${stmt.type.charAt(0).toUpperCase() + stmt.type.slice(1)}`;
+                resultSpan.className = "text-md font-bold ml-4 text-gray-600";
+            });
+            // Disable all buttons after showing answers
+            const allButtons = document.querySelectorAll('#statements-container button');
+            allButtons.forEach(btn => btn.disabled = true);
+        }
+
+        // Initialize the quiz on page load
+        document.addEventListener('DOMContentLoaded', renderQuiz);
+    </script>
+</body>
+</html>
