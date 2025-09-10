@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Contract Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 1024px;
+            margin: auto;
+            padding: 1.5rem;
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .slider-group {
+            margin-bottom: 1.5rem;
+        }
+        .slider-label {
+            font-weight: 600;
+        }
+        .slider-value {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #d1d5db;
+            border-radius: 5px;
+            outline: none;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4f46e5;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .btn-accept, .btn-decline {
+            transition: transform 0.1s ease-in-out, background-color 0.2s;
+        }
+        .btn-accept:hover {
+            transform: translateY(-2px);
+            background-color: #22c55e;
+        }
+        .btn-decline:hover {
+            transform: translateY(-2px);
+            background-color: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Container -->
+    <div class="container w-full">
+
+        <!-- Title and Description -->
+        <h1 class="text-3xl font-bold text-center mb-2 text-indigo-700">The Social Contract Simulator</h1>
+        <p class="text-center text-gray-600 mb-8">
+            Explore how the demands of individuals, businesses, and government affect the well-being of a society. Adjust the sliders to see the tradeoffs in real time.
+        </p>
+
+        <!-- Main Grid for the Three Parties -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+
+            <!-- Individuals Section -->
+            <div class="p-6 bg-blue-50 border border-blue-200 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold text-blue-800 mb-4">Individuals</h2>
+                <p class="text-sm text-gray-500 mb-4">Set your desired level of safety, economic prosperity, and freedom.</p>
+                
+                <div class="slider-group">
+                    <label for="safety" class="block text-gray-700 slider-label">Safety Index: <span id="safetyValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="safety" min="0" max="1" value="0.5" step="0.01">
+                </div>
+                
+                <div class="slider-group">
+                    <label for="prosperity" class="block text-gray-700 slider-label">Economic Prosperity Index: <span id="prosperityValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="prosperity" min="0" max="1" value="0.5" step="0.01">
+                </div>
+                
+                <div class="slider-group">
+                    <label for="speechFreedom" class="block text-gray-700 slider-label">Speech Freedom Index: <span id="speechFreedomValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="speechFreedom" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-lg font-bold text-blue-700">Current Wellbeing Score: <span id="individualWellbeing" class="font-extrabold text-2xl">0</span></p>
+                </div>
+                 <!-- Individual Decline Button -->
+                <div class="mt-4 flex justify-center">
+                    <button id="declineIndividualBtn" class="btn-decline w-full px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 transition-colors">
+                        Decline (Score: 0)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Businesses Section -->
+            <div class="p-6 bg-green-50 border border-green-200 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold text-green-800 mb-4">Businesses</h2>
+                <p class="text-sm text-gray-500 mb-4">Set your desired levels for cost control, environmental freedom, and tax burden.</p>
+
+                <div class="slider-group">
+                    <label for="productionCost" class="block text-gray-700 slider-label">Production Cost Index: <span id="productionCostValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="productionCost" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="slider-group">
+                    <label for="pollutionFreedom" class="block text-gray-700 slider-label">Pollution Freedom Index: <span id="pollutionFreedomValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="pollutionFreedom" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="slider-group">
+                    <label for="taxBurden" class="block text-gray-700 slider-label">Tax Burden Index: <span id="taxBurdenValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="taxBurden" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-lg font-bold text-green-700">Current Wellbeing Score: <span id="businessWellbeing" class="font-extrabold text-2xl">0</span></p>
+                </div>
+                 <!-- Business Decline Button -->
+                <div class="mt-4 flex justify-center">
+                    <button id="declineBusinessBtn" class="btn-decline w-full px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 transition-colors">
+                        Decline (Score: 0)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Government Section -->
+            <div class="p-6 bg-red-50 border border-red-200 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold text-red-800 mb-4">Government</h2>
+                <p class="text-sm text-gray-500 mb-4">Set your desired levels of power and financial control.</p>
+
+                <div class="slider-group">
+                    <label for="autocracy" class="block text-gray-700 slider-label">Autocracy Index: <span id="autocracyValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="autocracy" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="slider-group">
+                    <label for="budgetFreedom" class="block text-gray-700 slider-label">Budget Freedom Index: <span id="budgetFreedomValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="budgetFreedom" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="slider-group">
+                    <label for="oversight" class="block text-gray-700 slider-label">Oversight Index: <span id="oversightValue" class="slider-value">0.50</span></label>
+                    <input type="range" id="oversight" min="0" max="1" value="0.5" step="0.01">
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-lg font-bold text-red-700">Current Wellbeing Score: <span id="governmentWellbeing" class="font-extrabold text-2xl">0</span></p>
+                </div>
+                <!-- Government Decline Button -->
+                <div class="mt-4 flex justify-center">
+                    <button id="declineGovernmentBtn" class="btn-decline w-full px-4 py-2 bg-red-500 text-white font-bold rounded-full shadow-lg hover:bg-red-600 transition-colors">
+                        Decline (Score: 0)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Contract Decision Buttons -->
+        <div class="flex flex-col md:flex-row justify-center items-center gap-4 my-8">
+            <button id="acceptBtn" class="btn-accept w-full md:w-auto px-8 py-4 bg-green-500 text-white font-bold rounded-full shadow-lg hover:bg-green-600 transition-colors">
+                Accept Contract (Total Score: 0)
+            </button>
+        </div>
+
+        <!-- Final Results & Reset -->
+        <div id="results" class="hidden text-center mt-8 p-6 bg-gray-50 border border-gray-200 rounded-xl">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4" id="outcomeText"></h3>
+            <div class="flex flex-col md:flex-row justify-center gap-8 mb-4">
+                <div class="text-center">
+                    <p class="text-xl font-semibold text-blue-700">Individuals' Final Score</p>
+                    <span id="finalIndividualScore" class="text-4xl font-extrabold text-blue-700">0</span>
+                </div>
+                <div class="text-center">
+                    <p class="text-xl font-semibold text-green-700">Businesses' Final Score</p>
+                    <span id="finalBusinessScore" class="text-4xl font-extrabold text-green-700">0</span>
+                </div>
+                <div class="text-center">
+                    <p class="text-xl font-semibold text-red-700">Government's Final Score</p>
+                    <span id="finalGovernmentScore" class="text-4xl font-extrabold text-red-700">0</span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <p class="text-xl font-semibold text-gray-800">Total Society Wellbeing Score</p>
+                <span id="totalScore" class="text-4xl font-extrabold text-gray-800">0</span>
+            </div>
+            <button id="resetBtn" class="mt-6 px-6 py-2 bg-gray-200 text-gray-800 rounded-full font-semibold hover:bg-gray-300">Reset Simulation</button>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- DOM Elements ---
+            const sliders = {
+                safety: document.getElementById('safety'),
+                prosperity: document.getElementById('prosperity'),
+                speechFreedom: document.getElementById('speechFreedom'),
+                productionCost: document.getElementById('productionCost'),
+                pollutionFreedom: document.getElementById('pollutionFreedom'),
+                taxBurden: document.getElementById('taxBurden'),
+                autocracy: document.getElementById('autocracy'),
+                budgetFreedom: document.getElementById('budgetFreedom'),
+                oversight: document.getElementById('oversight')
+            };
+
+            const values = {
+                safety: document.getElementById('safetyValue'),
+                prosperity: document.getElementById('prosperityValue'),
+                speechFreedom: document.getElementById('speechFreedomValue'),
+                productionCost: document.getElementById('productionCostValue'),
+                pollutionFreedom: document.getElementById('pollutionFreedomValue'),
+                taxBurden: document.getElementById('taxBurdenValue'),
+                autocracy: document.getElementById('autocracyValue'),
+                budgetFreedom: document.getElementById('budgetFreedomValue'),
+                oversight: document.getElementById('oversightValue')
+            };
+
+            const wellbeing = {
+                individual: document.getElementById('individualWellbeing'),
+                business: document.getElementById('businessWellbeing'),
+                government: document.getElementById('governmentWellbeing')
+            };
+
+            const acceptBtn = document.getElementById('acceptBtn');
+            const declineIndividualBtn = document.getElementById('declineIndividualBtn');
+            const declineBusinessBtn = document.getElementById('declineBusinessBtn');
+            const declineGovernmentBtn = document.getElementById('declineGovernmentBtn');
+            const resultsDiv = document.getElementById('results');
+            const outcomeText = document.getElementById('outcomeText');
+            const finalScores = {
+                individual: document.getElementById('finalIndividualScore'),
+                business: document.getElementById('finalBusinessScore'),
+                government: document.getElementById('finalGovernmentScore'),
+                total: document.getElementById('totalScore')
+            };
+            const resetBtn = document.getElementById('resetBtn');
+
+            let finalWellbeing = {
+                contract: { individual: 0, business: 0, government: 0 },
+                noContract: { individual: 0, business: 0, government: 0 }
+            };
+
+            const allButtons = [acceptBtn, declineIndividualBtn, declineBusinessBtn, declineGovernmentBtn];
+
+            // --- Calculation Logic ---
+            const calculateScores = () => {
+                const s = {
+                    safety: parseFloat(sliders.safety.value),
+                    prosperity: parseFloat(sliders.prosperity.value),
+                    speechFreedom: parseFloat(sliders.speechFreedom.value),
+                    productionCost: parseFloat(sliders.productionCost.value),
+                    pollutionFreedom: parseFloat(sliders.pollutionFreedom.value),
+                    taxBurden: parseFloat(sliders.taxBurden.value),
+                    autocracy: parseFloat(sliders.autocracy.value),
+                    budgetFreedom: parseFloat(sliders.budgetFreedom.value),
+                    oversight: parseFloat(sliders.oversight.value)
+                };
+
+                // --- Wellbeing Scores Under Social Contract ---
+                // Individuals' wellbeing is a function of what the government provides, and the business's impact on their lives.
+                const individualContractScore = 
+                    (s.safety * 0.3) + 
+                    (s.prosperity * 0.3) + 
+                    (s.speechFreedom * 0.2) + 
+                    (s.taxBurden * 0.1) - // Tax burden on businesses can lead to better public services for individuals.
+                    (s.pollutionFreedom * 0.1) - 
+                    (s.autocracy * 0.2) -
+                    (s.productionCost * 0.1); // High production costs can be passed on to consumers.
+                
+                // Businesses' wellbeing is a function of their freedoms, but also the stability of the society they operate in.
+                const businessContractScore =
+                    (s.productionCost * 0.3) +
+                    (s.pollutionFreedom * 0.3) + 
+                    (s.taxBurden * 0.2) - 
+                    (s.oversight * 0.2) +
+                    (s.safety * 0.1) + // A safe society is good for business.
+                    (s.prosperity * 0.1); // A prosperous population is a better market.
+                    
+
+                // Government's wellbeing is a function of its own power and ability to govern, but this is negatively affected by the demands of the people and businesses.
+                const governmentContractScore =
+                    (s.autocracy * 0.4) + 
+                    (s.budgetFreedom * 0.3) +
+                    (s.oversight * 0.3) -
+                    ((s.safety + s.prosperity) / 2) * 0.3 - // Providing for the people is a challenge for the government.
+                    (s.speechFreedom * 0.1) -
+                    (s.productionCost * 0.1) - // Struggling businesses lead to a struggling economy and lower tax revenue.
+                    (s.pollutionFreedom * 0.2) - // High pollution can lead to social unrest and health crises.
+                    (s.taxBurden * 0.2); // Low taxes reduce government revenue.
+                
+                // --- Wellbeing Scores Without Social Contract (Primitive State) ---
+                // These are low, but can be better than an extremely unbalanced contract.
+                const individualNoContractScore = 0.2 - Math.min(s.safety, s.prosperity, s.speechFreedom) * 0.1;
+                const businessNoContractScore = 0.2 - Math.min(s.productionCost, s.pollutionFreedom, s.taxBurden) * 0.1;
+                const governmentNoContractScore = 0.2 - Math.min(s.autocracy, s.budgetFreedom, s.oversight) * 0.1;
+
+                // Clamp scores to be between 0 and 1
+                const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+                finalWellbeing.contract.individual = clamp(individualContractScore, 0, 1);
+                finalWellbeing.contract.business = clamp(businessContractScore, 0, 1);
+                finalWellbeing.contract.government = clamp(governmentContractScore, 0, 1);
+
+                finalWellbeing.noContract.individual = clamp(individualNoContractScore, 0, 1);
+                finalWellbeing.noContract.business = clamp(businessNoContractScore, 0, 1);
+                finalWellbeing.noContract.government = clamp(governmentNoContractScore, 0, 1);
+                
+                // Update the button text with the dynamic scores
+                acceptBtn.textContent = `Accept Contract (Total Score: ${(finalWellbeing.contract.individual + finalWellbeing.contract.business + finalWellbeing.contract.government).toFixed(2)})`;
+                declineIndividualBtn.textContent = `Decline (Score: ${finalWellbeing.noContract.individual.toFixed(2)})`;
+                declineBusinessBtn.textContent = `Decline (Score: ${finalWellbeing.noContract.business.toFixed(2)})`;
+                declineGovernmentBtn.textContent = `Decline (Score: ${finalWellbeing.noContract.government.toFixed(2)})`;
+                
+                // Update the real-time wellbeing scores
+                wellbeing.individual.textContent = finalWellbeing.contract.individual.toFixed(2);
+                wellbeing.business.textContent = finalWellbeing.contract.business.toFixed(2);
+                wellbeing.government.textContent = finalWellbeing.contract.government.toFixed(2);
+            };
+
+            // Function to handle the final result display and button state
+            const showFinalResult = (isAccepted) => {
+                resultsDiv.classList.remove('hidden');
+                if (isAccepted) {
+                    outcomeText.textContent = "Outcome: Social Contract Accepted!";
+                    finalScores.individual.textContent = finalWellbeing.contract.individual.toFixed(2);
+                    finalScores.business.textContent = finalWellbeing.contract.business.toFixed(2);
+                    finalScores.government.textContent = finalWellbeing.contract.government.toFixed(2);
+                    finalScores.total.textContent = (finalWellbeing.contract.individual + finalWellbeing.contract.business + finalWellbeing.contract.government).toFixed(2);
+                } else {
+                    outcomeText.textContent = "Outcome: Social Contract Declined!";
+                    finalScores.individual.textContent = finalWellbeing.noContract.individual.toFixed(2);
+                    finalScores.business.textContent = finalWellbeing.noContract.business.toFixed(2);
+                    finalScores.government.textContent = finalWellbeing.noContract.government.toFixed(2);
+                    finalScores.total.textContent = (finalWellbeing.noContract.individual + finalWellbeing.noContract.business + finalWellbeing.noContract.government).toFixed(2);
+                }
+                allButtons.forEach(btn => btn.disabled = true);
+            };
+
+            // --- Event Listeners ---
+            
+            // Listen for changes on all sliders to update the scores and button text
+            Object.values(sliders).forEach(slider => {
+                slider.addEventListener('input', (e) => {
+                    // Update the value display for the specific slider
+                    const valueId = e.target.id + 'Value';
+                    if (values[e.target.id]) {
+                       values[e.target.id].textContent = parseFloat(e.target.value).toFixed(2);
+                    }
+                    calculateScores();
+                });
+            });
+
+            // Handle the "Accept" button click
+            acceptBtn.addEventListener('click', () => {
+                showFinalResult(true);
+            });
+
+            // Handle the individual "Decline" button clicks
+            declineIndividualBtn.addEventListener('click', () => {
+                showFinalResult(false);
+            });
+            declineBusinessBtn.addEventListener('click', () => {
+                showFinalResult(false);
+            });
+            declineGovernmentBtn.addEventListener('click', () => {
+                showFinalResult(false);
+            });
+            
+            // Handle the "Reset" button click
+            resetBtn.addEventListener('click', () => {
+                // Reset all slider values to default
+                Object.values(sliders).forEach(slider => {
+                    slider.value = 0.5;
+                });
+                // Recalculate and update UI
+                calculateScores();
+                // Hide results and re-enable buttons
+                resultsDiv.classList.add('hidden');
+                allButtons.forEach(btn => btn.disabled = false);
+            });
+
+            // Initial calculation on page load
+            calculateScores();
+        });
+    </script>
+</body>
+</html>
