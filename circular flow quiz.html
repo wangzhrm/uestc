@@ -229,3 +229,12 @@
             resultContainer.innerHTML += `<p class="text-red-600 font-bold flex items-center"><span class="incorrect-mark">&#10007;</span> Incorrect.</p>`;
             resultContainer.innerHTML += `<p class="text-green-600 font-bold mt-2">The correct answer is: <span class="correct-answer-text">${correctAnswer}</span></p>`;
         }
+        
+        resultContainer.innerHTML += `<p class="explanation-text mt-2">${explanation}</p>`;
+    }
+
+    createQuiz();
+</script>
+
+</body>
+</html>
