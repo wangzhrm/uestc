@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circular Flow of Economy Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #334155;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            max-width: 800px;
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            margin: 2rem auto;
+            border: 2px solid #e2e8f0;
+        }
+        h1 {
+            color: #1a202c;
+            text-align: center;
+            font-weight: 700;
+        }
+        .question-card {
+            background-color: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid #cbd5e1;
+            margin-bottom: 1.5rem;
+        }
+        .question-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+        .option-button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            font-weight: 400;
+            background-color: #e2e8f0;
+            color: #334155;
+            border: none;
+            cursor: pointer;
+        }
+        .option-button:hover:not(.correct):not(.incorrect) {
+            background-color: #d1d5db;
+        }
+        .correct {
+            background-color: #d1fae5 !important;
+            border: 2px solid #34d399 !important;
+            color: #065f46 !important;
+            font-weight: 600;
+        }
+        .incorrect {
+            background-color: #fee2e2 !important;
+            border: 2px solid #ef4444 !important;
+            color: #991b1b !important;
+            font-weight: 600;
+        }
+        .result-container {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            display: none;
+            border: 1px solid #d1d5db;
+        }
+        .explanation-text {
+            color: #4b5563;
+            font-size: 0.95rem;
+            margin-top: 0.5rem;
+        }
+        .correct-answer-text {
+            font-weight: 600;
+            color: #065f46;
+        }
+        .correct-mark {
+            color: #34d399;
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        .incorrect-mark {
+            color: #ef4444;
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="text-3xl md:text-4xl mb-8">Circular Flow of Economy Quiz</h1>
+    <div id="quiz-container"></div>
+</div>
+
+<script>
+    const questions = [
+        {
+            question: "In the basic circular flow model, what do households sell to businesses in the factor market?",
+            options: ["Goods and services", "Capital and profit", "Resources (e.g., labor, land)", "Consumption expenditure"],
+            correctAnswer: "Resources (e.g., labor, land)",
+            explanation: "Households own the factors of production (resources) and sell them to businesses in the factor market. In exchange, they receive income in the form of wages, rent, interest, and profit."
+        },
+        {
+            question: "Which of the following represents a withdrawal from the circular flow of income?",
+            options: ["Investment", "Government spending", "Taxes", "Exports"],
+            correctAnswer: "Taxes",
+            explanation: "Withdrawals, also known as leakages, are any uses of income that do not flow directly back to firms. Taxes, savings, and imports are the three main withdrawals."
+        },
+        {
+            question: "When injections are larger than leakages, what happens to the circular flow of income?",
+            options: ["It remains stable", "It becomes smaller", "It becomes larger", "It stops completely"],
+            correctAnswer: "It becomes larger",
+            explanation: "Injections (investment, government spending, exports) add money to the economy. When these are greater than leakages (savings, taxes, imports), the total income flow expands, leading to economic growth."
+        },
+        {
+            question: "Which of the following is considered an injection into the circular flow?",
+            options: ["Savings by households", "Imports", "Government spending", "Wages"],
+            correctAnswer: "Government spending",
+            explanation: "Injections are additions to the circular flow. Government spending, investment, and exports are the three main types of injections."
+        },
+        {
+            question: "The payment for labor in the circular flow model is referred to as:",
+            options: ["Rent", "Interest", "Profit", "Wages"],
+            correctAnswer: "Wages",
+            explanation: "In the factor market, businesses pay households for their resources. The payment for labor is a wage, for land is rent, for capital is interest, and for entrepreneurship is profit."
+        },
+        {
+            question: "What is the primary role of the product market in the circular flow model?",
+            options: ["To sell resources to businesses", "To facilitate government spending", "To provide goods and services directly to consumers", "To manage household savings"],
+            correctAnswer: "To provide goods and services directly to consumers",
+            explanation: "The product market is where businesses sell their finished goods and services to households in exchange for consumption expenditure."
+        },
+        {
+            question: "Savings by households are considered a leakage because they:",
+            options: ["Increase the national debt", "Are not directly spent on goods and services in the economy", "Are used by the government for public services", "Are a form of investment for businesses"],
+            correctAnswer: "Are not directly spent on goods and services in the economy",
+            explanation: "When households save money, that money is removed from the immediate spending stream on goods and services, making it a leakage from the circular flow."
+        },
+        {
+            question: "What does 'WIRP' stand for in the context of factor incomes?",
+            options: ["Work, Income, Rent, Production", "Wages, Interest, Rent, Profit", "Withdrawals, Injections, Resources, Payments", "Wealth, Investment, Revenue, Price"],
+            correctAnswer: "Wages, Interest, Rent, Profit",
+            explanation: "WIRP is an acronym for the four types of factor incomes: Wages (for labor), Interest (for capital), Rent (for land), and Profit (for entrepreneurship)."
+        },
+        {
+            question: "In an 'open economy,' what additional sectors are included in the circular flow model besides households and businesses?",
+            options: ["Government and financial market", "Foreign sector and non-profit organizations", "Government and foreign sector", "Financial market and labor unions"],
+            correctAnswer: "Government and foreign sector",
+            explanation: "An open economy model expands on the basic circular flow to include the government sector (taxes and spending) and the foreign sector (imports and exports)."
+        },
+        {
+            question: "If an economy experiences a drop in its national income flow, it is likely due to:",
+            options: ["Injections being greater than leakages", "Injections being equal to leakages", "Leakages being greater than injections", "Investment being equal to exports"],
+            correctAnswer: "Leakages being greater than injections",
+            explanation: "When more money is withdrawn from the economy (leakages) than is added (injections), the overall income flow shrinks, leading to a contraction of the economy."
+        }
+    ];
+
+    const quizContainer = document.getElementById('quiz-container');
+
+    function createQuiz() {
+        questions.forEach((q, index) => {
+            const questionCard = document.createElement('div');
+            questionCard.className = 'question-card';
+            questionCard.dataset.index = index;
+
+            const questionText = document.createElement('p');
+            questionText.className = 'question-text';
+            questionText.textContent = `${index + 1}. ${q.question}`;
+            questionCard.appendChild(questionText);
+
+            q.options.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'option-button';
+                button.textContent = option;
+                button.onclick = () => handleAnswer(button, q.correctAnswer, q.explanation, questionCard);
+                questionCard.appendChild(button);
+            });
+
+            const resultContainer = document.createElement('div');
+            resultContainer.className = 'result-container';
+            questionCard.appendChild(resultContainer);
+
+            quizContainer.appendChild(questionCard);
+        });
+    }
+
+    function handleAnswer(selectedButton, correctAnswer, explanation, questionCard) {
+        const buttons = questionCard.querySelectorAll('.option-button');
+        const resultContainer = questionCard.querySelector('.result-container');
+
+        // Disable all buttons for this question
+        buttons.forEach(button => {
+            button.disabled = true;
+            button.classList.remove('hover:bg-gray-300');
+        });
+
+        // Show result
+        resultContainer.style.display = 'block';
+        resultContainer.innerHTML = '';
+
+        if (selectedButton.textContent === correctAnswer) {
+            selectedButton.classList.add('correct');
+            resultContainer.innerHTML += `<p class="text-green-600 font-bold flex items-center"><span class="correct-mark">&#10003;</span> Correct! The answer is <span class="correct-answer-text ml-1">${correctAnswer}</span>.</p>`;
+        } else {
+            selectedButton.classList.add('incorrect');
+            const correctButton = Array.from(buttons).find(btn => btn.textContent === correctAnswer);
+            if (correctButton) {
+                correctButton.classList.add('correct');
+            }
+            resultContainer.innerHTML += `<p class="text-red-600 font-bold flex items-center"><span class="incorrect-mark">&#10007;</span> Incorrect.</p>`;
+            resultContainer.innerHTML += `<p class="text-green-600 font-bold mt-2">The correct answer is: <span class="correct-answer-text">${correctAnswer}</span></p>`;
+        }
