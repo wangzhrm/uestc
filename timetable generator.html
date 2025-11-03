@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程表生成器</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f6f9;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .step {
+            display: none;
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+        .step.active {
+            display: block;
+        }
+        label {
+            display: block;
+            margin: 15px 0 5px;
+            font-weight: bold;
+        }
+        input, textarea, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .nav-buttons {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .nav-buttons button {
+            width: auto;
+            padding: 10px 25px;
+            margin: 0 10px;
+        }
+        .class-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .class-tag {
+            background: #ddd;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+        .class-tag button {
+            margin-left: 8px;
+            width: auto;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+        #output {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid #27ae60;
+            border-radius: 10px;
+            background: #f8fff8;
+            display: none;
+        }
+        #htmlCode {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            margin: 15px 0;
+            user-select: all;
+        }
+        .copy-btn {
+            background-color: #27ae60;
+            font-size: 16px;
+            padding: 12px 30px;
+        }
+        .copy-btn:hover {
+            background-color: #219653;
+        }
+        .copy-success {
+            color: #27ae60;
+            font-weight: bold;
+            margin-left: 10px;
+            display: none;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 150px repeat(5, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        .grid label {
+            margin: 0;
+            font-weight: normal;
+            text-align: right;
+            padding-right: 10px;
+        }
+        .grid select {
+            width: auto;
+            margin: 0;
+        }
+        .step-indicator {
+            text-align: center;
+            font-size: 18px;
+            margin: 20px 0;
+            color: #3498db;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>课程表生成器</h1>
+    <p style="text-align:center;">生成可复制的 HTML 课程表代码</p>
+
+    <div class="step-indicator" id="stepIndicator">第 1 步：设置时间段</div>
+
+    <!-- Step 1: Time Slots -->
+    <div id="step1" class="step active">
+        <h2>1. 设置时间段</h2>
+        <label>上午时间段（每行一个）</label>
+        <textarea id="morningSlots" rows="4" placeholder="08:30~09:15&#10;09:25~10:10&#10;10:20~11:05&#10;11:15~12:00"></textarea>
+
+        <label>午休时间</label>
+        <input type="text" id="noonBreak" value="12:00~13:40">
+
+        <label>下午时间段（每行一个）</label>
+        <textarea id="afternoonSlots" rows="4" placeholder="13:40~14:25&#10;14:35~15:20&#10;15:30~16:15&#10;16:25~17:10"></textarea>
+
+        <div class="nav-buttons">
+            <button onclick="nextStep(2)">下一步</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Class Names -->
+    <div id="step2" class="step">
+        <h2>2. 添加课程名称</h2>
+        <input type="text" id="classInput" placeholder="输入课程名（如：市场营销）">
+        <button onclick="addClass()">添加课程</button>
+        <div id="classList" class="class-list"></div>
+
+        <div class="nav-buttons">
+            <button onclick="prevStep(1)">上一步</button>
+            <button onclick="nextStep(3)" id="toStep3">下一步</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Assign Classes -->
+    <div id="step3" class="step">
+        <h2>3. 为每个时间段选择课程</h2>
+        <div id="slotAssignments"></div>
+
+        <div class="nav-buttons">
+            <button onclick="prevStep(2)">上一步</button>
+            <button onclick="generateHTMLCode()" class="generate-btn">生成 HTML 代码</button>
+        </div>
+    </div>
+
+    <!-- Output: HTML Code -->
+    <div id="output">
+        <h2>HTML 代码（可复制）</h2>
+        <p>复制以下代码，粘贴到 <code>.html</code> 文件中即可使用</p>
+        <button class="copy-btn" onclick="copyCode()">
+            复制 HTML 代码 <span class="copy-success" id="copySuccess">已复制！</span>
+        </button>
+        <pre><code id="htmlCode"></code></pre>
+    </div>
+</div>
+
+<script>
+    const classes = [];
+    const colors = [
+        '#a8e6cf', '#ffd3b6', '#ffaaa5', '#dcedc1',
+        '#c7ceea', '#ffe0b3', '#d5a6e6', '#f4b8c3',
+        '#b8e6b8', '#ffb3b3'
+    ];
+    const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const dayNames = ['周一', '周二', '周三', '周四', '周五'];
+
+    let morningSlots = [];
+    let afternoonSlots = [];
+
+    function nextStep(step) {
+        if (step === 2) {
+            morningSlots = document.getElementById('morningSlots').value.trim().split('\n').map(s => s.trim()).filter(s => s);
+            afternoonSlots = document.getElementById('afternoonSlots').value.trim().split('\n').map(s => s.trim()).filter(s => s);
+            if (morningSlots.length + afternoonSlots.length === 0) {
+                alert('请至少输入一个时间段！');
+                return;
+            }
+        }
+
+        if (step === 3) {
+            if (classes.length === 0) {
+                alert('请至少添加一个课程！');
+                return;
+            }
+            buildAssignmentGrid();
+        }
+
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.getElementById(`step${step}`).classList.add('active');
+        document.getElementById('stepIndicator').textContent = `第 ${step} 步：${
+            step === 1 ? '设置时间段' : step === 2 ? '添加课程名称' : '选择课程'
+        }`;
+    }
+
+    function prevStep(step) {
+        nextStep(step);
+    }
+
+    function addClass() {
+        const input = document.getElementById('classInput');
+        const name = input.value.trim();
+        if (!name) return alert('请输入课程名！');
+        if (classes.includes(name)) return alert('该课程已存在！');
+
+        classes.push(name);
+        input.value = '';
+        renderClassList();
+        document.getElementById('toStep3').disabled = false;
+    }
+
+    function removeClass(index) {
+        classes.splice(index, 1);
+        renderClassList();
+    }
+
+    function renderClassList() {
+        const list = document.getElementById('classList');
+        list.innerHTML = '';
+        classes.forEach((cls, i) => {
+            const tag = document.createElement('div');
+            tag.className = 'class-tag';
+            tag.style.backgroundColor = colors[i % colors.length];
+            tag.innerHTML = `${cls} <button onclick="removeClass(${i})">×</button>`;
+            list.appendChild(tag);
+        });
+    }
+
+    function buildAssignmentGrid() {
+        const allSlots = [...morningSlots, ...afternoonSlots];
+        const container = document.getElementById('slotAssignments');
+        container.innerHTML = '';
+
+        allSlots.forEach((slot, slotIndex) => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '20px';
+
+            const header = document.createElement('h4');
+            header.textContent = slot;
+            header.style.margin = '10px 0 8px';
+            div.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+
+            const timeLabel = document.createElement('label');
+            timeLabel.textContent = slot;
+            grid.appendChild(timeLabel);
+
+            days.forEach((_, dayIndex) => {
+                const select = document.createElement('select');
+                select.id = `select_${slotIndex}_${dayIndex}`;
+
+                const empty = document.createElement('option');
+                empty.value = '';
+                empty.textContent = '无课';
+                select.appendChild(empty);
+
+                classes.forEach(cls => {
+                    const opt = document.createElement('option');
+                    opt.value = cls;
+                    opt.textContent = cls;
+                    select.appendChild(opt);
+                });
+
+                grid.appendChild(select);
+            });
+
+            div.appendChild(grid);
+            container.appendChild(div);
+        });
+    }
+
+    function generateHTMLCode() {
+        const allSlots = [...morningSlots, ...afternoonSlots];
+        const noon = document.getElementById('noonBreak').value.trim() || '12:00~13:40';
+
+        const assignments = {};
+        allSlots.forEach((_, slotIndex) => {
+            assignments[slotIndex] = {};
+            days.forEach((_, dayIndex) => {
+                const select = document.getElementById(`select_${slotIndex}_${dayIndex}`);
+                assignments[slotIndex][dayIndex] = select ? select.value : '';
+            });
+        });
+
+        // Generate full standalone HTML
+        let html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程表</title>
+    <style>
+        body { font-family: "Microsoft YaHei", Arial, sans-serif; margin: 20px; background: #f4f6f9; color: #2c3e50; }
+        h1 { text-align: center; color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; margin: 25px 0; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid #ccc; padding: 14px; text-align: center; }
+        th { background-color: #2980b9; color: white; font-weight: bold; }
+        .time { background-color: #ecf0f1; font-weight: bold; width: 15%; border-right: 2px solid #bbb; }
+        .break { background-color: #f0f0f0; font-style: italic; color: #7f8c8d; font-weight: bold; }
+        .empty { background-color: #f9f9fb; }
+    </style>
+</head>
+<body>
+
+<h1>一周课程表</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th class="time">时间</th>
+            <th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th>
+        </tr>
+    </thead>
+    <tbody>\n`;
+
+        // Morning
+        morningSlots.forEach((slot, i) => {
+            html += `        <tr>
+            <td class="time">${slot}</td>\n`;
+            days.forEach((_, d) => {
+                const cls = assignments[i][d];
+                if (cls) {
+                    const color = getColor(cls);
+                    html += `            <td style="background-color:${color}">${cls}</td>\n`;
+                } else {
+                    html += `            <td class="empty"></td>\n`;
+                }
+            });
+            html += `        </tr>\n`;
+        });
+
+        // Noon break
+        html += `        <tr>
+            <td class="time break">${noon}</td>
+            <td colspan="5" class="break">午休</td>
+        </tr>\n`;
+
+        // Afternoon
+        afternoonSlots.forEach((slot, i) => {
+            const idx = morningSlots.length + i;
+            html += `        <tr>
+            <td class="time">${slot}</td>\n`;
+            days.forEach((_, d) => {
+                const cls = assignments[idx][d];
+                if (cls) {
+                    const color = getColor(cls);
+                    html += `            <td style="background-color:${color}">${cls}</td>\n`;
+                } else {
+                    html += `            <td class="empty"></td>\n`;
+                }
+            });
+            html += `        </tr>\n`;
+        });
+
+        html += `    </tbody>
+</table>
+
+</body>
+</html>`;
+
+        // Output
+        document.getElementById('htmlCode').textContent = html;
+        document.getElementById('output').style.display = 'block';
+        document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function getColor(name) {
+        const i = classes.indexOf(name);
+        return i >= 0 ? colors[i % colors.length] : '#f0f0f0';
+    }
+
+    function copyCode() {
+        const code = document.getElementById('htmlCode').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            const msg = document.getElementById('copySuccess');
+            msg.style.display = 'inline';
+            setTimeout(() => msg.style.display = 'none', 2000);
+        });
+    }
+
+    window.onload = () => {
+        document.getElementById('toStep3').disabled = true;
+    };
+</script>
+
+</body>
+</html>
