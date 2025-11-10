@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Marks Summary</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 8px 6px;
+      text-align: center;
+      border: 1px solid #ddd;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .avg {
+      font-weight: bold;
+      color: #27ae60;
+    }
+    .delete-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 3px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .delete-btn:hover {
+      background: #c0392b;
+    }
+    .student-name-input {
+      width: 100px;
+      padding: 2px 4px;
+      font-size: 14px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .student-name-input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    #globalDelete {
+      text-align: center;
+      margin-top: 16px;
+    }
+    #globalDelete button {
+      background: #8e44ad;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #globalDelete button:hover {
+      background: #7d3c98;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+    .success {
+      background-color: #d4edda;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Marks Summary</h1>
+  <div id="content" class="loading">Loading students...</div>
+
+  <div id="globalDelete">
+    <button onclick="deleteAll()">🗑️ Delete All Marks</button>
+  </div>
+
+  <script>
+    const APP_ID = 'tGIl9a22Y5FfPJ5OI0YQXCYI-gzGzoHsz';
+    const APP_KEY = 'hXkqSFic2J9wtjv3Mvy6YwoF';
+
+    AV.init({
+      appId: APP_ID,
+      appKey: APP_KEY,
+      serverURL: 'https://tGIl9a22Y5FfPJ5OI0YQXCYI.lc-cn-n1-shared.com'
+    });
+
+    // Default students (only used if Student class is empty)
+    const DEFAULT_STUDENTS = ['Student A', 'Student B', 'Student C', 'Student D'];
+
+    // Will hold { id: string, name: string }[]
+    let STUDENT_LIST = [];
+
+    // Fetch or initialize Student records
+    async function loadStudents() {
+      try {
+        const query = new AV.Query('Student');
+        query.limit(100);
+        query.addAscending('createdAt'); // preserve order
+        const results = await query.find();
+
+        if (results.length === 0) {
+          // First time: create default students
+          const studentObjects = DEFAULT_STUDENTS.map(name => {
+            const student = new AV.Object('Student');
+            student.set('name', name);
+            return student;
+          });
+          await AV.Object.saveAll(studentObjects);
+          // Reload after creation
+          return loadStudents();
+        }
+
+        STUDENT_LIST = results.map(obj => ({
+          id: obj.id,
+          name: obj.get('name')
+        }));
+      } catch (err) {
+        console.error('Failed to load students:', err);
+        throw err;
+      }
+    }
+
+    // Load marks and render table
+    async function loadMarksAndRender() {
+      const el = document.getElementById('content');
+      try {
+        // Ensure students are loaded
+        await loadStudents();
+
+        // Load marking sheets
+        const query = new AV.Query('MarkingSheet');
+        query.limit(1000);
+        const results = await query.find();
+
+        // Group scores by student name
+        const scoreMap = {};
+        STUDENT_LIST.forEach(s => scoreMap[s.name] = []);
+
+        results.forEach(r => {
+          const s = r.get('evaluatedStudent');
+          const score = r.get('totalScore');
+          if (scoreMap.hasOwnProperty(s) && typeof score === 'number') {
+            scoreMap[s].push(score);
+          }
+        });
+
+        // Render table
+        let html = `<table><thead><tr><th>Student</th><th>Marks</th><th>Avg</th><th>Action</th></tr></thead><tbody>`;
+        STUDENT_LIST.forEach(student => {
+          const scores = scoreMap[student.name];
+          const marks = scores.length ? scores.map(v => `${v}/100`).join(', ') : '—';
+          const avg = scores.length ? (scores.reduce((a,b) => a + b, 0) / scores.length).toFixed(1) : '—';
+          html += `
+            <tr>
+              <td>
+                <input type="text" 
+                       class="student-name-input" 
+                       value="${AV.escapeHtml(student.name)}" 
+                       data-id="${student.id}"
+                       onblur="saveStudentName(this, '${student.id}')"
+                       onkeydown="if(event.key==='Enter') this.blur()">
+              </td>
+              <td>${marks}</td>
+              <td class="avg">${avg}/100</td>
+              <td><button class="delete-btn" onclick="del('${AV.escapeHtml(student.name)}')">Delete</button></td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = `<div style="color:red;text-align:center;">Load error: ${e.message || 'Unknown'}</div>`;
+        console.error(e);
+      }
+    }
+
+    // Save edited student name to LeanCloud
+    async function saveStudentName(input, objectId) {
+      const newName = input.value.trim();
+      const oldName = STUDENT_LIST.find(s => s.id === objectId)?.name || '';
+
+      if (!newName) {
+        alert('Name cannot be empty.');
+        input.value = oldName;
+        return;
+      }
+
+      if (newName === oldName) return;
+
+      try {
+        const student = AV.Object.createWithoutData('Student', objectId);
+        student.set('name', newName);
+        await student.save();
+
+        // Update local cache
+        const idx = STUDENT_LIST.findIndex(s => s.id === objectId);
+        if (idx !== -1) STUDENT_LIST[idx].name = newName;
+
+        // Also update any existing MarkingSheet records that use the old name
+        const markQuery = new AV.Query('MarkingSheet');
+        markQuery.equalTo('evaluatedStudent', oldName);
+        markQuery.limit(1000);
+        const markRecords = await markQuery.find();
+
+        if (markRecords.length > 0) {
+          const updates = markRecords.map(rec => {
+            rec.set('evaluatedStudent', newName);
+            return rec.save();
+          });
+          await Promise.all(updates);
+          console.log(`Updated ${markRecords.length} MarkingSheet records.`);
+        }
+
+        input.classList.add('success');
+        setTimeout(() => input.classList.remove('success'), 1000);
+      } catch (err) {
+        console.error('Save failed:', err);
+        alert(`Failed to save name: ${err.message || 'Unknown error'}`);
+        input.value = oldName;
+      }
+    }
+
+    // Delete all marks for a student (by current name)
+    async function del(studentName) {
+      if (!confirm(`Delete all marks for "${studentName}"?`)) return;
+      try {
+        const q = new AV.Query('MarkingSheet');
+        q.equalTo('evaluatedStudent', studentName);
+        const objs = await q.find();
+        if (objs.length) await AV.Object.destroyAll(objs);
+        alert(`Deleted ${objs.length} mark(s).`);
+        loadMarksAndRender();
+      } catch (e) {
+        alert('Delete failed.');
+        console.error(e);
+      }
+    }
+
+    async function deleteAll() {
+      if (!confirm('Delete ALL marks for ALL students?')) return;
+      try {
+        const q = new AV.Query('MarkingSheet');
+        q.limit(1000);
+        const objs = await q.find();
+        if (objs.length) await AV.Object.destroyAll(objs);
+        alert(`All ${objs.length} marks deleted.`);
+        loadMarksAndRender();
+      } catch (e) {
+        alert('Delete all failed.');
+        console.error(e);
+      }
+    }
+
+    // Helper to escape HTML (prevent XSS)
+    AV.escapeHtml = (str) => {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+
+    window.addEventListener('DOMContentLoaded', loadMarksAndRender);
+  </script>
+</body>
+</html>

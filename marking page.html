@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Marketing Presentation Marking Sheet</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      margin: 16px;
+      background: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 15px;
+      line-height: 1.3;
+    }
+    select, button {
+      padding: 10px 12px;
+      margin: 6px 0;
+      font-size: 16px; /* Prevents zoom on iOS */
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 100%;
+      max-width: 300px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-top: 10px;
+      font-size: 15px;
+    }
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border: 1px solid #ddd;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    input[type="number"] {
+      width: 70px;
+      padding: 8px;
+      font-size: 16px; /* Prevents zoom on iOS */
+      text-align: center;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .warning {
+      color: #e67e22;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 600px) {
+      body {
+        margin: 10px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      th, td {
+        padding: 10px 8px;
+        font-size: 14px;
+      }
+      input[type="number"] {
+        width: 60px;
+        padding: 7px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Marketing Presentation Marking Sheet</h1>
+
+  <p style="text-align:center;">
+    <strong>Choose the student you are evaluating:</strong><br/>
+    <select id="studentSelect">
+      <option value="">-- Select --</option>
+    </select>
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Criteria</th>
+        <th>Description</th>
+        <th>Marks</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Market Segmentation</td>
+        <td>Clear definition of target segment with a name and detailed customer profile (demographics, psychographics, behaviors).</td>
+        <td>15</td>
+        <td><input type="number" min="0" max="15" id="score1"></td>
+      </tr>
+      <tr>
+        <td>Targeting Strategy</td>
+        <td>Justification of chosen strategy (undifferentiated, differentiated, or concentrated) with logical reasoning.</td>
+        <td>10</td>
+        <td><input type="number" min="0" max="10" id="score2"></td>
+      </tr>
+      <tr>
+        <td>Positioning Map</td>
+        <td>Two relevant criteria selected; 2D map is clear, labeled, and new product is accurately placed.</td>
+        <td>15</td>
+        <td><input type="number" min="0" max="15" id="score3"></td>
+      </tr>
+      <tr>
+        <td>Product Concept</td>
+        <td>Original, feasible product idea clearly introduced; links to 15% revenue goal; addresses functional needs.</td>
+        <td>20</td>
+        <td><input type="number" min="0" max="20" id="score4"></td>
+      </tr>
+      <tr>
+        <td>Use of Evidence & Assumptions</td>
+        <td>Public sources cited or rational assumptions clearly stated and justified in presentation.</td>
+        <td>10</td>
+        <td><input type="number" min="0" max="10" id="score5"></td>
+      </tr>
+      <tr>
+        <td>Slide Design & Clarity</td>
+        <td>Professional, uncluttered slides; consistent branding, readable fonts, effective visuals.</td>
+        <td>10</td>
+        <td><input type="number" min="0" max="10" id="score6"></td>
+      </tr>
+      <tr>
+        <td>Delivery & Time Management</td>
+        <td>Confident, clear speech; stays within 5 minutes; natural flow and engagement.</td>
+        <td>10</td>
+        <td><input type="number" min="0" max="10" id="score7"></td>
+      </tr>
+      <tr>
+        <td>Q&A Handling</td>
+        <td>Answers questions accurately, confidently, and concisely during 3-minute Q&A.</td>
+        <td>10</td>
+        <td><input type="number" min="0" max="10" id="score8"></td>
+      </tr>
+      <tr>
+        <td><strong>Total Score</strong></td>
+        <td><strong>/100</strong></td>
+        <td>—</td>
+        <td id="totalScoreDisplay">—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div id="message" style="text-align:center; margin-top:15px;"></div>
+
+  <div style="text-align:center; margin-top:20px;">
+    <button onclick="submitMarks()">Submit Marks</button>
+  </div>
+
+  <script>
+    // === LEAN CLOUD SETUP ===
+    const APP_ID = 'tGIl9a22Y5FfPJ5OI0YQXCYI-gzGzoHsz';
+    const APP_KEY = 'hXkqSFic2J9wtjv3Mvy6YwoF';
+
+    AV.init({
+      appId: APP_ID,
+      appKey: APP_KEY,
+      serverURL: 'https://tGIl9a22Y5FfPJ5OI0YQXCYI.lc-cn-n1-shared.com'
+    });
+
+    // Max scores per criterion
+    const maxScores = {
+      score1: 15,
+      score2: 10,
+      score3: 15,
+      score4: 20,
+      score5: 10,
+      score6: 10,
+      score7: 10,
+      score8: 10
+    };
+
+    // Initialize real-time validation and live total
+    document.addEventListener('DOMContentLoaded', () => {
+      Object.keys(maxScores).forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        const max = maxScores[id];
+        input.addEventListener('input', () => {
+          let val = input.value.trim();
+          if (val === '') return;
+
+          let num = Number(val);
+          if (isNaN(num)) {
+            input.value = '';
+            updateTotalDisplay();
+            return;
+          }
+
+          num = Math.max(0, Math.min(Math.floor(num), max));
+          input.value = num;
+          updateTotalDisplay();
+        });
+      });
+
+      // Initial total display
+      updateTotalDisplay();
+    });
+
+    function updateTotalDisplay() {
+      let total = 0;
+      for (let i = 1; i <= 8; i++) {
+        const val = parseInt(document.getElementById(`score${i}`).value) || 0;
+        total += val;
+      }
+      document.getElementById('totalScoreDisplay').textContent = total;
+    }
+
+    // === LOAD STUDENT NAMES ===
+    (function loadStudentNamesIntoDropdown() {
+      const select = document.getElementById('studentSelect');
+      if (!select) return;
+
+      select.innerHTML = '<option value="">Loading...</option>';
+
+      const query = new AV.Query('Student');
+      query.limit(100);
+      query.ascending('name');
+
+      query.find().then(students => {
+        const names = students
+          .map(student => student.get('name'))
+          .filter(name => typeof name === 'string' && name.trim() !== '')
+          .map(name => name.trim());
+
+        select.innerHTML = '<option value="">-- Select --</option>';
+        names.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          select.appendChild(opt);
+        });
+      }).catch(err => {
+        console.error('Failed to load students:', err);
+        const fallback = ['Student A', 'Student B', 'Student C', 'Student D'];
+        select.innerHTML = '<option value="">-- Select --</option>';
+        fallback.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          select.appendChild(opt);
+        });
+        document.getElementById('message').innerHTML = 
+          '<p class="warning">⚠️ Could not load student list. Using placeholders.</p>';
+      });
+    })();
+
+    // === HELPER FUNCTIONS ===
+    function getDeviceId() {
+      let deviceId = localStorage.getItem('deviceId');
+      if (!deviceId) {
+        deviceId = 'device_' + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('deviceId', deviceId);
+      }
+      return deviceId;
+    }
+
+    async function submitMarks() {
+      const selectedStudent = document.getElementById('studentSelect').value;
+      if (!selectedStudent) {
+        alert('Please select a student.');
+        return;
+      }
+
+      // Final validation
+      let total = 0;
+      for (let i = 1; i <= 8; i++) {
+        const input = document.getElementById(`score${i}`);
+        const max = maxScores[`score${i}`];
+        let val = parseInt(input.value) || 0;
+        val = Math.max(0, Math.min(val, max));
+        input.value = val;
+        total += val;
+      }
+
+      if (total > 100) {
+        alert('Total cannot exceed 100.');
+        return;
+      }
+
+      const deviceId = getDeviceId();
+      const query = new AV.Query('MarkingSheet');
+      query.equalTo('evaluatedStudent', selectedStudent);
+      query.equalTo('deviceId', deviceId);
+      const existing = await query.find();
+      if (existing.length > 0) {
+        document.getElementById('message').innerHTML = 
+          '<p class="warning">⚠️ You have already submitted marks for this student from this device.</p>';
+        return;
+      }
+
+      const MarkingSheet = AV.Object.extend('MarkingSheet');
+      const mark = new MarkingSheet();
+      mark.set('evaluatedStudent', selectedStudent);
+      mark.set('totalScore', total);
+      mark.set('scores', [
+        document.getElementById('score1').value || 0,
+        document.getElementById('score2').value || 0,
+        document.getElementById('score3').value || 0,
+        document.getElementById('score4').value || 0,
+        document.getElementById('score5').value || 0,
+        document.getElementById('score6').value || 0,
+        document.getElementById('score7').value || 0,
+        document.getElementById('score8').value || 0
+      ]);
+      mark.set('deviceId', deviceId);
+
+      try {
+        await mark.save();
+        document.getElementById('message').innerHTML = '<p class="success">✅ Marks submitted successfully!</p>';
+        document.querySelector('button').disabled = true;
+        document.querySelectorAll('input[type="number"]').forEach(el => el.disabled = true);
+        document.getElementById('studentSelect').disabled = true;
+      } catch (error) {
+        alert('Submission failed. Please try again.');
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
