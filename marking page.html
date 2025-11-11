@@ -77,6 +77,12 @@
       text-align: center;
       margin-top: 10px;
     }
+    .error {
+      color: #d32f2f;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+    }
 
     /* Mobile responsiveness */
     @media (max-width: 600px) {
@@ -209,6 +215,17 @@
       score8: 10
     };
 
+    const criteriaNames = {
+      score1: "Market Segmentation",
+      score2: "Targeting Strategy",
+      score3: "Positioning Map",
+      score4: "Product Concept",
+      score5: "Use of Evidence & Assumptions",
+      score6: "Slide Design & Clarity",
+      score7: "Delivery & Time Management",
+      score8: "Q&A Handling"
+    };
+
     // Initialize real-time validation and live total
     document.addEventListener('DOMContentLoaded', () => {
       Object.keys(maxScores).forEach(id => {
@@ -218,7 +235,10 @@
         const max = maxScores[id];
         input.addEventListener('input', () => {
           let val = input.value.trim();
-          if (val === '') return;
+          if (val === '') {
+            updateTotalDisplay();
+            return;
+          }
 
           let num = Number(val);
           if (isNaN(num)) {
@@ -233,7 +253,6 @@
         });
       });
 
-      // Initial total display
       updateTotalDisplay();
     });
 
@@ -244,6 +263,27 @@
         total += val;
       }
       document.getElementById('totalScoreDisplay').textContent = total;
+    }
+
+    // === VALIDATION FUNCTION ===
+    function validateAllScores() {
+      const missing = [];
+      for (let i = 1; i <= 8; i++) {
+        const id = `score${i}`;
+        const input = document.getElementById(id);
+        const val = input.value.trim();
+
+        if (val === '' || isNaN(Number(val))) {
+          missing.push(criteriaNames[id]);
+        } else {
+          const num = Number(val);
+          const max = maxScores[id];
+          if (num < 0 || num > max) {
+            missing.push(criteriaNames[id]);
+          }
+        }
+      }
+      return missing;
     }
 
     // === LOAD STUDENT NAMES ===
@@ -302,19 +342,23 @@
         return;
       }
 
-      // Final validation
+      const missing = validateAllScores();
+      if (missing.length > 0) {
+        const msg = 'Please provide valid marks for all criteria.<br/>' +
+                    'Missing or invalid: ' + missing.join(', ');
+        document.getElementById('message').innerHTML = `<p class="error">❌ ${msg}</p>`;
+        return;
+      }
+
+      // All scores are valid — calculate total
       let total = 0;
       for (let i = 1; i <= 8; i++) {
-        const input = document.getElementById(`score${i}`);
-        const max = maxScores[`score${i}`];
-        let val = parseInt(input.value) || 0;
-        val = Math.max(0, Math.min(val, max));
-        input.value = val;
-        total += val;
+        total += parseInt(document.getElementById(`score${i}`).value);
       }
 
       if (total > 100) {
-        alert('Total cannot exceed 100.');
+        document.getElementById('message').innerHTML = 
+          '<p class="error">❌ Total cannot exceed 100.</p>';
         return;
       }
 
@@ -334,14 +378,14 @@
       mark.set('evaluatedStudent', selectedStudent);
       mark.set('totalScore', total);
       mark.set('scores', [
-        document.getElementById('score1').value || 0,
-        document.getElementById('score2').value || 0,
-        document.getElementById('score3').value || 0,
-        document.getElementById('score4').value || 0,
-        document.getElementById('score5').value || 0,
-        document.getElementById('score6').value || 0,
-        document.getElementById('score7').value || 0,
-        document.getElementById('score8').value || 0
+        document.getElementById('score1').value,
+        document.getElementById('score2').value,
+        document.getElementById('score3').value,
+        document.getElementById('score4').value,
+        document.getElementById('score5').value,
+        document.getElementById('score6').value,
+        document.getElementById('score7').value,
+        document.getElementById('score8').value
       ]);
       mark.set('deviceId', deviceId);
 
