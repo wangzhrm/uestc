@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teaching Calendar</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 1.2em;
+    }
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 30px;
+    }
+    .day-header {
+      text-align: center;
+      font-weight: bold;
+      padding: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+    }
+    .date-cell {
+      height: 80px;
+      background: white;
+      border: 1px solid #ddd;
+      padding: 4px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .date-number {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .class-summary {
+      font-size: 0.85em;
+      color: #27ae60;
+    }
+    .other-month {
+      background: #f0f0f0;
+      color: #aaa;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 8px;
+    }
+    .modal h3 {
+      margin-top: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    select {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .btn {
+      padding: 8px 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .save-btn { background: #27ae60; color: white; }
+    .cancel-btn { background: #e74c3c; color: white; }
+    .summary-box {
+      background: #f0f7ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+    }
+    .summary-label {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Teaching Calendar</h1>
+
+<div class="nav">
+  <button onclick="prevMonth()">&lt; Previous</button>
+  <div id="currentMonth">January 2025</div>
+  <button onclick="nextMonth()">Next &gt;</button>
+</div>
+
+<div class="calendar" id="calendarGrid">
+  <!-- Calendar will be generated here -->
+</div>
+
+<div class="summary-box">
+  <h2>Monthly Summary</h2>
+  <div class="summary-row">
+    <span class="summary-label">OSSD Classes:</span>
+    <span id="ossdCount">0</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">OSSD Hours:</span>
+    <span id="ossdHours">0.00</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">H189 Classes:</span>
+    <span id="h189Count">0</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">H189 Hours:</span>
+    <span id="h189Hours">0.00</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">1v Classes:</span>
+    <span id="oneVCount">0</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">1v Hours:</span>
+    <span id="oneVHours">0.00</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">Total Classes:</span>
+    <span id="totalCount">0</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">Total Hours:</span>
+    <span id="totalHours">0.00</span>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <h3>Edit Classes for <span id="modalDate"></span></h3>
+    <table>
+      <tr>
+        <th>Type</th>
+        <th>Classes / Hours</th>
+      </tr>
+      <tr>
+        <td>OSSD (0.75h/class)</td>
+        <td>
+          <select id="ossdSelect">
+            <option value="0">0 (0h)</option>
+            <option value="1">1 (0.75h)</option>
+            <option value="2">2 (1.5h)</option>
+            <option value="3">3 (2.25h)</option>
+            <option value="4">4 (3h)</option>
+            <option value="5">5 (3.75h)</option>
+            <option value="6">6 (4.5h)</option>
+            <option value="7">7 (5.25h)</option>
+            <option value="8">8 (6h)</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>H189 (0.75h/class)</td>
+        <td>
+          <select id="h189Select">
+            <option value="0">0 (0h)</option>
+            <option value="1">1 (0.75h)</option>
+            <option value="2">2 (1.5h)</option>
+            <option value="3">3 (2.25h)</option>
+            <option value="4">4 (3h)</option>
+            <option value="5">5 (3.75h)</option>
+            <option value="6">6 (4.5h)</option>
+            <option value="7">7 (5.25h)</option>
+            <option value="8">8 (6h)</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>1v (1h/class)</td>
+        <td>
+          <select id="oneVSelect">
+            <option value="0">0 (0h)</option>
+            <option value="1">1 (1h)</option>
+            <option value="2">2 (2h)</option>
+            <option value="3">3 (3h)</option>
+            <option value="4">4 (4h)</option>
+            <option value="5">5 (5h)</option>
+            <option value="6">6 (6h)</option>
+            <option value="7">7 (7h)</option>
+            <option value="8">8 (8h)</option>
+          </select>
+        </td>
+      </tr>
+    </table>
+    <button class="btn save-btn" onclick="saveDayData()">Save</button>
+    <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<script>
+  // Initialize LeanCloud
+  AV.init({
+    appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz",
+    appKey: "SMx2RHGXoV82nuXnreLNzLhm",
+    serverURL: "https://qqgqwbks.lc-cn-n1-shared.com"
+  });
+
+  const TeachingRecord = AV.Object.extend('TeachingRecord');
+  let currentDate = new Date();
+  let currentYear = currentDate.getFullYear();
+  let currentMonth = currentDate.getMonth(); // 0 = Jan
+
+  // Options mapping
+  const OPTIONS_075 = [0, 0.75, 1.5, 2.25, 3, 3.75, 4.5, 5.25, 6];
+  const OPTIONS_1 = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+  let selectedDate = null; // Format: "YYYY-MM-DD"
+
+  function renderCalendar() {
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    // Add weekday headers
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
+      const header = document.createElement('div');
+      header.className = 'day-header';
+      header.textContent = day;
+      grid.appendChild(header);
+    });
+
+    // Previous month days
+    const prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      const dayDiv = document.createElement('div');
+      dayDiv.className = 'date-cell other-month';
+      dayDiv.textContent = prevMonthLastDay - i;
+      grid.appendChild(dayDiv);
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayDiv = document.createElement('div');
+      dayDiv.className = 'date-cell';
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      dayDiv.dataset.date = dateStr;
+      dayDiv.innerHTML = `<div class="date-number">${day}</div><div class="class-summary" id="summary-${dateStr}"></div>`;
+      dayDiv.onclick = () => openEditModal(dateStr);
+      grid.appendChild(dayDiv);
+    }
+
+    // Next month days (to fill 6 rows)
+    const totalCells = 42; // 6 weeks * 7 days
+    const remaining = totalCells - (startDayOfWeek + daysInMonth);
+    for (let day = 1; day <= remaining; day++) {
+      const dayDiv = document.createElement('div');
+      dayDiv.className = 'date-cell other-month';
+      dayDiv.textContent = day;
+      grid.appendChild(dayDiv);
+    }
+
+    loadMonthData();
+  }
+
+  async function loadMonthData() {
+    const startDate = new Date(currentYear, currentMonth, 1);
+    const endDate = new Date(currentYear, currentMonth + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    const query = new AV.Query(TeachingRecord);
+    query.greaterThanOrEqualTo('date', startDate);
+    query.lessThanOrEqualTo('date', endDate);
+    const results = await query.find();
+
+    // Reset all summaries
+    document.querySelectorAll('.class-summary').forEach(el => el.textContent = '');
+
+    let ossdTotal = 0, h189Total = 0, oneVTotal = 0;
+    let ossdHours = 0, h189Hours = 0, oneVHours = 0;
+
+    results.forEach(record => {
+      const dateStr = formatDateForId(record.get('date'));
+      const ossd = record.get('ossd') || 0;
+      const h189 = record.get('h189') || 0;
+      const oneV = record.get('oneV') || 0;
+
+      const totalClasses = ossd + h189 + oneV;
+      if (totalClasses > 0) {
+        const summaryEl = document.getElementById(`summary-${dateStr}`);
+        if (summaryEl) summaryEl.textContent = `${totalClasses} class${totalClasses !== 1 ? 'es' : ''}`;
+      }
+
+      ossdTotal += ossd;
+      h189Total += h189;
+      oneVTotal += oneV;
+      ossdHours += OPTIONS_075[ossd] || 0;
+      h189Hours += OPTIONS_075[h189] || 0;
+      oneVHours += OPTIONS_1[oneV] || 0;
+    });
+
+    // Update summary
+    document.getElementById('ossdCount').textContent = ossdTotal;
+    document.getElementById('ossdHours').textContent = ossdHours.toFixed(2);
+    document.getElementById('h189Count').textContent = h189Total;
+    document.getElementById('h189Hours').textContent = h189Hours.toFixed(2);
+    document.getElementById('oneVCount').textContent = oneVTotal;
+    document.getElementById('oneVHours').textContent = oneVHours.toFixed(2);
+    document.getElementById('totalCount').textContent = ossdTotal + h189Total + oneVTotal;
+    document.getElementById('totalHours').textContent = (ossdHours + h189Hours + oneVHours).toFixed(2);
+  }
+
+  function formatDateForId(date) {
+    if (typeof date === 'string') return date;
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function openEditModal(dateStr) {
+    selectedDate = dateStr;
+    document.getElementById('modalDate').textContent = dateStr;
+
+    // Reset selects to default
+    document.getElementById('ossdSelect').value = '0';
+    document.getElementById('h189Select').value = '0';
+    document.getElementById('oneVSelect').value = '0';
+
+    // Load existing data if any
+    const query = new AV.Query(TeachingRecord);
+    query.equalTo('date', new Date(dateStr));
+    query.find().then(results => {
+      if (results.length > 0) {
+        const rec = results[0];
+        document.getElementById('ossdSelect').value = String(rec.get('ossd') || 0);
+        document.getElementById('h189Select').value = String(rec.get('h189') || 0);
+        document.getElementById('oneVSelect').value = String(rec.get('oneV') || 0);
+      }
+      document.getElementById('editModal').style.display = 'block';
+    }).catch(err => {
+      console.error("Load error:", err);
+      document.getElementById('editModal').style.display = 'block';
+    });
+  }
+
+  function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+    selectedDate = null;
+  }
+
+  async function saveDayData() {
+    if (!selectedDate) return;
+
+    const ossd = parseInt(document.getElementById('ossdSelect').value);
+    const h189 = parseInt(document.getElementById('h189Select').value);
+    const oneV = parseInt(document.getElementById('oneVSelect').value);
+
+    const query = new AV.Query(TeachingRecord);
+    query.equalTo('date', new Date(selectedDate));
+    const existing = await query.find();
+
+    if (existing.length > 0) {
+      // Update
+      const obj = existing[0];
+      obj.set('ossd', ossd);
+      obj.set('h189', h189);
+      obj.set('oneV', oneV);
+      await obj.save();
+    } else {
+      // Create new
+      const obj = new TeachingRecord();
+      obj.set('date', new Date(selectedDate));
+      obj.set('ossd', ossd);
+      obj.set('h189', h189);
+      obj.set('oneV', oneV);
+      await obj.save();
+    }
+
+    closeModal();
+    loadMonthData(); // Refresh summary
+  }
+
+  function prevMonth() {
+    if (currentMonth === 0) {
+      currentYear--;
+      currentMonth = 11;
+    } else {
+      currentMonth--;
+    }
+    renderCalendar();
+  }
+
+  function nextMonth() {
+    if (currentMonth === 11) {
+      currentYear++;
+      currentMonth = 0;
+    } else {
+      currentMonth++;
+    }
+    renderCalendar();
+  }
+
+  // Close modal on outside click
+  window.onclick = function(event) {
+    const modal = document.getElementById('editModal');
+    if (event.target === modal) closeModal();
+  };
+
+  // Initial render
+  renderCalendar();
+</script>
+
+</body>
+</html>
