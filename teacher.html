@@ -150,11 +150,19 @@
     <span id="h189Hours">0.00</span>
   </div>
   <div class="summary-row">
-    <span class="summary-label">1v Classes:</span>
+    <span class="summary-label">1v (0.75h) Classes:</span>
+    <span id="oneV75Count">0</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">1v (0.75h) Hours:</span>
+    <span id="oneV75Hours">0.00</span>
+  </div>
+  <div class="summary-row">
+    <span class="summary-label">1v (1h) Classes:</span>
     <span id="oneVCount">0</span>
   </div>
   <div class="summary-row">
-    <span class="summary-label">1v Hours:</span>
+    <span class="summary-label">1v (1h) Hours:</span>
     <span id="oneVHours">0.00</span>
   </div>
   <div class="summary-row">
@@ -196,6 +204,22 @@
         <td>H189 (0.75h/class)</td>
         <td>
           <select id="h189Select">
+            <option value="0">0 (0h)</option>
+            <option value="1">1 (0.75h)</option>
+            <option value="2">2 (1.5h)</option>
+            <option value="3">3 (2.25h)</option>
+            <option value="4">4 (3h)</option>
+            <option value="5">5 (3.75h)</option>
+            <option value="6">6 (4.5h)</option>
+            <option value="7">7 (5.25h)</option>
+            <option value="8">8 (6h)</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td>1v (0.75h/class)</td>
+        <td>
+          <select id="oneV75Select">
             <option value="0">0 (0h)</option>
             <option value="1">1 (0.75h)</option>
             <option value="2">2 (1.5h)</option>
@@ -316,16 +340,17 @@
     // Reset all summaries
     document.querySelectorAll('.class-summary').forEach(el => el.textContent = '');
 
-    let ossdTotal = 0, h189Total = 0, oneVTotal = 0;
-    let ossdHours = 0, h189Hours = 0, oneVHours = 0;
+    let ossdTotal = 0, h189Total = 0, oneV75Total = 0, oneVTotal = 0;
+    let ossdHours = 0, h189Hours = 0, oneV75Hours = 0, oneVHours = 0;
 
     results.forEach(record => {
       const dateStr = formatDateForId(record.get('date'));
       const ossd = record.get('ossd') || 0;
       const h189 = record.get('h189') || 0;
+      const oneV75 = record.get('oneV75') || 0;
       const oneV = record.get('oneV') || 0;
 
-      const totalClasses = ossd + h189 + oneV;
+      const totalClasses = ossd + h189 + oneV75 + oneV;
       if (totalClasses > 0) {
         const summaryEl = document.getElementById(`summary-${dateStr}`);
         if (summaryEl) summaryEl.textContent = `${totalClasses} class${totalClasses !== 1 ? 'es' : ''}`;
@@ -333,9 +358,11 @@
 
       ossdTotal += ossd;
       h189Total += h189;
+      oneV75Total += oneV75;
       oneVTotal += oneV;
       ossdHours += OPTIONS_075[ossd] || 0;
       h189Hours += OPTIONS_075[h189] || 0;
+      oneV75Hours += OPTIONS_075[oneV75] || 0;
       oneVHours += OPTIONS_1[oneV] || 0;
     });
 
@@ -344,10 +371,12 @@
     document.getElementById('ossdHours').textContent = ossdHours.toFixed(2);
     document.getElementById('h189Count').textContent = h189Total;
     document.getElementById('h189Hours').textContent = h189Hours.toFixed(2);
+    document.getElementById('oneV75Count').textContent = oneV75Total;
+    document.getElementById('oneV75Hours').textContent = oneV75Hours.toFixed(2);
     document.getElementById('oneVCount').textContent = oneVTotal;
     document.getElementById('oneVHours').textContent = oneVHours.toFixed(2);
-    document.getElementById('totalCount').textContent = ossdTotal + h189Total + oneVTotal;
-    document.getElementById('totalHours').textContent = (ossdHours + h189Hours + oneVHours).toFixed(2);
+    document.getElementById('totalCount').textContent = ossdTotal + h189Total + oneV75Total + oneVTotal;
+    document.getElementById('totalHours').textContent = (ossdHours + h189Hours + oneV75Hours + oneVHours).toFixed(2);
   }
 
   function formatDateForId(date) {
@@ -363,6 +392,7 @@
     // Reset selects to default
     document.getElementById('ossdSelect').value = '0';
     document.getElementById('h189Select').value = '0';
+    document.getElementById('oneV75Select').value = '0';
     document.getElementById('oneVSelect').value = '0';
 
     // Load existing data if any
@@ -373,6 +403,7 @@
         const rec = results[0];
         document.getElementById('ossdSelect').value = String(rec.get('ossd') || 0);
         document.getElementById('h189Select').value = String(rec.get('h189') || 0);
+        document.getElementById('oneV75Select').value = String(rec.get('oneV75') || 0);
         document.getElementById('oneVSelect').value = String(rec.get('oneV') || 0);
       }
       document.getElementById('editModal').style.display = 'block';
@@ -392,6 +423,7 @@
 
     const ossd = parseInt(document.getElementById('ossdSelect').value);
     const h189 = parseInt(document.getElementById('h189Select').value);
+    const oneV75 = parseInt(document.getElementById('oneV75Select').value);
     const oneV = parseInt(document.getElementById('oneVSelect').value);
 
     const query = new AV.Query(TeachingRecord);
@@ -403,6 +435,7 @@
       const obj = existing[0];
       obj.set('ossd', ossd);
       obj.set('h189', h189);
+      obj.set('oneV75', oneV75);
       obj.set('oneV', oneV);
       await obj.save();
     } else {
@@ -411,6 +444,7 @@
       obj.set('date', new Date(selectedDate));
       obj.set('ossd', ossd);
       obj.set('h189', h189);
+      obj.set('oneV75', oneV75);
       obj.set('oneV', oneV);
       await obj.save();
     }
