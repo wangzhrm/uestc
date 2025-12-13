@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Podcasts</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage/dist/av-min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f7f6;
+      color: #333;
+      margin: 0;
+      padding: 12px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin: 10px 0 20px;
+      font-size: 1.6rem;
+    }
+
+    /* Audio Player */
+    #now-playing {
+      text-align: center;
+      margin: 16px 0 8px;
+      font-weight: bold;
+      color: #2c3e50;
+      display: none;
+      font-size: 1.1rem;
+    }
+
+    #global-player {
+      width: 100%;
+      height: 50px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    /* Podcast Card */
+    .podcast-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .podcast-header {
+      padding: 14px 16px;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    .podcast-header:hover {
+      background: #2980b9;
+    }
+
+    .episodes-list {
+      display: none;
+      padding: 0;
+    }
+
+    .episodes-list.active {
+      display: block;
+    }
+
+    .episode-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    .episode-item:last-child {
+      border-bottom: none;
+    }
+
+    .episode-item:hover {
+      background: #f8fbff;
+    }
+
+    .episode-item.active {
+      background: #eaf4ff;
+      border-left: 3px solid #3498db;
+    }
+
+    .episode-info {
+      flex: 1;
+      min-width: 0;
+      padding-right: 8px;
+    }
+
+    .episode-title {
+      font-weight: 600;
+      margin: 0 0 4px;
+      font-size: 1rem;
+      word-break: break-word;
+    }
+
+    .episode-date {
+      font-size: 0.8rem;
+      color: #7f8c8d;
+    }
+
+    /* Compact download arrow */
+    .download-icon {
+      color: #2ecc71;
+      font-size: 1.2rem;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.8;
+      flex-shrink: 0;
+    }
+
+    .download-icon:hover {
+      opacity: 1;
+      color: #27ae60;
+    }
+
+    .loading, .error {
+      padding: 16px;
+      text-align: center;
+      color: #7f8c8d;
+      font-size: 0.95rem;
+    }
+
+    .error {
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎧 My Podcasts</h1>
+
+    <div id="now-playing">Now Playing: <span id="now-playing-title"></span></div>
+    <audio id="global-player" controls>Your browser does not support audio.</audio>
+
+    <div id="podcasts-container">
+      <div class="loading">Loading podcast programs...</div>
+    </div>
+  </div>
+
+  <script>
+    // --- LeanCloud Config ---
+    const APP_ID = 'wUyKly0pmyWB9KTdnd5Haal5-gzGzoHsz';
+    const APP_KEY = 'y17v810tf534T8dISL1ozVgF';
+    const CLASS_NAME = 'podcast';
+
+    AV.init({
+      appId: APP_ID,
+      appKey: APP_KEY,
+      serverURLs: 'https://api.leancloud.cn'
+    });
+
+    const container = document.getElementById('podcasts-container');
+    const player = document.getElementById('global-player');
+    const nowPlayingTitleEl = document.getElementById('now-playing-title');
+    const nowPlayingEl = document.getElementById('now-playing');
+
+    async function fetchEpisodesViaRSS2JSON(feedUrl) {
+      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.status !== 'ok') throw new Error(data.message || 'Invalid RSS response');
+      return data.items || [];
+    }
+
+    function renderPodcast(program) {
+      const card = document.createElement('div');
+      card.className = 'podcast-card';
+      card.innerHTML = `
+        <div class="podcast-header" data-id="${program.id}">
+          ${escapeHTML(program.get('name'))}
+          <span>▶</span>
+        </div>
+        <div class="episodes-list" id="episodes-${program.id}">
+          <div class="loading">Loading episodes...</div>
+        </div>
+      `;
+      container.appendChild(card);
+
+      const header = card.querySelector('.podcast-header');
+      const episodesList = card.querySelector('.episodes-list');
+
+      header.addEventListener('click', async () => {
+        const isActive = episodesList.classList.contains('active');
+        if (isActive) {
+          episodesList.classList.remove('active');
+          header.querySelector('span').textContent = '▶';
+        } else {
+          if (episodesList.children.length === 1 && episodesList.querySelector('.loading')) {
+            try {
+              const items = await fetchEpisodesViaRSS2JSON(program.get('feedURL'));
+              episodesList.innerHTML = '';
+              if (items.length === 0) {
+                episodesList.innerHTML = '<div class="error">No playable episodes found.</div>';
+              } else {
+                items.forEach(item => {
+                  if (!item.enclosure?.link) return;
+                  const pubDate = new Date(item.pubDate).toLocaleDateString();
+                  const li = document.createElement('li');
+                  li.className = 'episode-item';
+                  li.dataset.url = item.enclosure.link;
+                  li.dataset.title = item.title;
+
+                  // Create download icon
+                  const downloadIcon = document.createElement('div');
+                  downloadIcon.className = 'download-icon';
+                  downloadIcon.textContent = '↓';
+                  downloadIcon.setAttribute('aria-label', 'Download episode');
+                  downloadIcon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    downloadEpisode(item.enclosure.link, item.title);
+                  });
+
+                  li.innerHTML = `
+                    <div class="episode-info">
+                      <div class="episode-title">${escapeHTML(item.title)}</div>
+                      <div class="episode-date">Published: ${pubDate}</div>
+                    </div>
+                  `;
+                  li.appendChild(downloadIcon);
+                  li.addEventListener('click', () => playEpisode(item.enclosure.link, item.title, li));
+                  episodesList.appendChild(li);
+                });
+              }
+            } catch (err) {
+              console.error('Episode load error:', err);
+              episodesList.innerHTML = `<div class="error">Failed to load episodes: ${escapeHTML(err.message)}</div>`;
+            }
+          }
+          episodesList.classList.add('active');
+          header.querySelector('span').textContent = '▼';
+        }
+      });
+    }
+
+    function playEpisode(url, title, listItem) {
+      player.src = url;
+      player.load();
+      player.play();
+
+      nowPlayingTitleEl.textContent = title;
+      nowPlayingEl.style.display = 'block';
+      player.style.display = 'block';
+
+      document.querySelectorAll('.episode-item').forEach(el => el.classList.remove('active'));
+      listItem.classList.add('active');
+    }
+
+    function downloadEpisode(url, title) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'episode') + '.mp3';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function loadPrograms() {
+      try {
+        const query = new AV.Query(CLASS_NAME);
+        query.addDescending('createdAt');
+        const results = await query.find();
+        container.innerHTML = '';
+        if (results.length === 0) {
+          container.innerHTML = '<div class="error">No podcast programs found.</div>';
+          return;
+        }
+        results.forEach(renderPodcast);
+      } catch (err) {
+        console.error('LeanCloud error:', err);
+        container.innerHTML = `<div class="error">Failed to load podcasts: ${err.message}</div>`;
+      }
+    }
+
+    loadPrograms();
+  </script>
+</body>
+</html>
