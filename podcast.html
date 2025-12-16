@@ -6,151 +6,118 @@
   <title>My Podcasts</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage/dist/av-min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f4f7f6;
-      color: #333;
-      margin: 0;
-      padding: 12px;
-      line-height: 1.5;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      color: #2c3e50;
-      text-align: center;
-      margin: 10px 0 20px;
-      font-size: 1.6rem;
-    }
+    /* Global Styles */
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 12px; line-height: 1.5; }
+    .container { max-width: 900px; margin: 0 auto; padding-bottom: 30px; } 
+    h1 { color: #2c3e50; text-align: center; margin: 10px 0 20px; font-size: 1.6rem; }
 
     /* Audio Player */
-    #now-playing {
-      text-align: center;
-      margin: 16px 0 8px;
-      font-weight: bold;
-      color: #2c3e50;
-      display: none;
-      font-size: 1.1rem;
-    }
-
-    #global-player {
-      width: 100%;
-      height: 50px;
-      border-radius: 6px;
-      display: none;
-    }
+    #now-playing { text-align: center; margin: 16px 0 8px; font-weight: bold; color: #2c3e50; display: none; font-size: 1.1rem; }
+    #global-player { width: 100%; height: 50px; border-radius: 6px; display: none; }
+    .loading, .error { padding: 16px; text-align: center; color: #7f8c8d; font-size: 0.95rem; }
+    .error { color: #e74c3c; }
 
     /* Podcast Card */
-    .podcast-card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 16px;
-      overflow: hidden;
+    .podcast-card { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; overflow: hidden; }
+    .podcast-header { padding: 14px 16px; background: #3498db; color: white; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1.1rem; }
+    .podcast-header:hover { background: #2980b9; }
+    .episodes-list { display: none; padding: 0; }
+    .episodes-list.active { display: block; }
+
+    /* Episode Row Layout */
+    .episode-item { 
+        padding: 14px 16px; 
+        border-bottom: 1px solid #eee; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        gap: 10px; 
+        cursor: pointer; 
+    }
+    .episode-item:last-child { border-bottom: none; }
+    .episode-item:hover { background: #f8fbff; }
+    .episode-item.active { background: #eaf4ff; border-left: 3px solid #3498db; }
+
+    .episode-info { flex: 1; min-width: 0; }
+    .episode-title { font-weight: 600; margin: 0 0 4px; font-size: 1rem; word-break: break-word; color: #2c3e50; }
+    .episode-date { font-size: 0.8rem; color: #7f8c8d; }
+
+    /* Text Button Logic */
+    .btn-text { 
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f9f9f9;
+        color: #555;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        height: fit-content;
+        margin-top: 2px;
+        transition: background-color 0.2s, color 0.2s;
+    }
+    .btn-text.has-transcript { 
+        background-color: #e3f2fd; /* Light Blue BG */
+        color: #1976d2; /* Strong Blue Text */
+        border-color: #bbdefb; 
+    } 
+    .btn-text.has-transcript:hover { background-color: #bbdefb; }
+    .btn-text:not(.has-transcript) { 
+        color: #ccc; 
+        cursor: default; 
+        border-color: #eee; 
+        background: #fafafa;
+    } 
+
+    /* Transcript/Editor Area */
+    #transcript-area {
+        display: none;
+        margin-top: 15px;
+        padding: 15px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
     }
 
-    .podcast-header {
-      padding: 14px 16px;
-      background: #3498db;
-      color: white;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: bold;
-      font-size: 1.1rem;
+    #transcript-area h3 {
+        margin-top: 0;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    #transcript-content {
+        width: 100%;
+        height: 300px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+        line-height: 1.6;
+        resize: vertical;
+        white-space: pre-wrap;
+    }
+    
+    #editor-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 10px;
     }
 
-    .podcast-header:hover {
-      background: #2980b9;
+    #editor-actions button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
     }
 
-    .episodes-list {
-      display: none;
-      padding: 0;
-    }
-
-    .episodes-list.active {
-      display: block;
-    }
-
-    .episode-item {
-      padding: 14px 16px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      position: relative;
-    }
-
-    .episode-item:last-child {
-      border-bottom: none;
-    }
-
-    .episode-item:hover {
-      background: #f8fbff;
-    }
-
-    .episode-item.active {
-      background: #eaf4ff;
-      border-left: 3px solid #3498db;
-    }
-
-    .episode-info {
-      flex: 1;
-      min-width: 0;
-      padding-right: 8px;
-    }
-
-    .episode-title {
-      font-weight: 600;
-      margin: 0 0 4px;
-      font-size: 1rem;
-      word-break: break-word;
-    }
-
-    .episode-date {
-      font-size: 0.8rem;
-      color: #7f8c8d;
-    }
-
-    /* Compact download arrow */
-    .download-icon {
-      color: #2ecc71;
-      font-size: 1.2rem;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.8;
-      flex-shrink: 0;
-    }
-
-    .download-icon:hover {
-      opacity: 1;
-      color: #27ae60;
-    }
-
-    .loading, .error {
-      padding: 16px;
-      text-align: center;
-      color: #7f8c8d;
-      font-size: 0.95rem;
-    }
-
-    .error {
-      color: #e74c3c;
-    }
+    .btn-edit { background-color: #f39c12; color: white; }
+    .btn-save { background-color: #2ecc71; color: white; }
+    .btn-cancel { background-color: #e74c3c; color: white; }
   </style>
 </head>
 <body>
@@ -160,6 +127,15 @@
     <div id="now-playing">Now Playing: <span id="now-playing-title"></span></div>
     <audio id="global-player" controls>Your browser does not support audio.</audio>
 
+    <div id="transcript-area">
+        <h3>Transcript for <span id="transcript-episode-title"></span></h3>
+        <textarea id="transcript-content" readonly placeholder="No transcript loaded. Click 'Edit' to add one."></textarea>
+        <div id="editor-actions">
+            <button id="edit-button" class="btn-edit" onclick="enterEditMode()">Edit Transcript</button>
+            <button id="cancel-button" class="btn-cancel" style="display:none;" onclick="cancelEdit()">Cancel</button>
+            <button id="save-button" class="btn-save" style="display:none;" onclick="saveTranscript()">Save Transcript</button>
+        </div>
+    </div>
     <div id="podcasts-container">
       <div class="loading">Loading podcast programs...</div>
     </div>
@@ -170,18 +146,45 @@
     const APP_ID = 'wUyKly0pmyWB9KTdnd5Haal5-gzGzoHsz';
     const APP_KEY = 'y17v810tf534T8dISL1ozVgF';
     const CLASS_NAME = 'podcast';
+    const TRANSCRIPT_PASS = 'wang123'; // Hardcoded password
 
     AV.init({
       appId: APP_ID,
       appKey: APP_KEY,
       serverURLs: 'https://api.leancloud.cn'
     });
+    
+    const Transcript = AV.Object.extend('Transcript'); 
 
+    // --- DOM Elements & State ---
     const container = document.getElementById('podcasts-container');
     const player = document.getElementById('global-player');
     const nowPlayingTitleEl = document.getElementById('now-playing-title');
     const nowPlayingEl = document.getElementById('now-playing');
+    
+    const transcriptArea = document.getElementById('transcript-area');
+    const transcriptTitleEl = document.getElementById('transcript-episode-title');
+    const transcriptContentEl = document.getElementById('transcript-content');
+    const editButton = document.getElementById('edit-button');
+    const saveButton = document.getElementById('save-button');
+    const cancelButton = document.getElementById('cancel-button');
 
+    let currentEpisodeUrl = null;
+    let currentEpisodeTitle = null;
+    let currentEpisodeButton = null; // To hold the 'Text' button DOM element
+
+    // --- Helpers ---
+
+    function escapeHTML(str) {
+      if (typeof str !== 'string') return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    
     async function fetchEpisodesViaRSS2JSON(feedUrl) {
       const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
       const res = await fetch(proxyUrl);
@@ -190,6 +193,24 @@
       if (data.status !== 'ok') throw new Error(data.message || 'Invalid RSS response');
       return data.items || [];
     }
+
+    // --- Transcript Checking Logic ---
+
+    async function checkTranscriptsExistence(episodeUrls) {
+      if(episodeUrls.length === 0) return new Set();
+      const query = new AV.Query('Transcript');
+      // Look up all relevant transcript records by their unique MP3 link (episodeUrl)
+      query.containedIn('episodeUrl', episodeUrls);
+      query.equalTo('empty', 1); // Only check for published transcripts
+      query.select(['episodeUrl']); 
+      
+      const results = await query.find(); 
+      
+      const urlSet = new Set(results.map(r => r.get('episodeUrl')));
+      return urlSet;
+    }
+
+    // --- Program Rendering ---
 
     function renderPodcast(program) {
       const card = document.createElement('div');
@@ -213,53 +234,66 @@
         if (isActive) {
           episodesList.classList.remove('active');
           header.querySelector('span').textContent = '▶';
+          transcriptArea.style.display = 'none'; // Hide editor when collapsing
         } else {
+          episodesList.classList.add('active');
+          header.querySelector('span').textContent = '▼';
+          
           if (episodesList.children.length === 1 && episodesList.querySelector('.loading')) {
             try {
               const items = await fetchEpisodesViaRSS2JSON(program.get('feedURL'));
               episodesList.innerHTML = '';
+              
               if (items.length === 0) {
                 episodesList.innerHTML = '<div class="error">No playable episodes found.</div>';
-              } else {
-                items.forEach(item => {
-                  if (!item.enclosure?.link) return;
-                  const pubDate = new Date(item.pubDate).toLocaleDateString();
-                  const li = document.createElement('li');
-                  li.className = 'episode-item';
-                  li.dataset.url = item.enclosure.link;
-                  li.dataset.title = item.title;
-
-                  // Create download icon
-                  const downloadIcon = document.createElement('div');
-                  downloadIcon.className = 'download-icon';
-                  downloadIcon.textContent = '↓';
-                  downloadIcon.setAttribute('aria-label', 'Download episode');
-                  downloadIcon.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    downloadEpisode(item.enclosure.link, item.title);
-                  });
-
-                  li.innerHTML = `
-                    <div class="episode-info">
-                      <div class="episode-title">${escapeHTML(item.title)}</div>
-                      <div class="episode-date">Published: ${pubDate}</div>
-                    </div>
-                  `;
-                  li.appendChild(downloadIcon);
-                  li.addEventListener('click', () => playEpisode(item.enclosure.link, item.title, li));
-                  episodesList.appendChild(li);
-                });
+                return;
               }
+
+              const urls = items.map(i => i.enclosure?.link).filter(l => l);
+              const availableTranscripts = await checkTranscriptsExistence(urls);
+              
+              items.forEach(item => {
+                if (!item.enclosure?.link) return;
+                
+                const url = item.enclosure.link;
+                const hasTranscript = availableTranscripts.has(url);
+                const pubDate = new Date(item.pubDate).toLocaleDateString();
+                
+                const li = document.createElement('li');
+                li.className = 'episode-item';
+                li.dataset.url = url;
+                li.dataset.title = item.title;
+
+                // Add text button
+                const textButton = document.createElement('button');
+                textButton.className = `btn-text ${hasTranscript ? 'has-transcript' : ''}`;
+                textButton.textContent = 'Text';
+                textButton.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleTranscript(url, item.title, textButton, hasTranscript);
+                };
+
+                li.innerHTML = `
+                  <div class="episode-info">
+                    <div class="episode-title">${escapeHTML(item.title)}</div>
+                    <div class="episode-date">Published: ${pubDate}</div>
+                  </div>
+                `;
+                li.appendChild(textButton);
+                
+                li.addEventListener('click', () => playEpisode(url, item.title, li));
+                episodesList.appendChild(li);
+              });
             } catch (err) {
               console.error('Episode load error:', err);
               episodesList.innerHTML = `<div class="error">Failed to load episodes: ${escapeHTML(err.message)}</div>`;
             }
           }
-          episodesList.classList.add('active');
-          header.querySelector('span').textContent = '▼';
         }
       });
     }
+
+    // --- Player Logic (Keep as is) ---
 
     function playEpisode(url, title, listItem) {
       player.src = url;
@@ -274,25 +308,128 @@
       listItem.classList.add('active');
     }
 
-    function downloadEpisode(url, title) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = (title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'episode') + '.mp3';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    // --- Transcript Editor/Viewer Logic ---
+
+    async function toggleTranscript(url, title, buttonElement, hasTranscript) {
+        // If the area is already visible for this episode, hide it
+        if (transcriptArea.style.display === 'block' && currentEpisodeUrl === url) {
+            transcriptArea.style.display = 'none';
+            return;
+        }
+
+        currentEpisodeUrl = url;
+        currentEpisodeTitle = title;
+        currentEpisodeButton = buttonElement; // Store the button for color update
+        transcriptTitleEl.textContent = title;
+        transcriptArea.style.display = 'block';
+        
+        // Reset to view mode
+        transcriptContentEl.setAttribute('readonly', true);
+        editButton.style.display = 'inline-block';
+        saveButton.style.display = 'none';
+        cancelButton.style.display = 'none';
+        transcriptContentEl.value = 'Loading transcript...';
+        
+        if (!hasTranscript) {
+            // Grey button clicked. Show empty text box and prompt to edit.
+            transcriptContentEl.value = 'No transcript stored for this episode. Click "Edit Transcript" below to add one.';
+            return;
+        }
+
+        try {
+            const query = new AV.Query('Transcript');
+            query.equalTo('episodeUrl', url);
+            query.select(['content']); // We only need the content now
+            
+            const result = await query.first();
+            
+            if (result) {
+                transcriptContentEl.value = result.get('content') || '';
+            } else {
+                transcriptContentEl.value = 'Transcript marked available but content could not be retrieved.';
+            }
+        } catch (err) {
+            console.error("Transcript retrieval error:", err);
+            transcriptContentEl.value = "Error loading transcript.";
+        }
     }
 
-    function escapeHTML(str) {
-      if (typeof str !== 'string') return '';
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    window.enterEditMode = () => {
+        const password = prompt("Please enter the password to edit the transcript:");
+        if (password === TRANSCRIPT_PASS) {
+            transcriptContentEl.removeAttribute('readonly');
+            editButton.style.display = 'none';
+            saveButton.style.display = 'inline-block';
+            cancelButton.style.display = 'inline-block';
+            transcriptContentEl.focus();
+            alert("Edit mode unlocked. Be careful when editing!");
+        } else {
+            alert("Incorrect password.");
+        }
+    };
+    
+    window.cancelEdit = () => {
+        // Reloads the transcript content to discard local changes
+        toggleTranscript(currentEpisodeUrl, currentEpisodeTitle, currentEpisodeButton, true); 
+        
+        transcriptContentEl.setAttribute('readonly', true);
+        editButton.style.display = 'inline-block';
+        saveButton.style.display = 'none';
+        cancelButton.style.display = 'none';
+    };
 
+    window.saveTranscript = async () => {
+        const content = transcriptContentEl.value.trim();
+        if (!content) {
+            alert("Transcript content cannot be empty.");
+            return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+        
+        try {
+            const query = new AV.Query('Transcript');
+            query.equalTo('episodeUrl', currentEpisodeUrl);
+            let transcript = await query.first();
+            
+            if (!transcript) {
+                // Create new object if none exists for this URL
+                transcript = new Transcript();
+                transcript.set('episodeUrl', currentEpisodeUrl);
+                const acl = new AV.ACL();
+                acl.setPublicReadAccess(true); 
+                acl.setPublicWriteAccess(false);
+                transcript.setACL(acl);
+            }
+            
+            transcript.set('content', content); 
+            transcript.set('title', currentEpisodeTitle);
+            // CRITICAL: Set the 'empty' field to 1 to mark it as published
+            transcript.set('empty', 1); 
+            await transcript.save();
+            
+            alert('Transcript Saved successfully!');
+            
+            // Switch back to view mode
+            transcriptContentEl.setAttribute('readonly', true);
+            editButton.style.display = 'inline-block';
+            saveButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+
+            // CRITICAL: Update the "Text" button color immediately
+            if (currentEpisodeButton) {
+                currentEpisodeButton.classList.add('has-transcript');
+            }
+        } catch (err) {
+            console.error('Save error:', err);
+            alert('Error saving: ' + err.message);
+        }
+        saveButton.textContent = 'Save Transcript';
+        saveButton.disabled = false;
+    };
+
+    // --- Initialization ---
     async function loadPrograms() {
       try {
         const query = new AV.Query(CLASS_NAME);
