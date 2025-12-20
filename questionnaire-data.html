@@ -15,194 +15,274 @@
       max-width: 1200px;
       margin: 0 auto;
       background: white;
-      padding: 20px;
       border-radius: 8px;
+      padding: 20px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    h1, h2, h3 { color: #333; margin-bottom: 12px; }
+    h1 {
+      color: #333;
+      margin-bottom: 16px;
+    }
+    .controls {
+      margin: 16px 0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     .btn {
       background: #007aff;
       color: white;
       border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
+      padding: 8px 16px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
-      margin-right: 8px;
     }
     .btn:hover { opacity: 0.9; }
-    .btn-danger { background: #ff3b30; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    th { background: #f5f5f5; }
-    tr:nth-child(even) { background: #fafafa; }
-    .alert-error {
-      color: red;
-      background: #ffebee;
-      padding: 10px;
-      border-radius: 4px;
-      margin: 10px 0;
+    .btn-success { background: #34c759; }
+    .btn-export { background: #5856d6; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
     }
-    small { font-size: 0.85em; color: #666; }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f5f5f5;
+      position: sticky;
+      top: 0;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .error {
+      color: red;
+      padding: 10px;
+      background: #ffebee;
+      border-radius: 4px;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 8px;
+      background: #e6f4ea;
+      border-left: 4px solid #34c759;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Survey Responses</h1>
-    <div id="responses-container">
-      <p>Loading...</p>
+    
+    <div class="controls">
+      <button class="btn btn-success" id="copy-btn">📋 Copy All Data</button>
+      <button class="btn btn-export" id="export-btn">📥 Export to Excel (.xlsx)</button>
+    </div>
+
+    <div class="status" id="status-message"></div>
+    
+    <div id="content">
+      <div class="loading">Loading...</div>
     </div>
   </div>
 
   <script>
+    // LeanCloud setup
     const APP_ID = 'htY6FjuugSzKkkI6NKwFqyJb-gzGzoHsz';
     const APP_KEY = '9ZZ31UOLEbw2nyRcYeD0otWj';
     const SERVER_URL = 'https://hty6fjuugszkkki6nkwfqyjb.lc-cn-n1-shared.com';
     AV.init({ appId: APP_ID, appKey: APP_KEY, serverURLs: SERVER_URL });
 
-    let currentSurveyId = null;
+    let allResponses = []; // Each: { submittedAt: '2025-12-20 14:30:22', Q1: '...', Q2: '...' }
+    let questionKeys = [];
 
-    function getQueryParam(param) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(param);
+    // Get survey ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const surveyId = urlParams.get('survey');
+
+    if (!surveyId) {
+      document.getElementById('content').innerHTML = '<div class="error">❌ No survey ID provided in URL.</div>';
+    } else {
+      loadSurveyData(surveyId);
     }
 
-    async function loadResponsesForSurvey(surveyId) {
-      if (!surveyId) {
-        document.getElementById('responses-container').innerHTML = 
-          '<div class="alert-error">❌ No survey ID provided in URL.</div>';
-        return;
-      }
+    // Format Date as "YYYY-MM-DD HH:mm:ss"
+    function formatDateTime(date) {
+      if (!date) return '';
+      const d = new Date(date);
+      const pad = n => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
 
-      currentSurveyId = surveyId;
-
+    // ===== LOAD DATA =====
+    async function loadSurveyData(surveyId) {
       try {
-        const surveyObj = AV.Object.createWithoutData('Questionnaire', surveyId);
-        await surveyObj.fetch();
+        const questionnaire = AV.Object.createWithoutData('Questionnaire', surveyId);
+        await questionnaire.fetch();
 
-        const query = new AV.Query('Response');
-        query.equalTo('questionnaire', surveyObj);
-        query.addDescending('createdAt');
-        const responses = await query.find();
+        // Load questions to get order and keys
+        const qQuery = new AV.Query('Question');
+        qQuery.equalTo('questionnaire', questionnaire);
+        qQuery.addAscending('order');
+        const questions = await qQuery.find();
+        questionKeys = questions.map(q => q.get('key'));
 
-        renderResponses(responses, surveyObj.get('title') || surveyId);
+        // Load responses
+        const rQuery = new AV.Query('Response');
+        rQuery.equalTo('questionnaire', questionnaire);
+        rQuery.limit(1000);
+        const responses = await rQuery.find();
+
+        allResponses = responses.map(r => {
+          const ans = r.get('answers') || {};
+          const flat = {
+            submittedAt: formatDateTime(r.createdAt) // <-- ADD SUBMITTED AT
+          };
+          questionKeys.forEach(key => {
+            flat[key] = ans[key] !== undefined ? String(ans[key]) : '';
+          });
+          return flat;
+        });
+
+        renderTable();
       } catch (err) {
-        console.error('Error loading responses:', err);
-        document.getElementById('responses-container').innerHTML = 
-          `<div class="alert-error">❌ Failed to load data: ${err.message || err.toString()}</div>`;
+        console.error(err);
+        document.getElementById('content').innerHTML = `<div class="error">❌ Failed to load data: ${err.message}</div>`;
       }
     }
 
-    function renderResponses(responses, surveyTitle) {
-      const container = document.getElementById('responses-container');
-      
-      if (responses.length === 0) {
-        container.innerHTML = `<p>No responses yet for survey: <strong>${escapeHtml(surveyTitle)}</strong>.</p>`;
+    // ===== RENDER TABLE =====
+    function renderTable() {
+      if (allResponses.length === 0) {
+        document.getElementById('content').innerHTML = '<p>No responses yet.</p>';
         return;
       }
 
-      const sample = responses[0].get('answers') || {};
-      const keys = Object.keys(sample).sort();
+      let html = '<table><thead><tr><th>#</th><th>Submitted At</th>'; // <-- NEW COLUMN
+      questionKeys.forEach(key => {
+        html += `<th>${escapeHtml(key)}</th>`;
+      });
+      html += '</tr></thead><tbody>';
 
-      let html = `
-        <h2>Responses for: ${escapeHtml(surveyTitle)} 
-          <small>(Survey ID: ${currentSurveyId})</small>
-        </h2>
-        <p><em>Total: ${responses.length} responses</em></p>
-        
-        <button class="btn btn-danger" onclick="deleteAllResponses()">🗑️ Delete ALL Responses</button>
-        <hr>
-
-        <div style="overflow-x:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Submitted At</th>
-                ${keys.map(k => `<th>${escapeHtml(k)}</th>`).join('')}
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
-
-      responses.forEach((resp, idx) => {
-        const answers = resp.get('answers') || {};
-        const date = new Date(resp.createdAt).toLocaleString();
-        html += `
-          <tr>
-            <td>${idx + 1}</td>
-            <td>${date}</td>
-            ${keys.map(k => `<td>${escapeHtml(answers[k] || '')}</td>`).join('')}
-            <td>
-              <button class="btn btn-danger" style="padding:4px 8px;font-size:0.85em;"
-                      onclick="deleteSingleResponse('${resp.id}', this)">
-                🗑️ Delete
-              </button>
-            </td>
-          </tr>
-        `;
+      allResponses.forEach((row, idx) => {
+        html += `<tr><td>${idx + 1}</td><td>${escapeHtml(row.submittedAt)}</td>`; // <-- DISPLAY TIME
+        questionKeys.forEach(key => {
+          html += `<td>${escapeHtml(row[key] || '')}</td>`;
+        });
+        html += '</tr>';
       });
 
-      html += `
-            </tbody>
-          </table>
-        </div>
-      `;
-
-      container.innerHTML = html;
+      html += '</tbody></table>';
+      document.getElementById('content').innerHTML = html;
     }
 
     function escapeHtml(text) {
       if (typeof text !== 'string') return String(text);
-      return text.replace(/&/g, '&amp;')
-                 .replace(/</g, '&lt;')
-                 .replace(/>/g, '&gt;')
-                 .replace(/"/g, '&quot;');
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
-    async function deleteSingleResponse(responseId, buttonEl) {
-      if (!confirm('Delete this response permanently?')) return;
-      try {
-        const obj = AV.Object.createWithoutData('Response', responseId);
-        await obj.destroy();
-        buttonEl.closest('tr').remove();
-        alert('✅ Response deleted.');
-      } catch (err) {
-        alert('❌ Delete failed: ' + (err.message || err));
+    // ===== COPY AS TSV =====
+    document.getElementById('copy-btn').addEventListener('click', async () => {
+      if (allResponses.length === 0) {
+        alert('No data to copy.');
+        return;
       }
-    }
 
-    async function deleteAllResponses() {
-      if (!currentSurveyId) return;
-      if (!confirm('⚠️ Delete ALL responses for this survey? This cannot be undone!')) return;
+      // Header: Row + Submitted At + Questions
+      let tsv = 'Row\tSubmitted At\t' + questionKeys.join('\t') + '\n';
+      
+      allResponses.forEach((row, idx) => {
+        const values = [
+          String(idx + 1),
+          row.submittedAt || ''
+        ].concat(questionKeys.map(key => {
+          let val = row[key] || '';
+          val = String(val).replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ');
+          if (val.includes('"')) val = val.replace(/"/g, '""');
+          if (val.includes('\t') || val.includes('\n') || val.includes('"')) {
+            val = `"${val}"`;
+          }
+          return val;
+        }));
+        tsv += values.join('\t') + '\n';
+      });
 
       try {
-        const surveyObj = AV.Object.createWithoutData('Questionnaire', currentSurveyId);
-        const query = new AV.Query('Response');
-        query.equalTo('questionnaire', surveyObj);
-        const responses = await query.find();
-
-        if (responses.length > 0) {
-          await AV.Object.destroyAll(responses);
-        }
-
-        alert('✅ All responses deleted.');
-        loadResponsesForSurvey(currentSurveyId);
+        await navigator.clipboard.writeText(tsv);
+        showStatus('✅ Copied! Paste directly into Excel or Google Sheets.', 3000);
       } catch (err) {
-        alert('❌ Bulk delete failed: ' + (err.message || err));
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const surveyId = getQueryParam('survey');
-      if (surveyId) {
-        loadResponsesForSurvey(surveyId);
-      } else {
-        document.getElementById('responses-container').innerHTML = 
-          '<div class="alert-error">❌ Please provide a survey ID via ?survey=ID in the URL.</div>';
+        console.error('Copy failed:', err);
+        alert('Failed to copy. Try selecting text manually.');
       }
     });
+
+    // ===== EXPORT TO EXCEL (.xlsx) =====
+    document.getElementById('export-btn').addEventListener('click', async () => {
+      if (allResponses.length === 0) {
+        alert('No data to export.');
+        return;
+      }
+
+      if (typeof XLSX === 'undefined') {
+        showStatus('⏳ Loading Excel library...', 0);
+        await loadScript('https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js');
+      }
+
+      try {
+        const dataForExcel = allResponses.map((row, idx) => {
+          const obj = {
+            Row: idx + 1,
+            "Submitted At": row.submittedAt || ''
+          };
+          questionKeys.forEach(key => {
+            obj[key] = row[key] || '';
+          });
+          return obj;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataForExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Responses");
+
+        XLSX.writeFile(wb, `Survey_${surveyId}_responses.xlsx`);
+        showStatus('✅ Excel file downloaded!', 2000);
+      } catch (err) {
+        console.error('Export error:', err);
+        alert('Export failed: ' + (err.message || err));
+      }
+    });
+
+    // Utility: load external script
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    // Utility: show temporary status message
+    function showStatus(message, duration = 2000) {
+      const el = document.getElementById('status-message');
+      el.textContent = message;
+      el.style.display = 'block';
+      if (duration > 0) {
+        setTimeout(() => { el.style.display = 'none'; }, duration);
+      }
+    }
   </script>
 </body>
 </html>
