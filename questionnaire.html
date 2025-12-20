@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Surveys</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --success: #06d6a0;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --border: #dee2e6;
+      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #fafafa;
+      color: var(--dark);
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 20px 16px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin: 0;
+      color: var(--primary);
+    }
+    .survey-title {
+      font-size: 1.4rem;
+      text-align: center;
+      margin: 20px 0 30px;
+      color: #333;
+    }
+
+    /* Question styling */
+    .question {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .question-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+      color: #2d3748;
+    }
+
+    /* Input styles */
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background-color: white;
+    }
+
+    /* Choice options: full-clickable cards */
+    .option-card {
+      display: block;
+      padding: 14px;
+      margin: 8px 0;
+      background: var(--light);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .option-card:hover {
+      background: #eef5ff;
+      border-color: #cbd5ff;
+    }
+    .option-card.selected {
+      background: #eef5ff;
+      border-color: var(--primary);
+    }
+    .option-card input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Scale as table row */
+    .scale-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .scale-cell {
+      border: 2px solid var(--border);
+      padding: 14px 0;
+      text-align: center;
+      font-weight: bold;
+      cursor: pointer;
+      background: white;
+      transition: all 0.2s;
+    }
+    .scale-cell:hover {
+      background: #f0f7ff;
+    }
+    .scale-cell.selected {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--success);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: var(--shadow);
+    }
+    .submit-btn:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+
+    /* Alerts */
+    .alert {
+      padding: 16px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    .alert-success {
+      background: #d1f0e0;
+      color: #0d6a53;
+    }
+    .alert-error {
+      background: #ffeaea;
+      color: #a02c2c;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 16px 12px;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      .survey-title {
+        font-size: 1.2rem;
+      }
+      .question {
+        padding: 16px;
+      }
+      .scale-cell {
+        padding: 12px 0;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📋 Surveys</h1>
+    </header>
+    <div id="app">
+      <p>Loading...</p>
+    </div>
+  </div>
+
+  <script>
+    // 🔑 LeanCloud credentials
+    const APP_ID = 'htY6FjuugSzKkkI6NKwFqyJb-gzGzoHsz';
+    const APP_KEY = '9ZZ31UOLEbw2nyRcYeD0otWj';
+    const SERVER_URL = 'https://hty6fjuugszkkki6nkwfqyjb.lc-cn-n1-shared.com';
+    AV.init({ appId: APP_ID, appKey: APP_KEY, serverURLs: SERVER_URL });
+
+    let currentSurveyId = null;
+    let questions = [];
+
+    function getSurveyIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('survey');
+    }
+
+    async function initApp() {
+      const surveyId = getSurveyIdFromUrl();
+      if (surveyId) {
+        await loadAndRenderSurvey(surveyId);
+      } else {
+        await showSurveyList();
+      }
+    }
+
+    async function showSurveyList() {
+      try {
+        const query = new AV.Query('Questionnaire');
+        query.addDescending('createdAt');
+        query.limit(100);
+        const surveys = await query.find();
+
+        const app = document.getElementById('app');
+        if (surveys.length === 0) {
+          app.innerHTML = '<p>No surveys available.</p>';
+          return;
+        }
+
+        let html = '<h2>Select a Survey</h2>';
+        surveys.forEach(s => {
+          const title = s.get('title') || '(Untitled)';
+          const escapedTitle = String(title).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const link = `${window.location.pathname}?survey=${s.id}`;
+          html += `
+            <div class="question" style="cursor:pointer;" onclick="window.location.href='${link}'">
+              <div class="question-label">${escapedTitle}</div>
+              <small>ID: ${s.id}</small>
+            </div>
+          `;
+        });
+        app.innerHTML = html;
+      } catch (err) {
+        console.error('Load survey list error:', err);
+        document.getElementById('app').innerHTML = `<div class="alert alert-error">Failed to load surveys.</div>`;
+      }
+    }
+
+    async function loadAndRenderSurvey(surveyId) {
+      try {
+        currentSurveyId = surveyId;
+        const qObj = AV.Object.createWithoutData('Questionnaire', surveyId);
+        await qObj.fetch();
+        const title = qObj.get('title') || 'Untitled Survey';
+
+        const questionQuery = new AV.Query('Question');
+        questionQuery.equalTo('questionnaire', qObj);
+        questionQuery.addAscending('order');
+        const results = await questionQuery.find();
+
+        questions = results.map(q => ({
+          id: q.id,
+          key: q.get('key'),
+          text: q.get('text'),
+          type: q.get('type') || 'text',
+          options: q.get('options') || []
+        }));
+
+        renderForm(title);
+      } catch (err) {
+        console.error('Load survey error:', err);
+        document.getElementById('app').innerHTML = `<div class="alert alert-error">Survey not found or inaccessible.</div>`;
+      }
+    }
+
+    function renderForm(title) {
+      let html = `<div class="survey-title">${title}</div><form id="survey-form">`;
+
+      questions.forEach((q, index) => {
+        html += `<div class="question" data-key="${q.key}">`;
+        html += `<span class="question-label">${index + 1}. ${q.text}</span>`; // ✅ Numbered!
+
+        switch (q.type) {
+          case 'text':
+            html += `<input type="text" name="${q.key}" required>`;
+            break;
+          case 'number':
+            html += `<input type="number" name="${q.key}" required>`;
+            break;
+          case 'select':
+            html += `<select name="${q.key}" required><option value="">-- Select --</option>`;
+            q.options.forEach(opt => {
+              const safeOpt = String(opt).replace(/"/g, '&quot;');
+              html += `<option value="${safeOpt}">${opt}</option>`;
+            });
+            html += `</select>`;
+            break;
+          case 'radio':
+            q.options.forEach(opt => {
+              const safeOpt = String(opt).replace(/"/g, '&quot;');
+              html += `
+                <label class="option-card" data-value="${safeOpt}" onclick="selectRadio(this, '${q.key}', '${safeOpt}')">
+                  <input type="radio" name="${q.key}" value="${safeOpt}" required>
+                  ${opt}
+                </label>
+              `;
+            });
+            break;
+          case 'checkbox':
+            q.options.forEach(opt => {
+              const safeOpt = String(opt).replace(/"/g, '&quot;');
+              html += `
+                <label class="option-card" data-value="${safeOpt}" onclick="toggleCheckbox(this, '${q.key}', '${safeOpt}')">
+                  <input type="checkbox" name="${q.key}[]" value="${safeOpt}">
+                  ${opt}
+                </label>
+              `;
+            });
+            break;
+          case 'scale':
+            let min = 1, max = 5;
+            if (q.options && q.options[0]) {
+              const match = q.options[0].match(/^(\d+)-(\d+)$/);
+              if (match) {
+                min = parseInt(match[1], 10);
+                max = parseInt(match[2], 10);
+              }
+            }
+            html += `<table class="scale-table"><tr>`;
+            for (let i = min; i <= max; i++) {
+              html += `<td class="scale-cell" data-value="${i}" onclick="selectScale(this, '${q.key}', ${i})">${i}</td>`;
+            }
+            html += `</tr></table>`;
+            html += `<input type="hidden" name="${q.key}" id="scale-${q.key}" required>`;
+            break;
+          default:
+            html += `<input type="text" name="${q.key}" placeholder="Your answer...">`;
+        }
+
+        html += `</div>`;
+      });
+
+      html += `<button type="submit" class="submit-btn">✅ Submit Survey</button></form>`;
+      document.getElementById('app').innerHTML = html;
+
+      // Expose handlers globally for inline onclick
+      window.selectRadio = selectRadio;
+      window.toggleCheckbox = toggleCheckbox;
+      window.selectScale = selectScale;
+
+      document.getElementById('survey-form').addEventListener('submit', submitForm);
+    }
+
+    function selectRadio(card, name, value) {
+      document.querySelectorAll(`[data-key="${name}"] .option-card`).forEach(el => {
+        el.classList.remove('selected');
+        el.querySelector('input').checked = false;
+      });
+      card.classList.add('selected');
+      card.querySelector('input').checked = true;
+    }
+
+    function toggleCheckbox(card, name, value) {
+      const input = card.querySelector('input');
+      input.checked = !input.checked;
+      card.classList.toggle('selected', input.checked);
+    }
+
+    function selectScale(cell, name, value) {
+      document.querySelectorAll(`[data-key="${name}"] .scale-cell`).forEach(el => {
+        el.classList.remove('selected');
+      });
+      cell.classList.add('selected');
+      document.getElementById(`scale-${name}`).value = value;
+    }
+
+    async function submitForm(e) {
+      e.preventDefault();
+      const answers = {};
+
+      const form = e.target;
+
+      // Handle text, number, select, hidden
+      form.querySelectorAll('input:not([type=radio]):not([type=checkbox]), select').forEach(input => {
+        if (input.name && input.value.trim() !== '') {
+          answers[input.name] = input.value;
+        }
+      });
+
+      // Handle radio
+      form.querySelectorAll('input[type=radio]:checked').forEach(radio => {
+        answers[radio.name] = radio.value;
+      });
+
+      // Handle checkbox arrays (name ends with [])
+      const checkboxes = form.querySelectorAll('input[type=checkbox][name$="[]"]:checked');
+      const groups = {};
+      checkboxes.forEach(cb => {
+        const baseName = cb.name.slice(0, -2);
+        if (!groups[baseName]) groups[baseName] = [];
+        groups[baseName].push(cb.value);
+      });
+      Object.assign(answers, groups);
+
+      // Validation
+      for (const q of questions) {
+        const ans = answers[q.key];
+        if (
+          (q.type !== 'checkbox' && (!ans || ans === '')) ||
+          (q.type === 'checkbox' && (!Array.isArray(ans) || ans.length === 0))
+        ) {
+          alert(`Please answer: ${q.text}`);
+          return;
+        }
+      }
+
+      try {
+        const questionnaire = AV.Object.createWithoutData('Questionnaire', currentSurveyId);
+        const Response = AV.Object.extend('Response');
+        const resp = new Response();
+        resp.set('questionnaire', questionnaire);
+        resp.set('answers', answers);
+        resp.set('submittedAt', new Date());
+        await resp.save();
+
+        document.getElementById('app').innerHTML = `
+          <div class="alert alert-success">
+            <h2>Thank You! 🎉</h2>
+            <p>Your responses have been recorded.</p>
+            <button class="submit-btn" onclick="window.location.href=window.location.pathname">Take Another</button>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Submission failed:', err);
+        alert('Failed to submit. Please check your connection and try again.');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
