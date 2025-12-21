@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Everyday English</title>
-  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage/dist/av-min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
     /* Global Styles */
     * { box-sizing: border-box; }
@@ -119,7 +119,7 @@
     .btn-save { background-color: #2ecc71; color: white; }
     .btn-cancel { background-color: #e74c3c; color: white; }
 
-    /* --- Contact Info Section (New Styles) --- */
+    /* --- Contact Info Section --- */
     #contact-info {
       text-align: center;
       margin-top: 30px;
@@ -128,7 +128,7 @@
     }
 
     #contact-image {
-      width: 120px; /* Making the image small */
+      width: 120px;
       height: 120px;
       display: block;
       margin: 0 auto 10px;
@@ -141,8 +141,6 @@
       color: #555;
       margin: 0;
     }
-    /* --- End New Styles --- */
-
   </style>
 </head>
 <body>
@@ -161,19 +159,12 @@
             <button id="save-button" class="btn-save" style="display:none;" onclick="saveTranscript()">Save Transcript</button>
         </div>
     </div>
+
     <div id="podcasts-container">
       <div class="loading">Loading podcast programs...</div>
     </div>
 
-    <div id="contact-info">
-      <img 
-        src="https://tonysew.wordpress.com/wp-content/uploads/2025/12/bb240770-b60b-401b-8eb6-c3e18270bbe1.png" 
-        alt="Contact QR Code" 
-        id="contact-image"
-      />
-      <p id="wechat-text">contact me through wechat: pku90520139</p>
-    </div>
-    </div>
+  </div>
 
   <script>
     // --- LeanCloud Config ---
@@ -205,10 +196,36 @@
 
     let currentEpisodeUrl = null;
     let currentEpisodeTitle = null;
-    let currentEpisodeButton = null; // To hold the 'Text' button DOM element
+    let currentEpisodeButton = null;
+
+    // --- Visit Logging Function ---
+    async function logVisit() {
+      try {
+        let deviceId = localStorage.getItem('everyday_english_device_id');
+        if (!deviceId) {
+          if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            deviceId = crypto.randomUUID();
+          } else {
+            deviceId = 'device-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
+          }
+          localStorage.setItem('everyday_english_device_id', deviceId);
+        }
+
+        const VisitLog = AV.Object.extend('VisitLog');
+        const visit = new VisitLog();
+        visit.set('deviceId', deviceId);
+        visit.set('userAgent', navigator.userAgent);
+        visit.set('visitTime', new Date());
+        visit.set('ipAddress', ''); // Leave empty (client-side limitation)
+
+        await visit.save();
+        console.log('Visit logged for device:', deviceId);
+      } catch (err) {
+        console.warn('Visit logging failed:', err);
+      }
+    }
 
     // --- Helpers ---
-
     function escapeHTML(str) {
       if (typeof str !== 'string') return '';
       return str
@@ -228,23 +245,15 @@
       return data.items || [];
     }
 
-    // --- Transcript Checking Logic ---
-
     async function checkTranscriptsExistence(episodeUrls) {
-      if(episodeUrls.length === 0) return new Set();
+      if (episodeUrls.length === 0) return new Set();
       const query = new AV.Query('Transcript');
-      // Look up all relevant transcript records by their unique MP3 link (episodeUrl)
       query.containedIn('episodeUrl', episodeUrls);
-      query.equalTo('empty', 1); // Only check for published transcripts
+      query.equalTo('empty', 1);
       query.select(['episodeUrl']); 
-      
       const results = await query.find(); 
-      
-      const urlSet = new Set(results.map(r => r.get('episodeUrl')));
-      return urlSet;
+      return new Set(results.map(r => r.get('episodeUrl')));
     }
-
-    // --- Program Rendering ---
 
     function renderPodcast(program) {
       const card = document.createElement('div');
@@ -268,7 +277,7 @@
         if (isActive) {
           episodesList.classList.remove('active');
           header.querySelector('span').textContent = '▶';
-          transcriptArea.style.display = 'none'; // Hide editor when collapsing
+          transcriptArea.style.display = 'none';
         } else {
           episodesList.classList.add('active');
           header.querySelector('span').textContent = '▼';
@@ -298,7 +307,6 @@
                 li.dataset.url = url;
                 li.dataset.title = item.title;
 
-                // Add text button
                 const textButton = document.createElement('button');
                 textButton.className = `btn-text ${hasTranscript ? 'has-transcript' : ''}`;
                 textButton.textContent = 'Text';
@@ -327,8 +335,6 @@
       });
     }
 
-    // --- Player Logic (Keep as is) ---
-
     function playEpisode(url, title, listItem) {
       player.src = url;
       player.load();
@@ -342,10 +348,7 @@
       listItem.classList.add('active');
     }
 
-    // --- Transcript Editor/Viewer Logic ---
-
     async function toggleTranscript(url, title, buttonElement, hasTranscript) {
-        // If the area is already visible for this episode, hide it
         if (transcriptArea.style.display === 'block' && currentEpisodeUrl === url) {
             transcriptArea.style.display = 'none';
             return;
@@ -353,11 +356,10 @@
 
         currentEpisodeUrl = url;
         currentEpisodeTitle = title;
-        currentEpisodeButton = buttonElement; // Store the button for color update
+        currentEpisodeButton = buttonElement;
         transcriptTitleEl.textContent = title;
         transcriptArea.style.display = 'block';
         
-        // Reset to view mode
         transcriptContentEl.setAttribute('readonly', true);
         editButton.style.display = 'inline-block';
         saveButton.style.display = 'none';
@@ -365,7 +367,6 @@
         transcriptContentEl.value = 'Loading transcript...';
         
         if (!hasTranscript) {
-            // Grey button clicked. Show empty text box and prompt to edit.
             transcriptContentEl.value = 'No transcript stored for this episode. Click "Edit Transcript" below to add one.';
             return;
         }
@@ -373,8 +374,7 @@
         try {
             const query = new AV.Query('Transcript');
             query.equalTo('episodeUrl', url);
-            query.select(['content']); // We only need the content now
-            
+            query.select(['content']);
             const result = await query.first();
             
             if (result) {
@@ -403,9 +403,7 @@
     };
     
     window.cancelEdit = () => {
-        // Reloads the transcript content to discard local changes
         toggleTranscript(currentEpisodeUrl, currentEpisodeTitle, currentEpisodeButton, true); 
-        
         transcriptContentEl.setAttribute('readonly', true);
         editButton.style.display = 'inline-block';
         saveButton.style.display = 'none';
@@ -428,30 +426,26 @@
             let transcript = await query.first();
             
             if (!transcript) {
-                // Create new object if none exists for this URL
                 transcript = new Transcript();
                 transcript.set('episodeUrl', currentEpisodeUrl);
                 const acl = new AV.ACL();
-                acl.setPublicReadAccess(true); 
+                acl.setPublicReadAccess(true);
                 acl.setPublicWriteAccess(false);
                 transcript.setACL(acl);
             }
             
             transcript.set('content', content); 
             transcript.set('title', currentEpisodeTitle);
-            // CRITICAL: Set the 'empty' field to 1 to mark it as published
             transcript.set('empty', 1); 
             await transcript.save();
             
             alert('Transcript Saved successfully!');
             
-            // Switch back to view mode
             transcriptContentEl.setAttribute('readonly', true);
             editButton.style.display = 'inline-block';
             saveButton.style.display = 'none';
             cancelButton.style.display = 'none';
 
-            // CRITICAL: Update the "Text" button color immediately
             if (currentEpisodeButton) {
                 currentEpisodeButton.classList.add('has-transcript');
             }
@@ -463,7 +457,10 @@
         saveButton.disabled = false;
     };
 
-    // --- Initialization ---
+    // --- Initialize: Log visit AND load programs ---
+    logVisit();       // ← NEW: Track this visit
+    loadPrograms();   // ← Existing logic
+
     async function loadPrograms() {
       try {
         const query = new AV.Query(CLASS_NAME);
@@ -480,8 +477,6 @@
         container.innerHTML = `<div class="error">Failed to load podcasts: ${err.message}</div>`;
       }
     }
-
-    loadPrograms();
   </script>
 </body>
 </html>
