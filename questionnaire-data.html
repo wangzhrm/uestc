@@ -41,6 +41,7 @@
     .btn:hover { opacity: 0.9; }
     .btn-success { background: #34c759; }
     .btn-export { background: #5856d6; }
+    .btn-danger { background: #ff3b30; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -84,6 +85,7 @@
     <div class="controls">
       <button class="btn btn-success" id="copy-btn">📋 Copy All Data</button>
       <button class="btn btn-export" id="export-btn">📥 Export to Excel (.xlsx)</button>
+      <button class="btn btn-danger" id="delete-all-btn">🗑️ Delete All Responses</button>
     </div>
 
     <div class="status" id="status-message"></div>
@@ -100,8 +102,9 @@
     const SERVER_URL = 'https://hty6fjuugszkkki6nkwfqyjb.lc-cn-n1-shared.com';
     AV.init({ appId: APP_ID, appKey: APP_KEY, serverURLs: SERVER_URL });
 
-    let allResponses = []; // Each: { submittedAt: '2025-12-20 14:30:22', Q1: '...', Q2: '...' }
+    let allResponses = []; // Each: { objectId, submittedAt, Q1, Q2, ... }
     let questionKeys = [];
+    let responseObjects = []; // Store full AV.Object instances for deletion
 
     // Get survey ID from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -140,16 +143,20 @@
         rQuery.limit(1000);
         const responses = await rQuery.find();
 
+        // Store flat data + keep AV objects for deletion
         allResponses = responses.map(r => {
           const ans = r.get('answers') || {};
           const flat = {
-            submittedAt: formatDateTime(r.createdAt) // <-- ADD SUBMITTED AT
+            objectId: r.id,
+            submittedAt: formatDateTime(r.createdAt)
           };
           questionKeys.forEach(key => {
             flat[key] = ans[key] !== undefined ? String(ans[key]) : '';
           });
           return flat;
         });
+
+        responseObjects = responses;
 
         renderTable();
       } catch (err) {
@@ -158,24 +165,26 @@
       }
     }
 
-    // ===== RENDER TABLE =====
+    // ===== RENDER TABLE WITH DELETE BUTTONS =====
     function renderTable() {
       if (allResponses.length === 0) {
         document.getElementById('content').innerHTML = '<p>No responses yet.</p>';
         return;
       }
 
-      let html = '<table><thead><tr><th>#</th><th>Submitted At</th>'; // <-- NEW COLUMN
+      let html = '<table><thead><tr><th>#</th><th>Submitted At</th>';
       questionKeys.forEach(key => {
         html += `<th>${escapeHtml(key)}</th>`;
       });
-      html += '</tr></thead><tbody>';
+      html += '<th>Actions</th></tr></thead><tbody>';
 
       allResponses.forEach((row, idx) => {
-        html += `<tr><td>${idx + 1}</td><td>${escapeHtml(row.submittedAt)}</td>`; // <-- DISPLAY TIME
+        html += `<tr><td>${idx + 1}</td><td>${escapeHtml(row.submittedAt)}</td>`;
         questionKeys.forEach(key => {
           html += `<td>${escapeHtml(row[key] || '')}</td>`;
         });
+        html += `<td><button class="btn btn-danger" style="font-size:12px; padding:4px 8px;" 
+                onclick="deleteResponse('${row.objectId}', ${idx})">🗑️ Delete</button></td>`;
         html += '</tr>';
       });
 
@@ -183,14 +192,41 @@
       document.getElementById('content').innerHTML = html;
     }
 
-    function escapeHtml(text) {
-      if (typeof text !== 'string') return String(text);
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
+    // ===== DELETE SINGLE RESPONSE =====
+    window.deleteResponse = async function(objectId, index) {
+      if (!confirm(`Are you sure you want to delete response #${index + 1}? This cannot be undone.`)) return;
+
+      try {
+        const obj = responseObjects.find(r => r.id === objectId);
+        if (!obj) throw new Error("Response object not found");
+        await obj.destroy();
+        showStatus(`✅ Response #${index + 1} deleted.`, 2000);
+        loadSurveyData(surveyId); // Refresh
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete response: ' + (err.message || 'Unknown error'));
+      }
+    };
+
+    // ===== DELETE ALL RESPONSES =====
+    document.getElementById('delete-all-btn').addEventListener('click', async () => {
+      if (allResponses.length === 0) {
+        alert('No responses to delete.');
+        return;
+      }
+      if (!confirm(`⚠️ Delete ALL ${allResponses.length} responses? This action cannot be undone!`)) return;
+
+      try {
+        await AV.Object.destroyAll(responseObjects);
+        showStatus('✅ All responses deleted!', 2000);
+        allResponses = [];
+        responseObjects = [];
+        renderTable(); // Will show "No responses yet"
+      } catch (err) {
+        console.error('Bulk delete failed:', err);
+        alert('Failed to delete all responses: ' + (err.message || 'Unknown error'));
+      }
+    });
 
     // ===== COPY AS TSV =====
     document.getElementById('copy-btn').addEventListener('click', async () => {
@@ -199,7 +235,6 @@
         return;
       }
 
-      // Header: Row + Submitted At + Questions
       let tsv = 'Row\tSubmitted At\t' + questionKeys.join('\t') + '\n';
       
       allResponses.forEach((row, idx) => {
@@ -272,6 +307,16 @@
         script.onerror = reject;
         document.head.appendChild(script);
       });
+    }
+
+    // Utility: escape HTML
+    function escapeHtml(text) {
+      if (typeof text !== 'string') return String(text);
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
     // Utility: show temporary status message
