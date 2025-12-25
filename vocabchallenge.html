@@ -113,6 +113,13 @@
   <button class="red" onclick="surrender()">❌ Surrender (-1 coin)</button>
 </div>
 
+<!-- Waiting for Opponent (NEW) -->
+<div id="waitingForOpponent" class="hidden">
+  <h3>⏳ Waiting for opponent to respond...</h3>
+  <p>If they don't respond in 60s, they lose 1 coin.</p>
+  <button class="red" onclick="cancelChallenge()">Cancel Challenge</button>
+</div>
+
 <!-- Quiz View -->
 <div id="quizView" class="hidden">
   <h3>🔤 Vocabulary Challenge</h3>
@@ -150,6 +157,19 @@ let redirectTimer = null;
 
 // === NEW === Store current incoming challenge object
 let currentIncomingChallenge = null;
+
+// === NEW === Challenge state flags
+let isInChallengeMode = false;
+let hasChallengeStarted = false;
+
+// === NEW === Warn before leaving during challenge
+window.addEventListener('beforeunload', function (e) {
+  if (isInChallengeMode && currentStudent) {
+    const msg = '⚠️ Leaving now will forfeit the challenge and cost you 5 coins!';
+    e.returnValue = msg;
+    return msg;
+  }
+});
 
 // ------------------ LOGIN ------------------
 async function login() {
@@ -195,17 +215,14 @@ async function checkForIncomingChallenges() {
     const popupVisible = !document.getElementById('challengeIncoming').classList.contains('hidden');
 
     if (challenges.length > 0) {
-      // Found a challenge — show popup if not already shown
       if (!popupVisible) {
         const ch = challenges[0];
         currentIncomingChallenge = ch;
         challengeId = ch.id;
 
-        // Fetch challenger name
         const challenger = await AV.Object.createWithoutData('Student', ch.get('challengerId')).fetch();
         document.getElementById('challengerName').textContent = challenger.get('StudentId');
 
-        // Show popup and start countdown
         document.getElementById('mainView').classList.add('hidden');
         document.getElementById('challengeIncoming').classList.remove('hidden');
 
@@ -222,7 +239,6 @@ async function checkForIncomingChallenges() {
         }, 1000);
       }
     } else if (popupVisible) {
-      // No pending challenge but popup is open → hide it (e.g., challenger canceled)
       clearInterval(responseTimerInterval);
       document.getElementById('challengeIncoming').classList.add('hidden');
       document.getElementById('mainView').classList.remove('hidden');
@@ -353,6 +369,7 @@ async function setStudentActive(studentId, active) {
   }
 }
 
+// ------------------ CHALLENGE FLOW ------------------
 async function startChallenge(targetId) {
   if (!confirm('Challenge this player?')) return;
 
@@ -381,27 +398,108 @@ async function startChallenge(targetId) {
     await setStudentActive(currentStudent.id, false);
     await setStudentActive(targetId, false);
 
-    alert('Challenge sent! Waiting for response...');
-    // Note: We do NOT show popup to challenger — only wait silently
-    waitForOpponentResponse(ch.id, targetId);
+    // Show waiting screen
+    document.getElementById('mainView').classList.add('hidden');
+    document.getElementById('waitingForOpponent').classList.remove('hidden');
+    isInChallengeMode = true;
+    hasChallengeStarted = false;
+
+    waitForOpponentAction(ch.id, targetId);
   } catch (err) {
     alert('Failed to send challenge: ' + err.message);
     setStudentActive(currentStudent.id, true);
+    backToMain();
   }
 }
 
-// Renamed from waitForResponse to avoid confusion
-async function waitForOpponentResponse(challengeId, targetId) {
-  // Challenger just waits silently — no popup needed
-  // The challenged student will see the popup via checkForIncomingChallenges()
+async function cancelChallenge() {
+  if (!challengeId) return;
+  try {
+    const ch = AV.Object.createWithoutData('Challenge', challengeId);
+    ch.set('status', 'cancelled');
+    await ch.save();
+    await setStudentActive(currentStudent.id, true);
+    backToMain();
+    alert('Challenge cancelled.');
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-// ------------------ Existing functions reused ------------------
+async function waitForOpponentAction(challengeId, targetId) {
+  let attempts = 0;
+  const maxAttempts = 60;
+
+  const interval = setInterval(async () => {
+    try {
+      const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
+      const status = ch.get('status');
+
+      if (status === 'accepted') {
+        clearInterval(interval);
+        document.getElementById('waitingForOpponent').classList.add('hidden');
+        isInChallengeMode = true;
+        hasChallengeStarted = true;
+        startTime = Date.now();
+        startQuiz();
+      } else if (status === 'surrendered' || status === 'challenged_timeout') {
+        clearInterval(interval);
+        document.getElementById('waitingForOpponent').classList.add('hidden');
+        handleOpponentSurrender(ch, true);
+      } else if (status === 'cancelled') {
+        clearInterval(interval);
+        document.getElementById('waitingForOpponent').classList.add('hidden');
+        alert('Challenge was cancelled.');
+        backToMain();
+      }
+
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        document.getElementById('waitingForOpponent').classList.add('hidden');
+        alert('Opponent did not respond in time. You win +1 coin!');
+        await autoWinOnTimeout(challengeId, targetId);
+        backToMain();
+      }
+    } catch (err) {
+      console.error('Poll error:', err);
+    }
+  }, 1000);
+}
+
+async function autoWinOnTimeout(challengeId, opponentId) {
+  const newCoins = (currentStudent.get('coins') || 100) + 1;
+  currentStudent.set('coins', newCoins);
+  await currentStudent.save();
+  updateMyCoins();
+
+  const opp = AV.Object.createWithoutData('Student', opponentId);
+  opp.set('coins', Math.max(0, (opp.get('coins') || 100) - 1));
+  await opp.save();
+
+  const ch = AV.Object.createWithoutData('Challenge', challengeId);
+  ch.set('status', 'surrendered');
+  await ch.save();
+}
+
+// ------------------ ACCEPT / SURRENDER ------------------
 async function acceptChallenge() {
   if (!currentIncomingChallenge) return;
   clearInterval(responseTimerInterval);
-  document.getElementById('challengeIncoming').classList.add('hidden');
-  startQuiz();
+  
+  try {
+    currentIncomingChallenge.set('status', 'accepted');
+    await currentIncomingChallenge.save();
+
+    document.getElementById('challengeIncoming').classList.add('hidden');
+    isInChallengeMode = true;
+    hasChallengeStarted = true;
+    startTime = Date.now();
+    startQuiz();
+  } catch (err) {
+    console.error(err);
+    alert('Failed to accept challenge');
+  }
 }
 
 async function surrender() {
@@ -428,7 +526,32 @@ async function surrender() {
   }
 }
 
-// Keep all other functions unchanged
+function handleOpponentSurrender(challengeObj, amChallenger) {
+  const newCoins = (currentStudent.get('coins') || 100) + 1;
+  currentStudent.set('coins', newCoins);
+  currentStudent.save();
+  updateMyCoins();
+
+  document.getElementById('yourTime').textContent = '—';
+  document.getElementById('oppTime').textContent = '—';
+  document.getElementById('resultMessage').textContent = '✅ Opponent surrendered! +1 coin awarded.';
+  
+  document.getElementById('resultView').classList.remove('hidden');
+  isInChallengeMode = false;
+
+  let count = 5;
+  document.getElementById('redirectCountdown').textContent = count;
+  redirectTimer = setInterval(() => {
+    count--;
+    document.getElementById('redirectCountdown').textContent = count;
+    if (count <= 0) {
+      clearInterval(redirectTimer);
+      backToMain();
+    }
+  }, 1000);
+}
+
+// ------------------ QUIZ & RESULT ------------------
 async function startQuiz() {
   const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
   vocabQuiz = ch.get('vocabList');
@@ -494,6 +617,8 @@ function finishQuiz() {
 
 async function waitForOpponentResult() {
   let checkCount = 0;
+  const maxChecks = 60;
+
   const interval = setInterval(async () => {
     try {
       const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
@@ -504,12 +629,50 @@ async function waitForOpponentResult() {
       if (ch.get(otherId + '_done')) {
         clearInterval(interval);
         showResult(ch, otherId);
+      } else if (checkCount >= maxChecks) {
+        clearInterval(interval);
+        handleOpponentAbandonment(ch, otherId);
       }
     } catch (err) {
       console.error(err);
     }
     checkCount++;
-    if (checkCount > 60) clearInterval(interval);
+  }, 1000);
+}
+
+async function handleOpponentAbandonment(challengeObj, opponentId) {
+  const me = currentStudent;
+  const opponent = AV.Object.createWithoutData('Student', opponentId);
+  await opponent.fetch();
+
+  me.set('coins', (me.get('coins') || 100) + 5);
+  me.set('wins', (me.get('wins') || 0) + 1);
+  opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - 5));
+  opponent.set('losses', (opponent.get('losses') || 0) + 1);
+
+  await me.save();
+  await opponent.save();
+
+  challengeObj.set('status', 'completed');
+  challengeObj.set('result', 'opponent_abandoned');
+  await challengeObj.save();
+
+  document.getElementById('yourTime').textContent = totalTime.toFixed(2) + 's';
+  document.getElementById('oppTime').textContent = '— (forfeited)';
+  document.getElementById('resultMessage').textContent = '🎉 Opponent abandoned! You win +5 coins';
+  
+  document.getElementById('resultView').classList.remove('hidden');
+  updateMyCoins();
+
+  let count = 5;
+  document.getElementById('redirectCountdown').textContent = count;
+  redirectTimer = setInterval(() => {
+    count--;
+    document.getElementById('redirectCountdown').textContent = count;
+    if (count <= 0) {
+      clearInterval(redirectTimer);
+      backToMain();
+    }
   }, 1000);
 }
 
@@ -558,7 +721,13 @@ async function showResult(challengeObj, opponentId) {
 }
 
 function backToMain() {
+  isInChallengeMode = false;
+  hasChallengeStarted = false;
+  challengeId = null;
+  currentIncomingChallenge = null;
+  
   document.getElementById('challengeIncoming').classList.add('hidden');
+  document.getElementById('waitingForOpponent').classList.add('hidden');
   document.getElementById('quizView').classList.add('hidden');
   document.getElementById('resultView').classList.add('hidden');
   document.getElementById('mainView').classList.remove('hidden');
