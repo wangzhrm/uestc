@@ -3,577 +3,451 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Vocab Challenge 🧠</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- LeanCloud SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
+  <title>Vocabulary Challenge</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
   <style>
-    .player-card { transition: all 0.2s; }
-    .player-card.busy { opacity: 0.5; pointer-events: none; background-color: #f9fafb; }
-    .option-btn {
-      @apply w-full text-left p-3 mb-2 rounded border border-gray-300 bg-white hover:bg-indigo-50 cursor-pointer;
+    body { font-family: Arial; padding: 15px; }
+    #loginSection, #gameSection { width: 100%; }
+    #gameSection { display: none; }
+    .online-card {
+      border: 1px solid #ccc; margin: 8px; padding: 10px;
+      background: #f9f9f9; cursor: pointer;
     }
-    .avatar {
-      width: 36px; height: 36px;
-      display: flex; align-items: center; justify-content: center;
-      background: #4f46e5; color: white; font-weight: bold; border-radius: 50%;
+    .online-card.disabled { background: #eee; color: gray; cursor: not-allowed; }
+    .challenge-screen, .result-screen { 
+      display: none; position: fixed; top:0; left:0; 
+      width:100%; height:100%; background:white; z-index:100; padding:20px; 
     }
+    .ranking-item { padding: 5px; border-bottom: 1px solid #eee; }
+    #gameStatus { font-weight: bold; color: green; }
+    #powerUpBtn { margin-top: 10px; background: orange; color: white; padding: 5px 10px; border: none; cursor: pointer; }
+    input, button { margin: 5px; padding: 8px; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-<!-- Login Screen -->
-<div id="loginSection" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
-  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
-    <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Vocabulary Challenge</h2>
-    <input type="text" id="username" placeholder="Student ID" class="w-full px-4 py-2 mb-3 border rounded focus:ring-2 focus:ring-indigo-500 outline-none" />
-    <input type="password" id="password" placeholder="Password" class="w-full px-4 py-2 mb-4 border rounded focus:ring-2 focus:ring-indigo-500 outline-none" />
-    <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-medium">Login</button>
-    <p id="loginError" class="text-red-500 text-sm mt-2 text-center"></p>
+<!-- 🔐 LOGIN SECTION -->
+<div id="loginSection">
+  <h2>Student Login</h2>
+  <input type="text" id="loginUsername" placeholder="Username" /><br>
+  <input type="password" id="loginPassword" placeholder="Password" /><br>
+  <button onclick="attemptLogin()">Login</button>
+  <p id="loginError" style="color:red;"></p>
+</div>
+
+<!-- 🎮 GAME SECTION (hidden until login) -->
+<div id="gameSection">
+  <h2 id="welcome">Welcome, student!</h2>
+  <p>Game Status: <span id="gameStatus">Loading...</span></p>
+
+  <h3>Online Students</h3>
+  <div id="onlineStudents"></div>
+
+  <h3>Rankings</h3>
+  <div id="rankings"></div>
+
+  <button id="powerUpBtn" style="display:none;">Power Me Up!</button>
+
+  <!-- Challenge Screen -->
+  <div id="challengeScreen" class="challenge-screen">
+    <h2>Vocabulary Challenge</h2>
+    <p>Time: <span id="timer">0s</span></p>
+    <h3 id="currentWord">Loading...</h3>
+    <div id="options"></div>
   </div>
-</div>
 
-<!-- Main Dashboard -->
-<div id="mainSection" class="hidden">
-  <header class="bg-white shadow sticky top-0 z-10">
-    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-      <div>
-        <h1 class="text-lg font-bold">Hi, <span id="displayName" class="text-indigo-600"></span>!</h1>
-        <div class="flex items-center space-x-3 mt-1">
-          <span class="font-semibold text-yellow-600">🪙 <span id="coinDisplay">100</span></span>
-          <span id="gameStatusBadge" class="px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">INACTIVE</span>
-        </div>
-      </div>
-      <div id="powerUpBtnContainer" class="hidden">
-        <button onclick="requestPowerUp()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-sm">Power Me Up!</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container mx-auto px-4 py-6">
-    <!-- Online Players -->
-    <section class="mb-8">
-      <h2 class="text-xl font-bold mb-3">👥 Online Players (Click to Challenge)</h2>
-      <div id="onlinePlayers" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <!-- Cards inserted here -->
-      </div>
-    </section>
-
-    <!-- Global Ranking -->
-    <section>
-      <h2 class="text-xl font-bold mb-3">🏆 Leaderboard</h2>
-      <div id="rankingList" class="bg-white rounded shadow p-3 max-h-60 overflow-y-auto">
-        <!-- Rankings -->
-      </div>
-    </section>
-  </main>
-</div>
-
-<!-- Challenge Popup -->
-<div id="challengePopup" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-  <div class="bg-white rounded-xl p-5 max-w-sm w-full mx-4 text-center">
-    <h3 class="font-bold text-lg">⚔️ Challenge Request!</h3>
-    <p class="text-gray-700 mt-1">From: <span id="challengerName" class="font-semibold"></span></p>
-    <p class="text-red-600 font-bold mt-2">Respond in <span id="acceptTimer">10</span>s!</p>
-    <div class="flex justify-center space-x-3 mt-4">
-      <button onclick="acceptChallenge()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded">Accept</button>
-      <button onclick="surrenderChallenge()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded">Surrender (-3)</button>
-    </div>
-  </div>
-</div>
-
-<!-- Vocabulary Game Screen -->
-<div id="vocabularyGame" class="hidden min-h-screen bg-gradient-to-b from-indigo-50 to-white flex flex-col">
-  <header class="bg-white py-2 px-4 shadow">
-    <div class="container mx-auto flex justify-between items-center">
-      <h2 class="font-bold">🔤 Vocab Challenge</h2>
-      <div>
-        <span>⏱️ <span id="gameTimer">0</span>s</span>
-        <span class="ml-2 text-amber-600">(+<span id="penaltyDisplay">0</span>s)</span>
-      </div>
-    </div>
-  </header>
-
-  <div class="flex-grow flex flex-col items-center justify-center px-4 py-6">
-    <div class="bg-white rounded-xl shadow p-5 max-w-2xl w-full">
-      <p class="text-sm text-gray-500 text-center">Word <span id="vocabIndex">1</span>/10</p>
-      <h3 id="currentWord" class="text-2xl font-bold text-center my-3"></h3>
-      <div id="options" class="space-y-2 mt-4"></div>
-      <p id="resultMessage" class="mt-3 text-center min-h-6 font-medium"></p>
-    </div>
+  <!-- Result Screen -->
+  <div id="resultScreen" class="result-screen">
+    <h2>Challenge Result</h2>
+    <p id="resultText"></p>
+    <p>Redirecting in <span id="countdown">5</span> seconds...</p>
   </div>
 </div>
 
 <script>
-  // Initialize LeanCloud
+  // === Global variables ===
+  let currentUser = null;
+  let currentChallenge = null;
+  let startTime = null;
+  let userTime = 0;
+  let penalty = 0;
+  let timerInterval = null;
+  let challengeTimeout = null;
+
+  // === Initialize LeanCloud ===
   AV.init({
     appId: "awUs1OEg2gNP2FbDR0DYZt8O-gzGzoHsz",
     appKey: "SenNF43Fxr0lhQ9whRmeZ6sG",
     serverURL: "https://awus1oeg.lc-cn-n1-shared.com"
   });
 
-  let currentUser = null;
-  let isGameActive = false;
-  let heartbeatInterval = null;
-  let currentChallengeId = null;
-  let vocabList = [];
-  let currentVocabIndex = 0;
-  let startTime = null;
-  let totalTime = 0;
-  let penaltySeconds = 0;
-  let gameTimerInterval = null;
-  let acceptCountdown = null;
-
-  // === LOGIN ===
-  async function login() {
-    const uid = document.getElementById("username").value.trim();
-    const pwd = document.getElementById("password").value;
-    if (!uid || !pwd) return;
-
-    try {
-      const q = new AV.Query("Student");
-      q.equalTo("StudentId", uid);
-      const res = await q.find();
-      if (!res.length || res[0].get("password") !== pwd) {
-        document.getElementById("loginError").textContent = "Invalid ID or password";
-        return;
-      }
-
-      currentUser = res[0];
-      document.getElementById("displayName").textContent = uid;
-      updateCoins();
-
-      await updateOnlineStatus(true);
-      startHeartbeat();
-      loadGameSettings();
-      loadRanking();
-      loadOnlinePlayers();
-      checkPowerUpButton();
-      pollForChallenges();
-
-      document.getElementById("loginSection").classList.add("hidden");
-      document.getElementById("mainSection").classList.remove("hidden");
-    } catch (err) {
-      console.error(err);
-      document.getElementById("loginError").textContent = "Login failed.";
+  // === Check if already logged in ===
+  AV.User.currentAsync().then(user => {
+    if (user) {
+      currentUser = user;
+      showGameUI();
+      startGameLogic();
+    } else {
+      showLoginUI();
     }
-  }
-
-  // === ONLINE STATUS & HEARTBEAT ===
-  function startHeartbeat() {
-    heartbeatInterval = setInterval(async () => {
-      if (currentUser) await updateOnlineStatus(true);
-    }, 10000);
-  }
-
-  async function updateOnlineStatus(isOnline) {
-    if (!currentUser) return;
-    currentUser.set("isOnline", isOnline);
-    currentUser.set("lastSeen", new Date());
-    await currentUser.save();
-  }
-
-  window.addEventListener('beforeunload', async () => {
-    if (currentUser) await updateOnlineStatus(false);
   });
 
-  // === GAME SETTINGS ===
-  async function loadGameSettings() {
-    const settings = await new AV.Query("GameSettings").first();
-    isGameActive = settings?.get("isActive") || false;
-    const badge = document.getElementById("gameStatusBadge");
-    badge.textContent = isGameActive ? "ACTIVE" : "INACTIVE";
-    badge.className = isGameActive 
-      ? "px-2 py-0.5 rounded text-xs font-bold bg-green-500 text-white"
-      : "px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white";
+  function showLoginUI() {
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('gameSection').style.display = 'none';
+  }
 
-    if (isGameActive && settings?.get("roundEndTime")) {
-      const endTime = new Date(settings.get("roundEndTime")).getTime();
-      if (Date.now() < endTime) {
-        setTimeout(() => autoPairStudent(), endTime - Date.now());
-      }
+  function showGameUI() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('gameSection').style.display = 'block';
+  }
+
+  async function attemptLogin() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!username || !password) {
+      showError("Please enter both username and password.");
+      return;
+    }
+
+    try {
+      const user = await AV.User.logIn(username, password);
+      currentUser = user;
+      showGameUI();
+      startGameLogic();
+    } catch (err) {
+      console.error(err);
+      showError(err.message || "Login failed.");
     }
   }
 
-  // === ONLINE PLAYERS ===
-  async function loadOnlinePlayers() {
-    const container = document.getElementById("onlinePlayers");
-    if (!isGameActive) {
-      container.innerHTML = `<p class="col-span-full text-center text-gray-500">Game inactive. Wait for admin to start.</p>`;
-      return;
-    }
+  function showError(msg) {
+    document.getElementById('loginError').textContent = msg;
+  }
 
-    const query = new AV.Query("Student");
-    query.equalTo("isOnline", true);
-    query.notEqualTo("objectId", currentUser.id);
-    query.greaterThan("lastSeen", new Date(Date.now() - 15000));
-    const players = await query.find();
+  // === Game Logic (only runs after login) ===
+  function startGameLogic() {
+    document.getElementById('welcome').textContent = `Welcome, ${currentUser.get('username')}!`;
+    updateUserOnline(true);
+    loadGameStatus();
+    setInterval(loadGameStatus, 3000);
+    loadOnlineStudents();
+    loadRankings();
+    checkPowerUpEligibility();
+    listenForChallenges();
 
-    container.innerHTML = "";
-    if (players.length === 0) {
-      container.innerHTML = `<p class="col-span-full text-center text-gray-500">No other players online.</p>`;
-      return;
-    }
-
-    players.forEach(p => {
-      const isBusy = !!p.get("currentChallengeId");
-      const card = document.createElement("div");
-      card.className = `player-card p-3 rounded border ${isBusy ? 'busy' : 'cursor-pointer hover:shadow-md'}`;
-      if (!isBusy) {
-        card.onclick = () => initiateChallenge(p.id, p.get("StudentId"));
-      }
-
-      const name = p.get("StudentId");
-      const initials = name.substring(0, 2).toUpperCase();
-      card.innerHTML = `
-        <div class="flex items-center space-x-2">
-          <div class="avatar">${initials}</div>
-          <div>
-            <p class="font-bold text-gray-800">${name}</p>
-            <p class="text-sm text-yellow-600">🪙 ${p.get("coins") || 100}</p>
-          </div>
-        </div>
-        ${isBusy ? '<p class="text-xs text-gray-500 mt-1">In challenge...</p>' : ''}
-      `;
-      container.appendChild(card);
+    // Handle browser close / refresh
+    window.addEventListener('beforeunload', () => {
+      updateUserOnline(false);
     });
   }
 
-  // === CHALLENGE SYSTEM ===
-  async function initiateChallenge(targetId, targetName) {
-    if (!isGameActive || currentUser.get("currentChallengeId")) return;
-    const Challenge = AV.Object.extend("Challenge");
-    const ch = new Challenge();
-    ch.set("challengerId", currentUser.id);
-    ch.set("challengedId", targetId);
-    ch.set("status", "pending");
-    ch.set("startTime", new Date());
-    const saved = await ch.save();
-
-    currentUser.set("currentChallengeId", saved.id);
-    await currentUser.save();
-    loadOnlinePlayers();
-  }
-
-  async function pollForChallenges() {
+  function updateUserOnline(isOnline) {
     if (!currentUser) return;
-    const q = new AV.Query("Challenge");
-    q.equalTo("challengedId", currentUser.id);
-    q.equalTo("status", "pending");
-    const pending = await q.find();
-    if (pending.length > 0) {
-      showChallengePopup(pending[0]);
-    } else {
-      setTimeout(pollForChallenges, 2000);
+    currentUser.set('isOnline', isOnline);
+    currentUser.set('lastSeen', new Date());
+    currentUser.save().catch(console.error);
+    if (!isOnline && currentChallenge) {
+      updateChallengeStatus('abandoned');
     }
   }
 
-  function showChallengePopup(challenge) {
-    clearInterval(acceptCountdown);
-    let timeLeft = 10;
-    document.getElementById("acceptTimer").textContent = timeLeft;
+  // ... [REST OF YOUR GAME LOGIC FUNCTIONS FROM PREVIOUS VERSION] ...
 
-    AV.Object.createWithoutData("Student", challenge.get("challengerId"))
-      .fetch().then(c => {
-        document.getElementById("challengerName").textContent = c.get("StudentId");
-      });
+  // Paste all functions below here:
+  // - loadGameStatus()
+  // - loadOnlineStudents()
+  // - loadRankings()
+  // - challengeStudent()
+  // - listenForChallenges()
+  // - startVocabChallenge()
+  // - showVocab()
+  // - finishChallenge()
+  // - checkChallengeResult()
+  // - showResultScreen()
+  // - handleTimeoutLoss()
+  // - checkPowerUpEligibility()
+  // - requestPowerUp()
 
-    document.getElementById("challengePopup").classList.remove("hidden");
+  // For brevity, I’ll include them inline below — but in real code, just copy from previous answer.
 
-    acceptCountdown = setInterval(async () => {
-      timeLeft--;
-      document.getElementById("acceptTimer").textContent = timeLeft;
-      if (timeLeft <= 0) {
-        clearInterval(acceptCountdown);
-        document.getElementById("challengePopup").classList.add("hidden");
-        acceptChallengeLogic(challenge);
+  // ====================== BEGIN: COPY FROM PREVIOUS STUDENT.JS ======================
+
+  async function loadGameStatus() {
+    const query = new AV.Query('GameSettings');
+    const settings = await query.first();
+    const isActive = settings ? settings.get('isActive') : false;
+    document.getElementById('gameStatus').textContent = isActive ? 'ACTIVE' : 'INACTIVE';
+    document.getElementById('gameStatus').style.color = isActive ? 'green' : 'red';
+  }
+
+  async function loadOnlineStudents() {
+    const query = new AV.Query('Student');
+    query.equalTo('isOnline', true);
+    query.notEqualTo('objectId', currentUser.id);
+    const onlineStudents = await query.find();
+
+    const container = document.getElementById('onlineStudents');
+    container.innerHTML = '';
+
+    for (const student of onlineStudents) {
+      const card = document.createElement('div');
+      card.className = 'online-card';
+      card.innerHTML = `${student.get('username')} (${student.get('coins')} coins)`;
+
+      if (student.get('currentChallengeId')) {
+        card.classList.add('disabled');
+      } else {
+        card.onclick = () => challengeStudent(student);
+      }
+
+      container.appendChild(card);
+    }
+  }
+
+  async function loadRankings() {
+    const query = new AV.Query('Student');
+    query.descending('coins');
+    const students = await query.find();
+    const container = document.getElementById('rankings');
+    container.innerHTML = '';
+    students.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'ranking-item';
+      div.textContent = `${s.get('username')}: ${s.get('coins')} coins | W: ${s.get('wins')} L: ${s.get('losses')}`;
+      container.appendChild(div);
+    });
+  }
+
+  async function challengeStudent(targetStudent) {
+    const gameQuery = new AV.Query('GameSettings');
+    const gameSettings = await gameQuery.first();
+    if (!gameSettings || !gameSettings.get('isActive')) {
+      alert('Game is not active!');
+      return;
+    }
+
+    const ChallengeClass = AV.Object.extend('Challenge');
+    const challenge = new ChallengeClass();
+    challenge.set('challengerId', currentUser.id);
+    challenge.set('challengedId', targetStudent.id);
+    challenge.set('status', 'pending');
+
+    try {
+      await challenge.save();
+      currentUser.set('currentChallengeId', challenge.id);
+      await currentUser.save();
+
+      targetStudent.set('currentChallengeId', challenge.id);
+      await targetStudent.save();
+
+      alert('Challenge sent!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to send challenge.');
+    }
+  }
+
+  function listenForChallenges() {
+    const query = new AV.Query('Challenge');
+    query.equalTo('challengedId', currentUser.id);
+    query.equalTo('status', 'pending');
+    const subscription = query.subscribe();
+    subscription.on('create', async (challenge) => {
+      if (confirm(`You've been challenged! Accept?`)) {
+        challenge.set('status', 'accepted');
+        challenge.set('startTime', new Date());
+        await challenge.save();
+        startVocabChallenge(challenge);
+      } else {
+        challenge.set('status', 'surrendered');
+        challenge.set('winnerId', challenge.get('challengerId'));
+        await challenge.save();
+
+        const winner = AV.Object.createWithoutData('Student', challenge.get('challengerId'));
+        const loser = currentUser;
+        winner.increment('coins', 3);
+        loser.increment('coins', -3);
+        loser.increment('losses', 1);
+        await AV.Object.saveAll([winner, loser]);
+
+        alert('You surrendered. Lost 3 coins.');
+        location.reload();
+      }
+    });
+  }
+
+  async function startVocabChallenge(challenge) {
+    currentChallenge = challenge;
+    document.getElementById('challengeScreen').style.display = 'block';
+
+    const vocabQuery = new AV.Query('Vocabulary');
+    const allVocab = await vocabQuery.find();
+    if (allVocab.length < 3) {
+      alert('Not enough vocabulary!');
+      return;
+    }
+
+    const shuffled = [...allVocab].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 10);
+    const wordList = selected.map(v => ({ word: v.get('word'), meaning: v.get('meaning') }));
+    challenge.set('vocabList', wordList.map(v => v.word));
+    await challenge.save();
+
+    const vocabMap = {};
+    wordList.forEach(v => vocabMap[v.word] = v.meaning);
+
+    let currentIndex = 0;
+    userTime = 0;
+    penalty = 0;
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      userTime = Math.floor((Date.now() - startTime + penalty * 1000) / 1000);
+      document.getElementById('timer').textContent = userTime + 's';
+    }, 1000);
+
+    challengeTimeout = setTimeout(() => {
+      if (currentChallenge) handleTimeoutLoss();
+    }, 3 * 60 * 1000);
+
+    showVocab(wordList, currentIndex, vocabMap);
+  }
+
+  function showVocab(wordList, index, vocabMap) {
+    if (index >= wordList.length) {
+      finishChallenge();
+      return;
+    }
+
+    const current = wordList[index];
+    const options = [current.meaning];
+    const others = wordList.filter(w => w.word !== current.word);
+    const shuffled = [...others].sort(() => 0.5 - Math.random());
+    options.push(shuffled[0].meaning, shuffled[1].meaning);
+    options.sort(() => 0.5 - Math.random());
+
+    document.getElementById('currentWord').textContent = current.word;
+    const optionsDiv = document.getElementById('options');
+    optionsDiv.innerHTML = '';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.style.display = 'block'; btn.style.margin = '5px';
+      btn.textContent = opt;
+      btn.onclick = () => {
+        if (opt === current.meaning) {
+          showVocab(wordList, index + 1, vocabMap);
+        } else {
+          penalty += 5;
+          alert('Wrong! +5s penalty.');
+        }
+      };
+      optionsDiv.appendChild(btn);
+    });
+  }
+
+  async function finishChallenge() {
+    clearInterval(timerInterval);
+    clearTimeout(challengeTimeout);
+    const finalTime = userTime;
+    currentChallenge.set(`player${currentChallenge.get('challengerId') === currentUser.id ? '1' : '2'}Time`, finalTime);
+    currentChallenge.set('status', 'completed');
+    await currentChallenge.save();
+    checkChallengeResult();
+  }
+
+  async function checkChallengeResult() {
+    const challenge = await new AV.Query('Challenge').get(currentChallenge.id);
+    const p1Time = challenge.get('player1Time');
+    const p2Time = challenge.get('player2Time');
+
+    if (p1Time !== undefined && p2Time !== undefined) {
+      showResultScreen(challenge);
+    } else {
+      setTimeout(() => checkChallengeResult(), 2000);
+    }
+  }
+
+  async function showResultScreen(challenge) {
+    document.getElementById('challengeScreen').style.display = 'none';
+    document.getElementById('resultScreen').style.display = 'block';
+
+    const p1Time = challenge.get('player1Time');
+    const p2Time = challenge.get('player2Time');
+    let resultText = '';
+    let winnerId = null;
+
+    if (p1Time === undefined && p2Time === undefined) {
+      resultText = "Both timed out. No coins changed.";
+    } else if (p1Time === undefined) {
+      winnerId = challenge.get('challengedId');
+      resultText = `Player 2 wins! (Player 1 timed out)`;
+    } else if (p2Time === undefined) {
+      winnerId = challenge.get('challengerId');
+      resultText = `Player 1 wins! (Player 2 timed out)`;
+    } else if (p1Time < p2Time) {
+      winnerId = challenge.get('challengerId');
+      resultText = `Player 1 wins! (${p1Time}s vs ${p2Time}s)`;
+    } else if (p2Time < p1Time) {
+      winnerId = challenge.get('challengedId');
+      resultText = `Player 2 wins! (${p2Time}s vs ${p1Time}s)`;
+    } else {
+      resultText = "Tie! No coins changed.";
+    }
+
+    challenge.set('winnerId', winnerId);
+    await challenge.save();
+
+    if (winnerId) {
+      const winner = AV.Object.createWithoutData('Student', winnerId);
+      const loserId = winnerId === currentUser.id ?
+        (currentUser.id === challenge.get('challengerId') ? challenge.get('challengedId') : challenge.get('challengerId'))
+        : currentUser.id;
+      const loser = AV.Object.createWithoutData('Student', loserId);
+
+      winner.increment('coins', 5);
+      winner.increment('wins', 1);
+      loser.increment('coins', -5);
+      loser.increment('losses', 1);
+      await AV.Object.saveAll([winner, loser]);
+    }
+
+    document.getElementById('resultText').textContent = resultText;
+
+    let count = 5;
+    const cd = setInterval(() => {
+      document.getElementById('countdown').textContent = --count;
+      if (count <= 0) {
+        clearInterval(cd);
+        window.location.reload();
       }
     }, 1000);
   }
 
-  async function acceptChallenge() {
-    clearInterval(acceptCountdown);
-    const q = new AV.Query("Challenge");
-    q.equalTo("challengedId", currentUser.id);
-    q.equalTo("status", "pending");
-    const pending = await q.find();
-    if (pending[0]) {
-      document.getElementById("challengePopup").classList.add("hidden");
-      acceptChallengeLogic(pending[0]);
+  async function handleTimeoutLoss() {
+    currentChallenge.set(`player${currentChallenge.get('challengerId') === currentUser.id ? '1' : '2'}Time`, undefined);
+    currentChallenge.set('status', 'timeout');
+    await currentChallenge.save();
+    finishChallenge();
+  }
+
+  function checkPowerUpEligibility() {
+    if (currentUser.get('coins') < 10) {
+      document.getElementById('powerUpBtn').style.display = 'inline-block';
+      document.getElementById('powerUpBtn').onclick = requestPowerUp;
     }
   }
 
-  async function surrenderChallenge() {
-    clearInterval(acceptCountdown);
-    const q = new AV.Query("Challenge");
-    const pending = await q.equalTo("challengedId", currentUser.id)
-                                .equalTo("status", "pending")
-                                .find();
-    if (pending[0]) {
-      const ch = pending[0];
-      document.getElementById("challengePopup").classList.add("hidden");
-
-      const challenger = AV.Object.createWithoutData("Student", ch.get("challengerId"));
-      await challenger.fetch();
-      challenger.set("coins", (challenger.get("coins") || 100) + 3);
-      challenger.set("wins", (challenger.get("wins") || 0) + 1);
-      await challenger.save();
-
-      currentUser.set("coins", (currentUser.get("coins") || 100) - 3);
-      currentUser.set("losses", (currentUser.get("losses") || 0) + 1);
-      await currentUser.save();
-
-      ch.set("status", "surrendered");
-      ch.set("winnerId", ch.get("challengerId"));
-      await ch.save();
-
-      alert("You surrendered. -3 coins.");
-      updateCoins(); loadRanking(); loadOnlinePlayers(); pollForChallenges();
-    }
-  }
-
-  // === VOCABULARY GAME ===
-  async function acceptChallengeLogic(challenge) {
-    currentUser.set("currentChallengeId", challenge.id);
-    await currentUser.save();
-
-    const vocabQuery = new AV.Query("Vocabulary");
-    const allVocab = await vocabQuery.find();
-    if (allVocab.length < 10) {
-      alert("Not enough words! Admin needs to add more.");
-      return;
-    }
-
-    // Get 10 random words
-    const shuffled = [...allVocab].sort(() => 0.5 - Math.random()).slice(0, 10);
-    const wordList = shuffled.map(v => v.get("word"));
-    const meaningMap = {};
-    allVocab.forEach(v => meaningMap[v.get("word")] = v.get("meaning"));
-
-    // Build options: correct + 2 random distractors
-    vocabList = wordList.map(word => {
-      const correct = meaningMap[word];
-      const others = Object.values(meaningMap).filter(m => m !== correct);
-      const distractors = [];
-      while (distractors.length < 2 && others.length > 0) {
-        const idx = Math.floor(Math.random() * others.length);
-        distractors.push(others.splice(idx, 1)[0]);
-      }
-      const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
-      return { word, correct, options };
-    });
-
-    challenge.set("vocabList", wordList);
-    challenge.set("status", "accepted");
-    await challenge.save();
-
-    startVocabularyGame(challenge.id);
-  }
-
-  function startVocabularyGame(challengeId) {
-    currentChallengeId = challengeId;
-    currentVocabIndex = 0;
-    totalTime = 0;
-    penaltySeconds = 0;
-    startTime = new Date();
-    document.getElementById("mainSection").classList.add("hidden");
-    document.getElementById("vocabularyGame").classList.remove("hidden");
-    showNextVocab();
-    gameTimerInterval = setInterval(() => {
-      totalTime = (new Date() - startTime) / 1000 + penaltySeconds;
-      document.getElementById("gameTimer").textContent = totalTime.toFixed(1);
-      document.getElementById("penaltyDisplay").textContent = penaltySeconds;
-      if (totalTime >= 180) endGameDueToTimeout();
-    }, 100);
-  }
-
-  function showNextVocab() {
-    if (currentVocabIndex >= vocabList.length) return finishGame();
-    const v = vocabList[currentVocabIndex];
-    document.getElementById("currentWord").textContent = v.word;
-    document.getElementById("vocabIndex").textContent = currentVocabIndex + 1;
-    const optDiv = document.getElementById("options");
-    optDiv.innerHTML = "";
-    v.options.forEach(opt => {
-      const btn = document.createElement("button");
-      btn.className = "option-btn";
-      btn.textContent = opt;
-      btn.onclick = () => selectOption(opt, v.correct);
-      optDiv.appendChild(btn);
-    });
-    document.getElementById("resultMessage").textContent = "";
-  }
-
-  function selectOption(selected, correct) {
-    const buttons = document.querySelectorAll(".option-btn");
-    buttons.forEach(b => b.disabled = true);
-
-    if (selected === correct) {
-      event.target.classList.add("correct");
-      setTimeout(() => {
-        currentVocabIndex++;
-        showNextVocab();
-      }, 800);
-    } else {
-      penaltySeconds += 5;
-      event.target.classList.add("wrong");
-      document.getElementById("resultMessage").textContent = "❌ Wrong! +5s penalty";
-      setTimeout(() => {
-        currentVocabIndex++;
-        showNextVocab();
-      }, 1500);
-    }
-  }
-
-  async function finishGame() {
-    clearInterval(gameTimerInterval);
-    const finalTime = totalTime;
-    const ch = AV.Object.createWithoutData("Challenge", currentChallengeId);
-    await ch.fetch();
-    if (ch.get("challengerId") === currentUser.id) {
-      ch.set("player1Time", finalTime);
-    } else {
-      ch.set("player2Time", finalTime);
-    }
-    await ch.save();
-
-    let opponentDone = false;
-    const wait = setInterval(async () => {
-      await ch.fetch();
-      const p1t = ch.get("player1Time");
-      const p2t = ch.get("player2Time");
-      if ((ch.get("challengerId") === currentUser.id && p2t != null) ||
-          (ch.get("challengedId") === currentUser.id && p1t != null)) {
-        opponentDone = true;
-        clearInterval(wait);
-        processResult(ch, finalTime, p1t, p2t);
-      }
-    }, 2000);
-
-    setTimeout(() => {
-      if (!opponentDone) {
-        clearInterval(wait);
-        endGameDueToTimeout();
-      }
-    }, 10000);
-  }
-
-  async function endGameDueToTimeout() {
-    alert("⏰ Time's up! Challenge ended.");
-    await cleanupAfterGame();
-    window.location.reload();
-  }
-
-  async function processResult(challenge, myTime, p1t, p2t) {
-    const otherTime = challenge.get("challengerId") === currentUser.id ? p2t : p1t;
-    let iWin = false;
-
-    if (otherTime == null) {
-      iWin = true;
-    } else if (myTime <= 180 && otherTime <= 180) {
-      iWin = myTime < otherTime;
-    } else if (myTime <= 180 && otherTime > 180) {
-      iWin = true;
-    } else if (myTime > 180 && otherTime <= 180) {
-      iWin = false;
-    } else {
-      // both timed out → no change
-      challenge.set("status", "completed");
-      challenge.set("endTime", new Date());
-      await challenge.save();
-      alert("Both timed out. No coins changed.");
-      await cleanupAfterGame();
-      setTimeout(() => window.location.reload(), 3000);
-      return;
-    }
-
-    const delta = iWin ? 5 : -5;
-    currentUser.set("coins", (currentUser.get("coins") || 100) + delta);
-    if (iWin) currentUser.set("wins", (currentUser.get("wins") || 0) + 1);
-    else currentUser.set("losses", (currentUser.get("losses") || 0) + 1);
-    await currentUser.save();
-
-    const oppId = challenge.get("challengerId") === currentUser.id ? challenge.get("challengedId") : challenge.get("challengerId");
-    const opponent = AV.Object.createWithoutData("Student", oppId);
-    await opponent.fetch();
-    opponent.set("coins", (opponent.get("coins") || 100) - delta);
-    if (iWin) opponent.set("losses", (opponent.get("losses") || 0) + 1);
-    else opponent.set("wins", (opponent.get("wins") || 0) + 1);
-    await opponent.save();
-
-    challenge.set("winnerId", iWin ? currentUser.id : oppId);
-    challenge.set("status", "completed");
-    challenge.set("endTime", new Date());
-    await challenge.save();
-
-    const msg = iWin ? '🎉 You win! +5 coins!' : '😞 You lose. -5 coins.';
-    document.getElementById("resultMessage").innerHTML = `
-      <div class="text-center font-bold">${msg}</div>
-      <div class="mt-2 text-sm">Your time: ${myTime.toFixed(1)}s | Opponent: ${otherTime?.toFixed(1) || '—'}s</div>
-    `;
-    
-    setTimeout(async () => {
-      await cleanupAfterGame();
-      window.location.reload();
-    }, 5000);
-  }
-
-  async function cleanupAfterGame() {
-    currentUser.set("currentChallengeId", null);
-    await currentUser.save();
-  }
-
-  // === POWER UP & RANKING ===
   async function requestPowerUp() {
-    const PowerUp = AV.Object.extend("PowerUpRequest");
-    const req = new PowerUp();
-    req.set("userId", currentUser.id);
-    req.set("handled", false);
+    const PowerUpRequest = AV.Object.extend('PowerUpRequest');
+    const req = new PowerUpRequest();
+    req.set('userId', currentUser.id);
+    req.set('handled', false);
     await req.save();
-    alert("✅ Power-up requested! Admin will review soon.");
+    alert('Power-up requested! Please wait for admin approval.');
   }
 
-  function checkPowerUpButton() {
-    const coins = currentUser.get("coins") || 100;
-    document.getElementById("powerUpBtnContainer").classList.toggle("hidden", coins >= 10);
-  }
+  // ====================== END: GAME LOGIC ======================
 
-  function updateCoins() {
-    document.getElementById("coinDisplay").textContent = currentUser.get("coins") || 100;
-  }
-
-  async function loadRanking() {
-    const students = await new AV.Query("Student").descending("coins").find();
-    const list = document.getElementById("rankingList");
-    list.innerHTML = students.map((s, i) => `
-      <div class="flex justify-between py-1.5 border-b border-gray-100 text-sm">
-        <span>${i+1}. ${s.get("StudentId")}</span>
-        <span>🪙${s.get("coins")} | W:${s.get("wins")||0} L:${s.get("losses")||0}</span>
-      </div>
-    `).join("");
-  }
-
-  async function autoPairStudent() {
-    if (!currentUser || currentUser.get("currentChallengeId")) return;
-    const q = new AV.Query("Student");
-    q.equalTo("isOnline", true);
-    q.notEqualTo("objectId", currentUser.id);
-    q.equalTo("currentChallengeId", null);
-    q.greaterThan("lastSeen", new Date(Date.now() - 15000));
-    const candidates = await q.find();
-    if (candidates.length > 0) {
-      const target = candidates[Math.floor(Math.random() * candidates.length)];
-      await initiateChallenge(target.id, target.get("StudentId"));
-    }
-  }
-
-  // Initial setup
-  if (localStorage.getItem("autoReload")) {
-    localStorage.removeItem("autoReload");
-    location.reload();
-  }
 </script>
-
 </body>
 </html>
