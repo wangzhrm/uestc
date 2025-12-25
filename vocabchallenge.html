@@ -3,824 +3,577 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Vocabulary Challenge</title>
-  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <title>Vocab Challenge 🧠</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- LeanCloud SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 10px; background: #f9f9f9; }
-    .container { max-width: 800px; margin: 0 auto; }
-    .hidden { display: none; }
-    
-    /* Smaller student cards */
-    .card {
-      display: inline-block;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin: 4px;
-      background: white;
-      cursor: pointer;
-      font-size: 14px;
-      min-width: 120px;
-      text-align: center;
-      transition: opacity 0.2s, transform 0.2s;
+    .player-card { transition: all 0.2s; }
+    .player-card.busy { opacity: 0.5; pointer-events: none; background-color: #f9fafb; }
+    .option-btn {
+      @apply w-full text-left p-3 mb-2 rounded border border-gray-300 bg-white hover:bg-indigo-50 cursor-pointer;
     }
-    .card:hover:not(.disabled):not(.self) {
-      transform: scale(1.03);
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .card.disabled { 
-      opacity: 0.5; 
-      cursor: not-allowed; 
-      background: #f5f5f5;
-    }
-    .card.self { 
-      background: #e8f5e9; 
-      border-color: #4CAF50; 
-      font-weight: bold;
-    }
-
-    .ranking h3 { color: #d32f2f; margin-top: 20px; }
-    .btn { padding: 8px 12px; margin: 4px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
-    .green { background: #4CAF50; color: white; }
-    .red { background: #f44336; color: white; }
-    .blue { background: #2196F3; color: white; }
-    
-    #quizView .option { 
-      display: block; 
-      margin: 8px 0; 
-      padding: 8px; 
-      background: #eee; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      font-size: 14px;
-    }
-    #quizView .option:hover { background: #ddd; }
-    #quizView .option.wrong { background: #ffcdd2; }
-    #quizView .option.correct { background: #c8e6c9; }
-    #timer { font-weight: bold; color: #1976D2; }
-    
-    /* Login form styling */
-    #loginView input {
-      padding: 6px;
-      margin: 4px;
-      width: 180px;
-      font-size: 14px;
+    .avatar {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: #4f46e5; color: white; font-weight: bold; border-radius: 50%;
     }
   </style>
 </head>
-<body>
-<div class="container">
+<body class="bg-gray-50 min-h-screen">
 
-<!-- Login View -->
-<div id="loginView">
-  <h2>🎓 Vocabulary Challenge</h2>
-  <input type="text" id="username" placeholder="Student ID" />
-  <br />
-  <input type="password" id="password" placeholder="Password" />
-  <br />
-  <button class="green" onclick="login()">Log In</button>
-  <p id="loginMsg" style="color:red; font-size:14px;"></p>
-</div>
-
-<!-- Main View -->
-<div id="mainView" class="hidden">
-  <h2>Welcome, <span id="displayName"></span>!</h2>
-  <p>Your Coins: <strong id="myCoins">100</strong></p>
-
-  <!-- Self Card -->
-  <div id="selfCard" class="card self"></div>
-
-  <!-- Other Students -->
-  <h3>👥 Choose Opponent</h3>
-  <div id="opponentsList"></div>
-
-  <!-- Power Me Up -->
-  <div id="powerUpSection" class="hidden">
-    <button class="blue" onclick="requestPowerUp()">🔋 Power Me Up!</button>
-  </div>
-
-  <!-- Ranking -->
-  <div class="ranking">
-    <h3>🏆 Leaderboard</h3>
-    <div id="rankingList"></div>
+<!-- Login Screen -->
+<div id="loginSection" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Vocabulary Challenge</h2>
+    <input type="text" id="username" placeholder="Student ID" class="w-full px-4 py-2 mb-3 border rounded focus:ring-2 focus:ring-indigo-500 outline-none" />
+    <input type="password" id="password" placeholder="Password" class="w-full px-4 py-2 mb-4 border rounded focus:ring-2 focus:ring-indigo-500 outline-none" />
+    <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-medium">Login</button>
+    <p id="loginError" class="text-red-500 text-sm mt-2 text-center"></p>
   </div>
 </div>
 
-<!-- Challenge Incoming -->
-<div id="challengeIncoming" class="hidden">
-  <h3>⚔️ You’re Challenged!</h3>
-  <p><strong id="challengerName">[Player]</strong> wants to duel!</p>
-  <p>You have <span id="responseTimer">10</span> seconds to respond.</p>
-  <button class="green" onclick="acceptChallenge()">✅ Accept</button>
-  <button class="red" onclick="surrender()">❌ Surrender (-1 coin)</button>
+<!-- Main Dashboard -->
+<div id="mainSection" class="hidden">
+  <header class="bg-white shadow sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div>
+        <h1 class="text-lg font-bold">Hi, <span id="displayName" class="text-indigo-600"></span>!</h1>
+        <div class="flex items-center space-x-3 mt-1">
+          <span class="font-semibold text-yellow-600">🪙 <span id="coinDisplay">100</span></span>
+          <span id="gameStatusBadge" class="px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white">INACTIVE</span>
+        </div>
+      </div>
+      <div id="powerUpBtnContainer" class="hidden">
+        <button onclick="requestPowerUp()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded text-sm">Power Me Up!</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6">
+    <!-- Online Players -->
+    <section class="mb-8">
+      <h2 class="text-xl font-bold mb-3">👥 Online Players (Click to Challenge)</h2>
+      <div id="onlinePlayers" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Cards inserted here -->
+      </div>
+    </section>
+
+    <!-- Global Ranking -->
+    <section>
+      <h2 class="text-xl font-bold mb-3">🏆 Leaderboard</h2>
+      <div id="rankingList" class="bg-white rounded shadow p-3 max-h-60 overflow-y-auto">
+        <!-- Rankings -->
+      </div>
+    </section>
+  </main>
 </div>
 
-<!-- Waiting for Opponent -->
-<div id="waitingForOpponent" class="hidden">
-  <h3>⏳ Waiting for opponent to respond...</h3>
-  <p>If they don't respond in 60s, they lose 1 coin.</p>
-  <button class="red" onclick="cancelChallenge()">Cancel Challenge</button>
+<!-- Challenge Popup -->
+<div id="challengePopup" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl p-5 max-w-sm w-full mx-4 text-center">
+    <h3 class="font-bold text-lg">⚔️ Challenge Request!</h3>
+    <p class="text-gray-700 mt-1">From: <span id="challengerName" class="font-semibold"></span></p>
+    <p class="text-red-600 font-bold mt-2">Respond in <span id="acceptTimer">10</span>s!</p>
+    <div class="flex justify-center space-x-3 mt-4">
+      <button onclick="acceptChallenge()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded">Accept</button>
+      <button onclick="surrenderChallenge()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded">Surrender (-3)</button>
+    </div>
+  </div>
 </div>
 
-<!-- Quiz View -->
-<div id="quizView" class="hidden">
-  <h3>🔤 Vocabulary Challenge</h3>
-  <p>Word: <strong id="currentWord">...</strong></p>
-  <p id="optionsContainer"></p>
-  <p>⏱️ Time: <span id="timer">0.0s</span></p>
-</div>
+<!-- Vocabulary Game Screen -->
+<div id="vocabularyGame" class="hidden min-h-screen bg-gradient-to-b from-indigo-50 to-white flex flex-col">
+  <header class="bg-white py-2 px-4 shadow">
+    <div class="container mx-auto flex justify-between items-center">
+      <h2 class="font-bold">🔤 Vocab Challenge</h2>
+      <div>
+        <span>⏱️ <span id="gameTimer">0</span>s</span>
+        <span class="ml-2 text-amber-600">(+<span id="penaltyDisplay">0</span>s)</span>
+      </div>
+    </div>
+  </header>
 
-<!-- Result View -->
-<div id="resultView" class="hidden">
-  <h3>📊 Challenge Complete!</h3>
-  <p>Your time: <strong id="yourTime">...</strong></p>
-  <p>Opponent time: <strong id="oppTime">...</strong></p>
-  <p id="resultMessage">...</p>
-  <p>Redirecting in <span id="redirectCountdown">5</span> seconds...</p>
-</div>
-
+  <div class="flex-grow flex flex-col items-center justify-center px-4 py-6">
+    <div class="bg-white rounded-xl shadow p-5 max-w-2xl w-full">
+      <p class="text-sm text-gray-500 text-center">Word <span id="vocabIndex">1</span>/10</p>
+      <h3 id="currentWord" class="text-2xl font-bold text-center my-3"></h3>
+      <div id="options" class="space-y-2 mt-4"></div>
+      <p id="resultMessage" class="mt-3 text-center min-h-6 font-medium"></p>
+    </div>
+  </div>
 </div>
 
 <script>
-AV.init({
-  appId: "awUs1OEg2gNP2FbDR0DYZt8O-gzGzoHsz",
-  appKey: "SenNF43Fxr0lhQ9whRmeZ6sG",
-  serverURL: "https://awus1oeg.lc-cn-n1-shared.com"
-});
-
-let currentStudent = null;
-let challengeId = null;
-let vocabQuiz = [];
-let currentQuestionIndex = 0;
-let startTime = null;
-let totalTime = 0;
-let responseTimerInterval = null;
-let redirectTimer = null;
-let errorCount = 0;
-
-// === NEW === Store current incoming challenge
-let currentIncomingChallenge = null;
-
-// === Flags ===
-let isInChallengeMode = false;
-let hasChallengeStarted = false;
-let lastHandledChallengeId = null;
-
-// Warn before leaving during challenge
-window.addEventListener('beforeunload', function (e) {
-  if (isInChallengeMode && currentStudent) {
-    const msg = '⚠️ Leaving now will forfeit the challenge and cost you 5 coins!';
-    e.returnValue = msg;
-    return msg;
-  }
-});
-
-// ------------------ LOGIN ------------------
-async function login() {
-  const studentId = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  if (!studentId || !password) return showError('Please enter ID and password');
-
-  try {
-    const q = new AV.Query('Student');
-    q.equalTo('StudentId', studentId);
-    q.equalTo('password', password);
-    const results = await q.find({ useMasterKey: false });
-    if (results.length === 0) throw new Error('Invalid credentials');
-    
-    currentStudent = results[0];
-    lastHandledChallengeId = null;
-    renderMainView();
-    loadStudentsAndRanking();
-
-    // Update every 3 seconds
-    setInterval(loadStudentsAndRanking, 3000);
-    setInterval(checkForIncomingChallenges, 3000);
-  } catch (err) {
-    console.error(err);
-    showError('❌ ' + (err.message || 'Login failed'));
-  }
-}
-
-function showError(msg) {
-  document.getElementById('loginMsg').textContent = msg;
-}
-
-// ------------------ CHALLENGE CHECKING ------------------
-async function checkForIncomingChallenges() {
-  if (!currentStudent) return;
-
-  try {
-    const query = new AV.Query('Challenge');
-    query.equalTo('challengedId', currentStudent.id);
-    query.equalTo('status', 'pending');
-    query.greaterThan('createdAt', new Date(Date.now() - 15000));
-    query.descending('createdAt');
-    const challenges = await query.limit(1).find();
-
-    const popupVisible = !document.getElementById('challengeIncoming').classList.contains('hidden');
-
-    if (challenges.length > 0) {
-      const ch = challenges[0];
-      if (ch.id === lastHandledChallengeId || isInChallengeMode || hasChallengeStarted) return;
-
-      currentIncomingChallenge = ch;
-      challengeId = ch.id;
-      lastHandledChallengeId = ch.id;
-
-      const challenger = await AV.Object.createWithoutData('Student', ch.get('challengerId')).fetch();
-      document.getElementById('challengerName').textContent = challenger.get('StudentId');
-
-      document.getElementById('mainView').classList.add('hidden');
-      document.getElementById('challengeIncoming').classList.remove('hidden');
-
-      let timeLeft = 10;
-      document.getElementById('responseTimer').textContent = timeLeft;
-      clearInterval(responseTimerInterval);
-      responseTimerInterval = setInterval(() => {
-        timeLeft--;
-        document.getElementById('responseTimer').textContent = timeLeft;
-        if (timeLeft <= 0) {
-          clearInterval(responseTimerInterval);
-          autoSurrenderDueToTimeout(ch);
-        }
-      }, 1000);
-    } else if (popupVisible) {
-      clearInterval(responseTimerInterval);
-      document.getElementById('challengeIncoming').classList.add('hidden');
-      document.getElementById('mainView').classList.remove('hidden');
-    }
-  } catch (err) {
-    console.error('Error checking incoming challenges:', err);
-  }
-}
-
-async function autoSurrenderDueToTimeout(challenge) {
-  try {
-    let coins = currentStudent.get('coins') || 100;
-    coins = Math.max(0, coins - 1);
-    currentStudent.set('coins', coins);
-    await currentStudent.save();
-    updateMyCoins();
-
-    // Transfer coin to challenger
-    const challenger = AV.Object.createWithoutData('Student', challenge.get('challengerId'));
-    await challenger.fetch();
-    challenger.set('coins', (challenger.get('coins') || 100) + 1);
-    await challenger.save();
-
-    challenge.set('status', 'surrendered');
-    challenge.set('result', 'challenged_timeout');
-    await challenge.save();
-
-    lastHandledChallengeId = challenge.id;
-    currentIncomingChallenge = null;
-    challengeId = null;
-
-    alert('⏰ Challenge expired. You lost 1 coin.');
-    backToMain();
-  } catch (err) {
-    console.error('Auto-surrender failed:', err);
-  }
-}
-
-// ------------------ MAIN VIEW ------------------
-function renderMainView() {
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('mainView').classList.remove('hidden');
-  document.getElementById('displayName').textContent = currentStudent.get('StudentId');
-  updateMyCoins();
-  
-  const coins = currentStudent.get('coins') || 100;
-  document.getElementById('powerUpSection').classList.toggle('hidden', coins >= 10);
-}
-
-function updateMyCoins() {
-  document.getElementById('myCoins').textContent = currentStudent.get('coins') || 100;
-}
-
-async function loadStudentsAndRanking() {
-  try {
-    const q = new AV.Query('Student');
-    q.equalTo('isActive', true); // ← ONLY ACTIVE STUDENTS
-    const allStudents = await q.find();
-
-    const selfId = currentStudent.id;
-    const opponentsDiv = document.getElementById('opponentsList');
-    opponentsDiv.innerHTML = '';
-    let selfCardHtml = '';
-
-    allStudents.forEach(stu => {
-      const isSelf = stu.id === selfId;
-      const coins = stu.get('coins') || 100;
-      const cardHtml = `
-        <div class="card ${isSelf ? 'self' : ''}"
-             data-id="${stu.id}" 
-             ${isSelf ? '' : 'onclick="startChallenge(\'' + stu.id + '\')"'}>
-          ${stu.get('StudentId')}<br/>
-          💰 ${coins}
-        </div>
-      `;
-      if (isSelf) {
-        selfCardHtml = cardHtml;
-      } else {
-        opponentsDiv.innerHTML += cardHtml;
-      }
-    });
-    document.getElementById('selfCard').innerHTML = selfCardHtml;
-
-    // Leaderboard: include all (even inactive) but only if played
-    const rankQuery = new AV.Query('Student');
-    const rankedStudents = await rankQuery.find();
-    const visibleStudents = rankedStudents.filter(stu => true);
-    const rankingDiv = document.getElementById('rankingList');
-    const ranked = visibleStudents.sort((a, b) => (b.get('coins') || 0) - (a.get('coins') || 0));
-    const leaderboardStudents = ranked.filter(stu => {
-      const w = stu.get('wins') || 0;
-      const l = stu.get('losses') || 0;
-      return !(w === 0 && l === 0);
-    });
-
-    if (leaderboardStudents.length === 0) {
-      rankingDiv.innerHTML = '<p>No players on leaderboard yet.</p>';
-    } else {
-      let tableHtml = `
-        <table style="width:100%; border-collapse:collapse; font-size:14px;">
-          <thead>
-            <tr>
-              <th style="border:1px solid #ddd; padding:6px;">Rank</th>
-              <th style="border:1px solid #ddd; padding:6px;">Student</th>
-              <th style="border:1px solid #ddd; padding:6px;">Coins</th>
-              <th style="border:1px solid #ddd; padding:6px;">W / L</th>
-            </tr>
-          </thead>
-          <tbody>`;
-      
-      leaderboardStudents.forEach((stu, idx) => {
-        const w = stu.get('wins') || 0;
-        const l = stu.get('losses') || 0;
-        tableHtml += `
-          <tr style="border-bottom:1px solid #eee;">
-            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${idx + 1}</td>
-            <td style="border:1px solid #ddd; padding:6px;">${stu.get('StudentId')}</td>
-            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${stu.get('coins') || 100}</td>
-            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${w} / ${l}</td>
-          </tr>
-        `;
-      });
-      tableHtml += '</tbody></table>';
-      rankingDiv.innerHTML = tableHtml;
-    }
-
-  } catch (err) {
-    console.error('Failed to load students:', err);
-  }
-}
-
-async function setStudentActive(studentId, active) {
-  const stu = AV.Object.createWithoutData('Student', studentId);
-  stu.set('isActive', active);
-  await stu.save();
-  if (studentId === currentStudent.id) {
-    currentStudent.set('isActive', active);
-  }
-}
-
-// ------------------ CHALLENGE FLOW ------------------
-async function startChallenge(targetId) {
-  if (!confirm('Challenge this player?')) return;
-
-  try {
-    const Challenge = AV.Object.extend('Challenge');
-    const ch = new Challenge();
-    ch.set('challengerId', currentStudent.id);
-    ch.set('challengedId', targetId);
-    ch.set('status', 'pending');
-
-    const vq = new AV.Query('Vocabulary');
-    vq.limit(1000);
-    const allWords = await vq.find();
-    if (allWords.length === 0) throw new Error('No vocabulary available');
-    
-    const shuffled = allWords.sort(() => 0.5 - Math.random()).slice(0, 10);
-    const vocabList = shuffled.map(v => ({
-      word: v.get('word'),
-      meaning: v.get('meaning')
-    }));
-    ch.set('vocabList', vocabList);
-
-    await ch.save();
-    challengeId = ch.id;
-
-    await setStudentActive(currentStudent.id, false);
-    await setStudentActive(targetId, false);
-
-    document.getElementById('mainView').classList.add('hidden');
-    document.getElementById('waitingForOpponent').classList.remove('hidden');
-    isInChallengeMode = true;
-    hasChallengeStarted = false;
-
-    waitForOpponentAction(ch.id, targetId);
-  } catch (err) {
-    alert('Failed to send challenge: ' + err.message);
-    setStudentActive(currentStudent.id, true);
-    backToMain();
-  }
-}
-
-async function cancelChallenge() {
-  if (!challengeId) return;
-  try {
-    const ch = AV.Object.createWithoutData('Challenge', challengeId);
-    ch.set('status', 'cancelled');
-    await ch.save();
-    await setStudentActive(currentStudent.id, true);
-    backToMain();
-    alert('Challenge cancelled.');
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function waitForOpponentAction(challengeId, targetId) {
-  let attempts = 0;
-  const maxAttempts = 60;
-
-  const interval = setInterval(async () => {
-    try {
-      const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
-      const status = ch.get('status');
-
-      if (status === 'accepted') {
-        clearInterval(interval);
-        document.getElementById('waitingForOpponent').classList.add('hidden');
-        isInChallengeMode = true;
-        hasChallengeStarted = true;
-        startTime = Date.now();
-        startQuiz();
-      } else if (status === 'surrendered' || status === 'challenged_timeout') {
-        clearInterval(interval);
-        document.getElementById('waitingForOpponent').classList.add('hidden');
-        handleOpponentSurrender(ch, true);
-      } else if (status === 'cancelled') {
-        clearInterval(interval);
-        document.getElementById('waitingForOpponent').classList.add('hidden');
-        alert('Challenge was cancelled.');
-        backToMain();
-      }
-
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        document.getElementById('waitingForOpponent').classList.add('hidden');
-        alert('Opponent did not respond in time. You win +1 coin!');
-        await autoWinOnTimeout(challengeId, targetId);
-        backToMain();
-      }
-    } catch (err) {
-      console.error('Poll error:', err);
-    }
-  }, 1000);
-}
-
-async function autoWinOnTimeout(challengeId, opponentId) {
-  const newCoins = (currentStudent.get('coins') || 100) + 1;
-  currentStudent.set('coins', newCoins);
-  await currentStudent.save();
-  updateMyCoins();
-
-  const opp = AV.Object.createWithoutData('Student', opponentId);
-  opp.set('coins', Math.max(0, (opp.get('coins') || 100) - 1));
-  await opp.save();
-
-  const ch = AV.Object.createWithoutData('Challenge', challengeId);
-  ch.set('status', 'surrendered');
-  await ch.save();
-}
-
-// ------------------ ACCEPT / SURRENDER ------------------
-async function acceptChallenge() {
-  if (!currentIncomingChallenge) return;
-  clearInterval(responseTimerInterval);
-  
-  try {
-    currentIncomingChallenge.set('status', 'accepted');
-    await currentIncomingChallenge.save();
-
-    lastHandledChallengeId = currentIncomingChallenge.id;
-    currentIncomingChallenge = null;
-    challengeId = currentIncomingChallenge.id; // ← Now we have real challengeId
-
-    document.getElementById('challengeIncoming').classList.add('hidden');
-    isInChallengeMode = true;
-    hasChallengeStarted = true;
-    startTime = Date.now();
-    startQuiz(); // ✅ Now works
-  } catch (err) {
-    console.error(err);
-    alert('Failed to accept challenge');
-  }
-}
-
-async function surrender() {
-  if (!currentIncomingChallenge) return;
-  clearInterval(responseTimerInterval);
-  try {
-    // Deduct 1 coin from challenged
-    let myCoins = Math.max(0, (currentStudent.get('coins') || 100) - 1);
-    currentStudent.set('coins', myCoins);
-    await currentStudent.save();
-    updateMyCoins();
-
-    // Add 1 coin to challenger
-    const challengerId = currentIncomingChallenge.get('challengerId');
-    const challenger = AV.Object.createWithoutData('Student', challengerId);
-    await challenger.fetch();
-    challenger.set('coins', (challenger.get('coins') || 100) + 1);
-    await challenger.save();
-
-    currentIncomingChallenge.set('status', 'surrendered');
-    await currentIncomingChallenge.save();
-
-    lastHandledChallengeId = currentIncomingChallenge.id;
-    currentIncomingChallenge = null;
-    challengeId = null;
-
-    await setStudentActive(currentStudent.id, true);
-    await setStudentActive(challengerId, true);
-
-    alert('You surrendered. -1 coin.');
-    backToMain();
-  } catch (err) {
-    console.error(err);
-    alert('Surrender failed');
-  }
-}
-
-function handleOpponentSurrender(challengeObj, amChallenger) {
-  const newCoins = (currentStudent.get('coins') || 100) + 1;
-  currentStudent.set('coins', newCoins);
-  currentStudent.save();
-  updateMyCoins();
-
-  document.getElementById('yourTime').textContent = '—';
-  document.getElementById('oppTime').textContent = '—';
-  document.getElementById('resultMessage').textContent = '✅ Opponent surrendered! +1 coin awarded.';
-  
-  document.getElementById('resultView').classList.remove('hidden');
-  isInChallengeMode = false;
-
-  let count = 5;
-  document.getElementById('redirectCountdown').textContent = count;
-  redirectTimer = setInterval(() => {
-    count--;
-    document.getElementById('redirectCountdown').textContent = count;
-    if (count <= 0) {
-      clearInterval(redirectTimer);
-      backToMain();
-    }
-  }, 1000);
-}
-
-// ------------------ QUIZ & RESULT ------------------
-async function startQuiz() {
-  const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
-  vocabQuiz = ch.get('vocabList');
-  currentQuestionIndex = 0;
-  totalTime = 0;
-  errorCount = 0;
-  startTime = Date.now();
-  showNextQuestion();
-
-  // Start 3-minute timeout
-  setTimeout(() => {
-    if (isInChallengeMode && hasChallengeStarted) {
-      handleTimeoutDuringQuiz();
-    }
-  }, 180000); // 3 minutes
-}
-
-function handleTimeoutDuringQuiz() {
-  finishQuiz(true); // force finish due to timeout
-}
-
-function showNextQuestion() {
-  if (currentQuestionIndex >= vocabQuiz.length) {
-    finishQuiz();
-    return;
-  }
-
-  const item = vocabQuiz[currentQuestionIndex];
-  document.getElementById('currentWord').textContent = item.word;
-  
-  const vq = new AV.Query('Vocabulary');
-  vq.notEqualTo('word', item.word);
-  vq.limit(10);
-  vq.find().then(fakeWords => {
-    const fakeMeanings = fakeWords.map(f => f.get('meaning')).slice(0, 2);
-    const options = [item.meaning, ...fakeMeanings].sort(() => 0.5 - Math.random());
-    
-    let html = '';
-    options.forEach((opt, i) => {
-      html += `<div class="option" onclick="selectOption(${i}, '${opt.replace(/'/g, "\\'")}')">${opt}</div>`;
-    });
-    document.getElementById('optionsContainer').innerHTML = html;
+  // Initialize LeanCloud
+  AV.init({
+    appId: "awUs1OEg2gNP2FbDR0DYZt8O-gzGzoHsz",
+    appKey: "SenNF43Fxr0lhQ9whRmeZ6sG",
+    serverURL: "https://awus1oeg.lc-cn-n1-shared.com"
   });
 
-  document.getElementById('quizView').classList.remove('hidden');
-  updateTimer();
-}
+  let currentUser = null;
+  let isGameActive = false;
+  let heartbeatInterval = null;
+  let currentChallengeId = null;
+  let vocabList = [];
+  let currentVocabIndex = 0;
+  let startTime = null;
+  let totalTime = 0;
+  let penaltySeconds = 0;
+  let gameTimerInterval = null;
+  let acceptCountdown = null;
 
-function updateTimer() {
-  if (startTime) {
-    const elapsed = (Date.now() - startTime) / 1000;
-    document.getElementById('timer').textContent = elapsed.toFixed(1) + 's';
-    setTimeout(updateTimer, 100);
-  }
-}
+  // === LOGIN ===
+  async function login() {
+    const uid = document.getElementById("username").value.trim();
+    const pwd = document.getElementById("password").value;
+    if (!uid || !pwd) return;
 
-function selectOption(index, selectedMeaning) {
-  const correct = selectedMeaning === vocabQuiz[currentQuestionIndex].meaning;
-  const options = document.querySelectorAll('#optionsContainer .option');
-
-  if (!correct) {
-    errorCount++;
-    options[index].classList.add('wrong');
-    return; // stay on same question
-  }
-
-  // Correct answer
-  options.forEach(opt => opt.classList.remove('wrong'));
-  options[index].classList.add('correct');
-
-  setTimeout(() => {
-    currentQuestionIndex++;
-    showNextQuestion();
-  }, 300);
-}
-
-function finishQuiz(forced = false) {
-  totalTime += (Date.now() - startTime) / 1000;
-  document.getElementById('quizView').classList.add('hidden');
-
-  const ch = AV.Object.createWithoutData('Challenge', challengeId);
-  ch.set(currentStudent.id + '_time', totalTime);
-  ch.set(currentStudent.id + '_errors', errorCount);
-  ch.set(currentStudent.id + '_done', true);
-  ch.save().then(waitForOpponentResult);
-}
-
-async function waitForOpponentResult() {
-  let checkCount = 0;
-  const maxChecks = 180; // 3 minutes
-
-  const interval = setInterval(async () => {
     try {
-      const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
-      const otherId = ch.get('challengerId') === currentStudent.id 
-        ? ch.get('challengedId') 
-        : ch.get('challengerId');
-      
-      if (ch.get(otherId + '_done')) {
-        clearInterval(interval);
-        showResult(ch, otherId);
-      } else if (checkCount >= maxChecks) {
-        clearInterval(interval);
-        handleOpponentAbandonment(ch, otherId);
+      const q = new AV.Query("Student");
+      q.equalTo("StudentId", uid);
+      const res = await q.find();
+      if (!res.length || res[0].get("password") !== pwd) {
+        document.getElementById("loginError").textContent = "Invalid ID or password";
+        return;
       }
+
+      currentUser = res[0];
+      document.getElementById("displayName").textContent = uid;
+      updateCoins();
+
+      await updateOnlineStatus(true);
+      startHeartbeat();
+      loadGameSettings();
+      loadRanking();
+      loadOnlinePlayers();
+      checkPowerUpButton();
+      pollForChallenges();
+
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("mainSection").classList.remove("hidden");
     } catch (err) {
       console.error(err);
+      document.getElementById("loginError").textContent = "Login failed.";
     }
-    checkCount++;
-  }, 1000);
-}
-
-async function handleOpponentAbandonment(challengeObj, opponentId) {
-  const me = currentStudent;
-  const opponent = AV.Object.createWithoutData('Student', opponentId);
-  await opponent.fetch();
-
-  // Compare errors if both timed out
-  const myErrors = errorCount;
-  const oppErrors = challengeObj.get(opponentId + '_errors') || Infinity;
-
-  let iWin = true;
-  if (myErrors > oppErrors) iWin = false;
-  else if (myErrors === oppErrors) iWin = (totalTime < (challengeObj.get(opponentId + '_time') || Infinity));
-
-  const delta = iWin ? 5 : -5;
-
-  me.set('coins', Math.max(0, (me.get('coins') || 100) + delta));
-  me.set(iWin ? 'wins' : 'losses', (me.get(iWin ? 'wins' : 'losses') || 0) + 1);
-  opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - delta));
-  opponent.set(iWin ? 'losses' : 'wins', (opponent.get(iWin ? 'losses' : 'wins') || 0) + 1);
-
-  await me.save();
-  await opponent.save();
-
-  challengeObj.set('status', 'completed');
-  challengeObj.set('result', 'timeout');
-  await challengeObj.save();
-
-  document.getElementById('yourTime').textContent = totalTime.toFixed(2) + 's';
-  document.getElementById('oppTime').textContent = '— (forfeited)';
-  document.getElementById('resultMessage').textContent = 
-    iWin ? '🎉 Opponent timed out! You win +5 coins' : '😞 You timed out. -5 coins';
-  
-  document.getElementById('resultView').classList.remove('hidden');
-  updateMyCoins();
-
-  let count = 5;
-  document.getElementById('redirectCountdown').textContent = count;
-  redirectTimer = setInterval(() => {
-    count--;
-    document.getElementById('redirectCountdown').textContent = count;
-    if (count <= 0) {
-      clearInterval(redirectTimer);
-      backToMain();
-    }
-  }, 1000);
-}
-
-async function showResult(challengeObj, opponentId) {
-  const myTime = challengeObj.get(currentStudent.id + '_time');
-  const oppTime = challengeObj.get(opponentId + '_time');
-  const myErrors = challengeObj.get(currentStudent.id + '_errors') || 0;
-  const oppErrors = challengeObj.get(opponentId + '_errors') || 0;
-
-  let iWin = false;
-  if (myErrors < oppErrors) iWin = true;
-  else if (myErrors > oppErrors) iWin = false;
-  else iWin = myTime < oppTime;
-
-  const me = currentStudent;
-  const opponent = AV.Object.createWithoutData('Student', opponentId);
-  await opponent.fetch();
-
-  if (iWin) {
-    me.set('coins', (me.get('coins') || 100) + 5);
-    me.set('wins', (me.get('wins') || 0) + 1);
-    opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - 5));
-    opponent.set('losses', (opponent.get('losses') || 0) + 1);
-  } else {
-    me.set('coins', Math.max(0, (me.get('coins') || 100) - 5));
-    me.set('losses', (me.get('losses') || 0) + 1);
-    opponent.set('coins', (opponent.get('coins') || 100) + 5);
-    opponent.set('wins', (opponent.get('wins') || 0) + 1);
   }
 
-  await me.save();
-  await opponent.save();
+  // === ONLINE STATUS & HEARTBEAT ===
+  function startHeartbeat() {
+    heartbeatInterval = setInterval(async () => {
+      if (currentUser) await updateOnlineStatus(true);
+    }, 10000);
+  }
 
-  document.getElementById('yourTime').textContent = myTime.toFixed(2) + 's';
-  document.getElementById('oppTime').textContent = oppTime.toFixed(2) + 's';
-  document.getElementById('resultMessage').textContent = 
-    iWin ? '🎉 You won! +5 coins' : '😞 You lost. -5 coins';
-  
-  document.getElementById('resultView').classList.remove('hidden');
-  updateMyCoins();
+  async function updateOnlineStatus(isOnline) {
+    if (!currentUser) return;
+    currentUser.set("isOnline", isOnline);
+    currentUser.set("lastSeen", new Date());
+    await currentUser.save();
+  }
 
-  let count = 5;
-  document.getElementById('redirectCountdown').textContent = count;
-  redirectTimer = setInterval(() => {
-    count--;
-    document.getElementById('redirectCountdown').textContent = count;
-    if (count <= 0) {
-      clearInterval(redirectTimer);
-      backToMain();
+  window.addEventListener('beforeunload', async () => {
+    if (currentUser) await updateOnlineStatus(false);
+  });
+
+  // === GAME SETTINGS ===
+  async function loadGameSettings() {
+    const settings = await new AV.Query("GameSettings").first();
+    isGameActive = settings?.get("isActive") || false;
+    const badge = document.getElementById("gameStatusBadge");
+    badge.textContent = isGameActive ? "ACTIVE" : "INACTIVE";
+    badge.className = isGameActive 
+      ? "px-2 py-0.5 rounded text-xs font-bold bg-green-500 text-white"
+      : "px-2 py-0.5 rounded text-xs font-bold bg-red-500 text-white";
+
+    if (isGameActive && settings?.get("roundEndTime")) {
+      const endTime = new Date(settings.get("roundEndTime")).getTime();
+      if (Date.now() < endTime) {
+        setTimeout(() => autoPairStudent(), endTime - Date.now());
+      }
     }
-  }, 1000);
-}
+  }
 
-function backToMain() {
-  isInChallengeMode = false;
-  hasChallengeStarted = false;
-  challengeId = null;
-  currentIncomingChallenge = null;
-  
-  document.getElementById('challengeIncoming').classList.add('hidden');
-  document.getElementById('waitingForOpponent').classList.add('hidden');
-  document.getElementById('quizView').classList.add('hidden');
-  document.getElementById('resultView').classList.add('hidden');
-  document.getElementById('mainView').classList.remove('hidden');
-  loadStudentsAndRanking();
-}
+  // === ONLINE PLAYERS ===
+  async function loadOnlinePlayers() {
+    const container = document.getElementById("onlinePlayers");
+    if (!isGameActive) {
+      container.innerHTML = `<p class="col-span-full text-center text-gray-500">Game inactive. Wait for admin to start.</p>`;
+      return;
+    }
 
-async function requestPowerUp() {
-  if ((currentStudent.get('coins') || 100) >= 10) return;
-  
-  try {
-    const PowerUpRequest = AV.Object.extend('PowerUpRequest');
-    const req = new PowerUpRequest();
-    req.set('userId', currentStudent.id);
-    req.set('handled', false);
+    const query = new AV.Query("Student");
+    query.equalTo("isOnline", true);
+    query.notEqualTo("objectId", currentUser.id);
+    query.greaterThan("lastSeen", new Date(Date.now() - 15000));
+    const players = await query.find();
+
+    container.innerHTML = "";
+    if (players.length === 0) {
+      container.innerHTML = `<p class="col-span-full text-center text-gray-500">No other players online.</p>`;
+      return;
+    }
+
+    players.forEach(p => {
+      const isBusy = !!p.get("currentChallengeId");
+      const card = document.createElement("div");
+      card.className = `player-card p-3 rounded border ${isBusy ? 'busy' : 'cursor-pointer hover:shadow-md'}`;
+      if (!isBusy) {
+        card.onclick = () => initiateChallenge(p.id, p.get("StudentId"));
+      }
+
+      const name = p.get("StudentId");
+      const initials = name.substring(0, 2).toUpperCase();
+      card.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <div class="avatar">${initials}</div>
+          <div>
+            <p class="font-bold text-gray-800">${name}</p>
+            <p class="text-sm text-yellow-600">🪙 ${p.get("coins") || 100}</p>
+          </div>
+        </div>
+        ${isBusy ? '<p class="text-xs text-gray-500 mt-1">In challenge...</p>' : ''}
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // === CHALLENGE SYSTEM ===
+  async function initiateChallenge(targetId, targetName) {
+    if (!isGameActive || currentUser.get("currentChallengeId")) return;
+    const Challenge = AV.Object.extend("Challenge");
+    const ch = new Challenge();
+    ch.set("challengerId", currentUser.id);
+    ch.set("challengedId", targetId);
+    ch.set("status", "pending");
+    ch.set("startTime", new Date());
+    const saved = await ch.save();
+
+    currentUser.set("currentChallengeId", saved.id);
+    await currentUser.save();
+    loadOnlinePlayers();
+  }
+
+  async function pollForChallenges() {
+    if (!currentUser) return;
+    const q = new AV.Query("Challenge");
+    q.equalTo("challengedId", currentUser.id);
+    q.equalTo("status", "pending");
+    const pending = await q.find();
+    if (pending.length > 0) {
+      showChallengePopup(pending[0]);
+    } else {
+      setTimeout(pollForChallenges, 2000);
+    }
+  }
+
+  function showChallengePopup(challenge) {
+    clearInterval(acceptCountdown);
+    let timeLeft = 10;
+    document.getElementById("acceptTimer").textContent = timeLeft;
+
+    AV.Object.createWithoutData("Student", challenge.get("challengerId"))
+      .fetch().then(c => {
+        document.getElementById("challengerName").textContent = c.get("StudentId");
+      });
+
+    document.getElementById("challengePopup").classList.remove("hidden");
+
+    acceptCountdown = setInterval(async () => {
+      timeLeft--;
+      document.getElementById("acceptTimer").textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(acceptCountdown);
+        document.getElementById("challengePopup").classList.add("hidden");
+        acceptChallengeLogic(challenge);
+      }
+    }, 1000);
+  }
+
+  async function acceptChallenge() {
+    clearInterval(acceptCountdown);
+    const q = new AV.Query("Challenge");
+    q.equalTo("challengedId", currentUser.id);
+    q.equalTo("status", "pending");
+    const pending = await q.find();
+    if (pending[0]) {
+      document.getElementById("challengePopup").classList.add("hidden");
+      acceptChallengeLogic(pending[0]);
+    }
+  }
+
+  async function surrenderChallenge() {
+    clearInterval(acceptCountdown);
+    const q = new AV.Query("Challenge");
+    const pending = await q.equalTo("challengedId", currentUser.id)
+                                .equalTo("status", "pending")
+                                .find();
+    if (pending[0]) {
+      const ch = pending[0];
+      document.getElementById("challengePopup").classList.add("hidden");
+
+      const challenger = AV.Object.createWithoutData("Student", ch.get("challengerId"));
+      await challenger.fetch();
+      challenger.set("coins", (challenger.get("coins") || 100) + 3);
+      challenger.set("wins", (challenger.get("wins") || 0) + 1);
+      await challenger.save();
+
+      currentUser.set("coins", (currentUser.get("coins") || 100) - 3);
+      currentUser.set("losses", (currentUser.get("losses") || 0) + 1);
+      await currentUser.save();
+
+      ch.set("status", "surrendered");
+      ch.set("winnerId", ch.get("challengerId"));
+      await ch.save();
+
+      alert("You surrendered. -3 coins.");
+      updateCoins(); loadRanking(); loadOnlinePlayers(); pollForChallenges();
+    }
+  }
+
+  // === VOCABULARY GAME ===
+  async function acceptChallengeLogic(challenge) {
+    currentUser.set("currentChallengeId", challenge.id);
+    await currentUser.save();
+
+    const vocabQuery = new AV.Query("Vocabulary");
+    const allVocab = await vocabQuery.find();
+    if (allVocab.length < 10) {
+      alert("Not enough words! Admin needs to add more.");
+      return;
+    }
+
+    // Get 10 random words
+    const shuffled = [...allVocab].sort(() => 0.5 - Math.random()).slice(0, 10);
+    const wordList = shuffled.map(v => v.get("word"));
+    const meaningMap = {};
+    allVocab.forEach(v => meaningMap[v.get("word")] = v.get("meaning"));
+
+    // Build options: correct + 2 random distractors
+    vocabList = wordList.map(word => {
+      const correct = meaningMap[word];
+      const others = Object.values(meaningMap).filter(m => m !== correct);
+      const distractors = [];
+      while (distractors.length < 2 && others.length > 0) {
+        const idx = Math.floor(Math.random() * others.length);
+        distractors.push(others.splice(idx, 1)[0]);
+      }
+      const options = [correct, ...distractors].sort(() => Math.random() - 0.5);
+      return { word, correct, options };
+    });
+
+    challenge.set("vocabList", wordList);
+    challenge.set("status", "accepted");
+    await challenge.save();
+
+    startVocabularyGame(challenge.id);
+  }
+
+  function startVocabularyGame(challengeId) {
+    currentChallengeId = challengeId;
+    currentVocabIndex = 0;
+    totalTime = 0;
+    penaltySeconds = 0;
+    startTime = new Date();
+    document.getElementById("mainSection").classList.add("hidden");
+    document.getElementById("vocabularyGame").classList.remove("hidden");
+    showNextVocab();
+    gameTimerInterval = setInterval(() => {
+      totalTime = (new Date() - startTime) / 1000 + penaltySeconds;
+      document.getElementById("gameTimer").textContent = totalTime.toFixed(1);
+      document.getElementById("penaltyDisplay").textContent = penaltySeconds;
+      if (totalTime >= 180) endGameDueToTimeout();
+    }, 100);
+  }
+
+  function showNextVocab() {
+    if (currentVocabIndex >= vocabList.length) return finishGame();
+    const v = vocabList[currentVocabIndex];
+    document.getElementById("currentWord").textContent = v.word;
+    document.getElementById("vocabIndex").textContent = currentVocabIndex + 1;
+    const optDiv = document.getElementById("options");
+    optDiv.innerHTML = "";
+    v.options.forEach(opt => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn";
+      btn.textContent = opt;
+      btn.onclick = () => selectOption(opt, v.correct);
+      optDiv.appendChild(btn);
+    });
+    document.getElementById("resultMessage").textContent = "";
+  }
+
+  function selectOption(selected, correct) {
+    const buttons = document.querySelectorAll(".option-btn");
+    buttons.forEach(b => b.disabled = true);
+
+    if (selected === correct) {
+      event.target.classList.add("correct");
+      setTimeout(() => {
+        currentVocabIndex++;
+        showNextVocab();
+      }, 800);
+    } else {
+      penaltySeconds += 5;
+      event.target.classList.add("wrong");
+      document.getElementById("resultMessage").textContent = "❌ Wrong! +5s penalty";
+      setTimeout(() => {
+        currentVocabIndex++;
+        showNextVocab();
+      }, 1500);
+    }
+  }
+
+  async function finishGame() {
+    clearInterval(gameTimerInterval);
+    const finalTime = totalTime;
+    const ch = AV.Object.createWithoutData("Challenge", currentChallengeId);
+    await ch.fetch();
+    if (ch.get("challengerId") === currentUser.id) {
+      ch.set("player1Time", finalTime);
+    } else {
+      ch.set("player2Time", finalTime);
+    }
+    await ch.save();
+
+    let opponentDone = false;
+    const wait = setInterval(async () => {
+      await ch.fetch();
+      const p1t = ch.get("player1Time");
+      const p2t = ch.get("player2Time");
+      if ((ch.get("challengerId") === currentUser.id && p2t != null) ||
+          (ch.get("challengedId") === currentUser.id && p1t != null)) {
+        opponentDone = true;
+        clearInterval(wait);
+        processResult(ch, finalTime, p1t, p2t);
+      }
+    }, 2000);
+
+    setTimeout(() => {
+      if (!opponentDone) {
+        clearInterval(wait);
+        endGameDueToTimeout();
+      }
+    }, 10000);
+  }
+
+  async function endGameDueToTimeout() {
+    alert("⏰ Time's up! Challenge ended.");
+    await cleanupAfterGame();
+    window.location.reload();
+  }
+
+  async function processResult(challenge, myTime, p1t, p2t) {
+    const otherTime = challenge.get("challengerId") === currentUser.id ? p2t : p1t;
+    let iWin = false;
+
+    if (otherTime == null) {
+      iWin = true;
+    } else if (myTime <= 180 && otherTime <= 180) {
+      iWin = myTime < otherTime;
+    } else if (myTime <= 180 && otherTime > 180) {
+      iWin = true;
+    } else if (myTime > 180 && otherTime <= 180) {
+      iWin = false;
+    } else {
+      // both timed out → no change
+      challenge.set("status", "completed");
+      challenge.set("endTime", new Date());
+      await challenge.save();
+      alert("Both timed out. No coins changed.");
+      await cleanupAfterGame();
+      setTimeout(() => window.location.reload(), 3000);
+      return;
+    }
+
+    const delta = iWin ? 5 : -5;
+    currentUser.set("coins", (currentUser.get("coins") || 100) + delta);
+    if (iWin) currentUser.set("wins", (currentUser.get("wins") || 0) + 1);
+    else currentUser.set("losses", (currentUser.get("losses") || 0) + 1);
+    await currentUser.save();
+
+    const oppId = challenge.get("challengerId") === currentUser.id ? challenge.get("challengedId") : challenge.get("challengerId");
+    const opponent = AV.Object.createWithoutData("Student", oppId);
+    await opponent.fetch();
+    opponent.set("coins", (opponent.get("coins") || 100) - delta);
+    if (iWin) opponent.set("losses", (opponent.get("losses") || 0) + 1);
+    else opponent.set("wins", (opponent.get("wins") || 0) + 1);
+    await opponent.save();
+
+    challenge.set("winnerId", iWin ? currentUser.id : oppId);
+    challenge.set("status", "completed");
+    challenge.set("endTime", new Date());
+    await challenge.save();
+
+    const msg = iWin ? '🎉 You win! +5 coins!' : '😞 You lose. -5 coins.';
+    document.getElementById("resultMessage").innerHTML = `
+      <div class="text-center font-bold">${msg}</div>
+      <div class="mt-2 text-sm">Your time: ${myTime.toFixed(1)}s | Opponent: ${otherTime?.toFixed(1) || '—'}s</div>
+    `;
+    
+    setTimeout(async () => {
+      await cleanupAfterGame();
+      window.location.reload();
+    }, 5000);
+  }
+
+  async function cleanupAfterGame() {
+    currentUser.set("currentChallengeId", null);
+    await currentUser.save();
+  }
+
+  // === POWER UP & RANKING ===
+  async function requestPowerUp() {
+    const PowerUp = AV.Object.extend("PowerUpRequest");
+    const req = new PowerUp();
+    req.set("userId", currentUser.id);
+    req.set("handled", false);
     await req.save();
-    alert('Power-up requested! Wait for admin approval.');
-  } catch (err) {
-    alert('Request failed: ' + err.message);
+    alert("✅ Power-up requested! Admin will review soon.");
   }
-}
 
+  function checkPowerUpButton() {
+    const coins = currentUser.get("coins") || 100;
+    document.getElementById("powerUpBtnContainer").classList.toggle("hidden", coins >= 10);
+  }
+
+  function updateCoins() {
+    document.getElementById("coinDisplay").textContent = currentUser.get("coins") || 100;
+  }
+
+  async function loadRanking() {
+    const students = await new AV.Query("Student").descending("coins").find();
+    const list = document.getElementById("rankingList");
+    list.innerHTML = students.map((s, i) => `
+      <div class="flex justify-between py-1.5 border-b border-gray-100 text-sm">
+        <span>${i+1}. ${s.get("StudentId")}</span>
+        <span>🪙${s.get("coins")} | W:${s.get("wins")||0} L:${s.get("losses")||0}</span>
+      </div>
+    `).join("");
+  }
+
+  async function autoPairStudent() {
+    if (!currentUser || currentUser.get("currentChallengeId")) return;
+    const q = new AV.Query("Student");
+    q.equalTo("isOnline", true);
+    q.notEqualTo("objectId", currentUser.id);
+    q.equalTo("currentChallengeId", null);
+    q.greaterThan("lastSeen", new Date(Date.now() - 15000));
+    const candidates = await q.find();
+    if (candidates.length > 0) {
+      const target = candidates[Math.floor(Math.random() * candidates.length)];
+      await initiateChallenge(target.id, target.get("StudentId"));
+    }
+  }
+
+  // Initial setup
+  if (localStorage.getItem("autoReload")) {
+    localStorage.removeItem("autoReload");
+    location.reload();
+  }
 </script>
+
 </body>
 </html>
