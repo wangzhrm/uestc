@@ -55,6 +55,8 @@
       font-size: 14px;
     }
     #quizView .option:hover { background: #ddd; }
+    #quizView .option.wrong { background: #ffcdd2; }
+    #quizView .option.correct { background: #c8e6c9; }
     #timer { font-weight: bold; color: #1976D2; }
     
     /* Login form styling */
@@ -113,7 +115,7 @@
   <button class="red" onclick="surrender()">❌ Surrender (-1 coin)</button>
 </div>
 
-<!-- Waiting for Opponent (NEW) -->
+<!-- Waiting for Opponent -->
 <div id="waitingForOpponent" class="hidden">
   <h3>⏳ Waiting for opponent to respond...</h3>
   <p>If they don't respond in 60s, they lose 1 coin.</p>
@@ -154,18 +156,17 @@ let startTime = null;
 let totalTime = 0;
 let responseTimerInterval = null;
 let redirectTimer = null;
+let errorCount = 0;
 
-// === NEW === Store current incoming challenge object
+// === NEW === Store current incoming challenge
 let currentIncomingChallenge = null;
 
-// === NEW === Challenge state flags
+// === Flags ===
 let isInChallengeMode = false;
 let hasChallengeStarted = false;
-
-// === FIX === Track last handled challenge to avoid reprocessing
 let lastHandledChallengeId = null;
 
-// === NEW === Warn before leaving during challenge
+// Warn before leaving during challenge
 window.addEventListener('beforeunload', function (e) {
   if (isInChallengeMode && currentStudent) {
     const msg = '⚠️ Leaving now will forfeit the challenge and cost you 5 coins!';
@@ -188,12 +189,12 @@ async function login() {
     if (results.length === 0) throw new Error('Invalid credentials');
     
     currentStudent = results[0];
-    lastHandledChallengeId = null; // ← RESET on login
+    lastHandledChallengeId = null;
     renderMainView();
     loadStudentsAndRanking();
-    setInterval(loadStudentsAndRanking, 5000);
 
-    // Start checking for incoming challenges after login
+    // Update every 3 seconds
+    setInterval(loadStudentsAndRanking, 3000);
     setInterval(checkForIncomingChallenges, 3000);
   } catch (err) {
     console.error(err);
@@ -205,7 +206,7 @@ function showError(msg) {
   document.getElementById('loginMsg').textContent = msg;
 }
 
-// === FIXED === Check if someone challenged me (with safeguards)
+// ------------------ CHALLENGE CHECKING ------------------
 async function checkForIncomingChallenges() {
   if (!currentStudent) return;
 
@@ -213,7 +214,6 @@ async function checkForIncomingChallenges() {
     const query = new AV.Query('Challenge');
     query.equalTo('challengedId', currentStudent.id);
     query.equalTo('status', 'pending');
-    // Only consider challenges created in the last 15 seconds
     query.greaterThan('createdAt', new Date(Date.now() - 15000));
     query.descending('createdAt');
     const challenges = await query.limit(1).find();
@@ -222,15 +222,11 @@ async function checkForIncomingChallenges() {
 
     if (challenges.length > 0) {
       const ch = challenges[0];
-
-      // Skip if already handled or we're in a challenge
-      if (ch.id === lastHandledChallengeId || isInChallengeMode || hasChallengeStarted) {
-        return;
-      }
+      if (ch.id === lastHandledChallengeId || isInChallengeMode || hasChallengeStarted) return;
 
       currentIncomingChallenge = ch;
       challengeId = ch.id;
-      lastHandledChallengeId = ch.id; // Mark as seen
+      lastHandledChallengeId = ch.id;
 
       const challenger = await AV.Object.createWithoutData('Student', ch.get('challengerId')).fetch();
       document.getElementById('challengerName').textContent = challenger.get('StudentId');
@@ -259,7 +255,6 @@ async function checkForIncomingChallenges() {
   }
 }
 
-// === FIXED === Auto-surrender if timeout
 async function autoSurrenderDueToTimeout(challenge) {
   try {
     let coins = currentStudent.get('coins') || 100;
@@ -268,11 +263,16 @@ async function autoSurrenderDueToTimeout(challenge) {
     await currentStudent.save();
     updateMyCoins();
 
+    // Transfer coin to challenger
+    const challenger = AV.Object.createWithoutData('Student', challenge.get('challengerId'));
+    await challenger.fetch();
+    challenger.set('coins', (challenger.get('coins') || 100) + 1);
+    await challenger.save();
+
     challenge.set('status', 'surrendered');
     challenge.set('result', 'challenged_timeout');
     await challenge.save();
 
-    // Clear local challenge state
     lastHandledChallengeId = challenge.id;
     currentIncomingChallenge = null;
     challengeId = null;
@@ -302,7 +302,7 @@ function updateMyCoins() {
 async function loadStudentsAndRanking() {
   try {
     const q = new AV.Query('Student');
-    q.exists('coins');
+    q.equalTo('isActive', true); // ← ONLY ACTIVE STUDENTS
     const allStudents = await q.find();
 
     const selfId = currentStudent.id;
@@ -310,16 +310,13 @@ async function loadStudentsAndRanking() {
     opponentsDiv.innerHTML = '';
     let selfCardHtml = '';
 
-    const visibleStudents = allStudents.filter(stu => true);
-
-    visibleStudents.forEach(stu => {
+    allStudents.forEach(stu => {
       const isSelf = stu.id === selfId;
-      const isActive = stu.get('isActive') === true;
       const coins = stu.get('coins') || 100;
       const cardHtml = `
-        <div class="card ${isSelf ? 'self' : ''} ${!isActive ? 'disabled' : ''}"
+        <div class="card ${isSelf ? 'self' : ''}"
              data-id="${stu.id}" 
-             ${isSelf || !isActive ? '' : 'onclick="startChallenge(\'' + stu.id + '\')"'}>
+             ${isSelf ? '' : 'onclick="startChallenge(\'' + stu.id + '\')"'}>
           ${stu.get('StudentId')}<br/>
           💰 ${coins}
         </div>
@@ -332,6 +329,10 @@ async function loadStudentsAndRanking() {
     });
     document.getElementById('selfCard').innerHTML = selfCardHtml;
 
+    // Leaderboard: include all (even inactive) but only if played
+    const rankQuery = new AV.Query('Student');
+    const rankedStudents = await rankQuery.find();
+    const visibleStudents = rankedStudents.filter(stu => true);
     const rankingDiv = document.getElementById('rankingList');
     const ranked = visibleStudents.sort((a, b) => (b.get('coins') || 0) - (a.get('coins') || 0));
     const leaderboardStudents = ranked.filter(stu => {
@@ -414,7 +415,6 @@ async function startChallenge(targetId) {
     await setStudentActive(currentStudent.id, false);
     await setStudentActive(targetId, false);
 
-    // Show waiting screen
     document.getElementById('mainView').classList.add('hidden');
     document.getElementById('waitingForOpponent').classList.remove('hidden');
     isInChallengeMode = true;
@@ -507,16 +507,15 @@ async function acceptChallenge() {
     currentIncomingChallenge.set('status', 'accepted');
     await currentIncomingChallenge.save();
 
-    // Clear tracking state
     lastHandledChallengeId = currentIncomingChallenge.id;
     currentIncomingChallenge = null;
-    challengeId = null;
+    challengeId = currentIncomingChallenge.id; // ← Now we have real challengeId
 
     document.getElementById('challengeIncoming').classList.add('hidden');
     isInChallengeMode = true;
     hasChallengeStarted = true;
     startTime = Date.now();
-    startQuiz();
+    startQuiz(); // ✅ Now works
   } catch (err) {
     console.error(err);
     alert('Failed to accept challenge');
@@ -527,22 +526,28 @@ async function surrender() {
   if (!currentIncomingChallenge) return;
   clearInterval(responseTimerInterval);
   try {
-    const newCoins = Math.max(0, (currentStudent.get('coins') || 100) - 1);
-    currentStudent.set('coins', newCoins);
+    // Deduct 1 coin from challenged
+    let myCoins = Math.max(0, (currentStudent.get('coins') || 100) - 1);
+    currentStudent.set('coins', myCoins);
     await currentStudent.save();
     updateMyCoins();
+
+    // Add 1 coin to challenger
+    const challengerId = currentIncomingChallenge.get('challengerId');
+    const challenger = AV.Object.createWithoutData('Student', challengerId);
+    await challenger.fetch();
+    challenger.set('coins', (challenger.get('coins') || 100) + 1);
+    await challenger.save();
 
     currentIncomingChallenge.set('status', 'surrendered');
     await currentIncomingChallenge.save();
 
-    // Clear tracking state
     lastHandledChallengeId = currentIncomingChallenge.id;
     currentIncomingChallenge = null;
     challengeId = null;
 
-    const chObj = await currentIncomingChallenge.fetch();
     await setStudentActive(currentStudent.id, true);
-    await setStudentActive(chObj.get('challengerId'), true);
+    await setStudentActive(challengerId, true);
 
     alert('You surrendered. -1 coin.');
     backToMain();
@@ -583,8 +588,20 @@ async function startQuiz() {
   vocabQuiz = ch.get('vocabList');
   currentQuestionIndex = 0;
   totalTime = 0;
+  errorCount = 0;
   startTime = Date.now();
   showNextQuestion();
+
+  // Start 3-minute timeout
+  setTimeout(() => {
+    if (isInChallengeMode && hasChallengeStarted) {
+      handleTimeoutDuringQuiz();
+    }
+  }, 180000); // 3 minutes
+}
+
+function handleTimeoutDuringQuiz() {
+  finishQuiz(true); // force finish due to timeout
 }
 
 function showNextQuestion() {
@@ -624,26 +641,38 @@ function updateTimer() {
 
 function selectOption(index, selectedMeaning) {
   const correct = selectedMeaning === vocabQuiz[currentQuestionIndex].meaning;
+  const options = document.querySelectorAll('#optionsContainer .option');
+
   if (!correct) {
-    totalTime += 3;
+    errorCount++;
+    options[index].classList.add('wrong');
+    return; // stay on same question
   }
-  currentQuestionIndex++;
-  showNextQuestion();
+
+  // Correct answer
+  options.forEach(opt => opt.classList.remove('wrong'));
+  options[index].classList.add('correct');
+
+  setTimeout(() => {
+    currentQuestionIndex++;
+    showNextQuestion();
+  }, 300);
 }
 
-function finishQuiz() {
+function finishQuiz(forced = false) {
   totalTime += (Date.now() - startTime) / 1000;
   document.getElementById('quizView').classList.add('hidden');
 
   const ch = AV.Object.createWithoutData('Challenge', challengeId);
   ch.set(currentStudent.id + '_time', totalTime);
+  ch.set(currentStudent.id + '_errors', errorCount);
   ch.set(currentStudent.id + '_done', true);
   ch.save().then(waitForOpponentResult);
 }
 
 async function waitForOpponentResult() {
   let checkCount = 0;
-  const maxChecks = 60;
+  const maxChecks = 180; // 3 minutes
 
   const interval = setInterval(async () => {
     try {
@@ -671,21 +700,32 @@ async function handleOpponentAbandonment(challengeObj, opponentId) {
   const opponent = AV.Object.createWithoutData('Student', opponentId);
   await opponent.fetch();
 
-  me.set('coins', (me.get('coins') || 100) + 5);
-  me.set('wins', (me.get('wins') || 0) + 1);
-  opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - 5));
-  opponent.set('losses', (opponent.get('losses') || 0) + 1);
+  // Compare errors if both timed out
+  const myErrors = errorCount;
+  const oppErrors = challengeObj.get(opponentId + '_errors') || Infinity;
+
+  let iWin = true;
+  if (myErrors > oppErrors) iWin = false;
+  else if (myErrors === oppErrors) iWin = (totalTime < (challengeObj.get(opponentId + '_time') || Infinity));
+
+  const delta = iWin ? 5 : -5;
+
+  me.set('coins', Math.max(0, (me.get('coins') || 100) + delta));
+  me.set(iWin ? 'wins' : 'losses', (me.get(iWin ? 'wins' : 'losses') || 0) + 1);
+  opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - delta));
+  opponent.set(iWin ? 'losses' : 'wins', (opponent.get(iWin ? 'losses' : 'wins') || 0) + 1);
 
   await me.save();
   await opponent.save();
 
   challengeObj.set('status', 'completed');
-  challengeObj.set('result', 'opponent_abandoned');
+  challengeObj.set('result', 'timeout');
   await challengeObj.save();
 
   document.getElementById('yourTime').textContent = totalTime.toFixed(2) + 's';
   document.getElementById('oppTime').textContent = '— (forfeited)';
-  document.getElementById('resultMessage').textContent = '🎉 Opponent abandoned! You win +5 coins';
+  document.getElementById('resultMessage').textContent = 
+    iWin ? '🎉 Opponent timed out! You win +5 coins' : '😞 You timed out. -5 coins';
   
   document.getElementById('resultView').classList.remove('hidden');
   updateMyCoins();
@@ -705,7 +745,13 @@ async function handleOpponentAbandonment(challengeObj, opponentId) {
 async function showResult(challengeObj, opponentId) {
   const myTime = challengeObj.get(currentStudent.id + '_time');
   const oppTime = challengeObj.get(opponentId + '_time');
-  const iWin = myTime < oppTime;
+  const myErrors = challengeObj.get(currentStudent.id + '_errors') || 0;
+  const oppErrors = challengeObj.get(opponentId + '_errors') || 0;
+
+  let iWin = false;
+  if (myErrors < oppErrors) iWin = true;
+  else if (myErrors > oppErrors) iWin = false;
+  else iWin = myTime < oppTime;
 
   const me = currentStudent;
   const opponent = AV.Object.createWithoutData('Student', opponentId);
