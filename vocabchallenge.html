@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vocabulary Challenge</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 10px; background: #f9f9f9; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .hidden { display: none; }
+    
+    /* Smaller student cards */
+    .card {
+      display: inline-block;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 4px;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      min-width: 120px;
+      text-align: center;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .card:hover:not(.disabled):not(.self) {
+      transform: scale(1.03);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .card.disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+      background: #f5f5f5;
+    }
+    .card.self { 
+      background: #e8f5e9; 
+      border-color: #4CAF50; 
+      font-weight: bold;
+    }
+
+    .ranking h3 { color: #d32f2f; margin-top: 20px; }
+    .btn { padding: 8px 12px; margin: 4px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .green { background: #4CAF50; color: white; }
+    .red { background: #f44336; color: white; }
+    .blue { background: #2196F3; color: white; }
+    
+    #quizView .option { 
+      display: block; 
+      margin: 8px 0; 
+      padding: 8px; 
+      background: #eee; 
+      border-radius: 4px; 
+      cursor: pointer; 
+      font-size: 14px;
+    }
+    #quizView .option:hover { background: #ddd; }
+    #timer { font-weight: bold; color: #1976D2; }
+    
+    /* Login form styling */
+    #loginView input {
+      padding: 6px;
+      margin: 4px;
+      width: 180px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<!-- Login View -->
+<div id="loginView">
+  <h2>🎓 Vocabulary Challenge</h2>
+  <input type="text" id="username" placeholder="Student ID" />
+  <br />
+  <input type="password" id="password" placeholder="Password" />
+  <br />
+  <button class="green" onclick="login()">Log In</button>
+  <p id="loginMsg" style="color:red; font-size:14px;"></p>
+</div>
+
+<!-- Main View -->
+<div id="mainView" class="hidden">
+  <h2>Welcome, <span id="displayName"></span>!</h2>
+  <p>Your Coins: <strong id="myCoins">100</strong></p>
+
+  <!-- Self Card -->
+  <div id="selfCard" class="card self"></div>
+
+  <!-- Other Students -->
+  <h3>👥 Choose Opponent</h3>
+  <div id="opponentsList"></div>
+
+  <!-- Power Me Up -->
+  <div id="powerUpSection" class="hidden">
+    <button class="blue" onclick="requestPowerUp()">🔋 Power Me Up!</button>
+  </div>
+
+  <!-- Ranking -->
+  <div class="ranking">
+    <h3>🏆 Leaderboard</h3>
+    <div id="rankingList"></div>
+  </div>
+</div>
+
+<!-- Challenge Incoming -->
+<div id="challengeIncoming" class="hidden">
+  <h3>⚔️ You’re Challenged!</h3>
+  <p><strong id="challengerName">[Player]</strong> wants to duel!</p>
+  <p>You have <span id="responseTimer">10</span> seconds to respond.</p>
+  <button class="green" onclick="acceptChallenge()">✅ Accept</button>
+  <button class="red" onclick="surrender()">❌ Surrender (-1 coin)</button>
+</div>
+
+<!-- Quiz View -->
+<div id="quizView" class="hidden">
+  <h3>🔤 Vocabulary Challenge</h3>
+  <p>Word: <strong id="currentWord">...</strong></p>
+  <p id="optionsContainer"></p>
+  <p>⏱️ Time: <span id="timer">0.0s</span></p>
+</div>
+
+<!-- Result View -->
+<div id="resultView" class="hidden">
+  <h3>📊 Challenge Complete!</h3>
+  <p>Your time: <strong id="yourTime">...</strong></p>
+  <p>Opponent time: <strong id="oppTime">...</strong></p>
+  <p id="resultMessage">...</p>
+  <p>Redirecting in <span id="redirectCountdown">5</span> seconds...</p>
+</div>
+
+</div>
+
+<script>
+AV.init({
+  appId: "awUs1OEg2gNP2FbDR0DYZt8O-gzGzoHsz",
+  appKey: "SenNF43Fxr0lhQ9whRmeZ6sG",
+  serverURL: "https://awus1oeg.lc-cn-n1-shared.com"
+});
+
+let currentStudent = null;
+let challengeId = null;
+let vocabQuiz = [];
+let currentQuestionIndex = 0;
+let startTime = null;
+let totalTime = 0;
+let responseTimerInterval = null;
+let redirectTimer = null;
+
+// ------------------ LOGIN ------------------
+async function login() {
+  const studentId = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if (!studentId || !password) return showError('Please enter ID and password');
+
+  try {
+    const q = new AV.Query('Student');
+    q.equalTo('StudentId', studentId);
+    q.equalTo('password', password);
+    const results = await q.find({ useMasterKey: false });
+    if (results.length === 0) throw new Error('Invalid credentials');
+    
+    currentStudent = results[0];
+    renderMainView();
+    loadStudentsAndRanking();
+    setInterval(loadStudentsAndRanking, 5000);
+  } catch (err) {
+    console.error(err);
+    showError('❌ ' + (err.message || 'Login failed'));
+  }
+}
+
+function showError(msg) {
+  document.getElementById('loginMsg').textContent = msg;
+}
+
+// ------------------ MAIN VIEW ------------------
+function renderMainView() {
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('mainView').classList.remove('hidden');
+  document.getElementById('displayName').textContent = currentStudent.get('StudentId');
+  updateMyCoins();
+  
+  const coins = currentStudent.get('coins') || 100;
+  document.getElementById('powerUpSection').classList.toggle('hidden', coins >= 10);
+}
+
+function updateMyCoins() {
+  document.getElementById('myCoins').textContent = currentStudent.get('coins') || 100;
+}
+
+async function loadStudentsAndRanking() {
+  try {
+    const q = new AV.Query('Student');
+    // Only show students who have coins (i.e., initialized accounts)
+    q.exists('coins'); // ensures they've been set up
+    const allStudents = await q.find();
+
+    const selfId = currentStudent.id;
+    const opponentsDiv = document.getElementById('opponentsList');
+    opponentsDiv.innerHTML = '';
+    let selfCardHtml = '';
+
+    // Filter: only show students who have logged in (we assume having 'coins' means that)
+    const visibleStudents = allStudents.filter(stu => {
+      // Optional: also skip if never played? But you didn't ask that.
+      return true;
+    });
+
+    visibleStudents.forEach(stu => {
+      const isSelf = stu.id === selfId;
+      const isActive = stu.get('isActive') === true;
+      const coins = stu.get('coins') || 100;
+      const cardHtml = `
+        <div class="card ${isSelf ? 'self' : ''} ${!isActive ? 'disabled' : ''}"
+             data-id="${stu.id}" 
+             ${isSelf || !isActive ? '' : 'onclick="startChallenge(\'' + stu.id + '\')"'}>
+          ${stu.get('StudentId')}<br/>
+          💰 ${coins}
+        </div>
+      `;
+      if (isSelf) {
+        selfCardHtml = cardHtml;
+      } else {
+        opponentsDiv.innerHTML += cardHtml;
+      }
+    });
+    document.getElementById('selfCard').innerHTML = selfCardHtml;
+
+    // --- Leaderboard: fix alignment + hide 0W/0L ---
+    const rankingDiv = document.getElementById('rankingList');
+    // Sort by coins descending
+    const ranked = visibleStudents.sort((a, b) => (b.get('coins') || 0) - (a.get('coins') || 0));
+    
+    // Filter out students with 0 wins AND 0 losses
+    const leaderboardStudents = ranked.filter(stu => {
+      const w = stu.get('wins') || 0;
+      const l = stu.get('losses') || 0;
+      return !(w === 0 && l === 0);
+    });
+
+    if (leaderboardStudents.length === 0) {
+      rankingDiv.innerHTML = '<p>No players on leaderboard yet.</p>';
+    } else {
+      let tableHtml = `
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #ddd; padding:6px;">Rank</th>
+              <th style="border:1px solid #ddd; padding:6px;">Student</th>
+              <th style="border:1px solid #ddd; padding:6px;">Coins</th>
+              <th style="border:1px solid #ddd; padding:6px;">W / L</th>
+            </tr>
+          </thead>
+          <tbody>`;
+      
+      leaderboardStudents.forEach((stu, idx) => {
+        const w = stu.get('wins') || 0;
+        const l = stu.get('losses') || 0;
+        tableHtml += `
+          <tr style="border-bottom:1px solid #eee;">
+            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${idx + 1}</td>
+            <td style="border:1px solid #ddd; padding:6px;">${stu.get('StudentId')}</td>
+            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${stu.get('coins') || 100}</td>
+            <td style="border:1px solid #ddd; padding:6px; text-align:center;">${w} / ${l}</td>
+          </tr>
+        `;
+      });
+      tableHtml += '</tbody></table>';
+      rankingDiv.innerHTML = tableHtml;
+    }
+
+  } catch (err) {
+    console.error('Failed to load students:', err);
+  }
+}
+
+// ------------------ Rest of functions unchanged ------------------
+// (Keep ALL other functions exactly as before: startChallenge, setStudentActive, etc.)
+
+async function setStudentActive(studentId, active) {
+  const stu = AV.Object.createWithoutData('Student', studentId);
+  stu.set('isActive', active);
+  await stu.save();
+  if (studentId === currentStudent.id) {
+    currentStudent.set('isActive', active);
+  }
+}
+
+async function startChallenge(targetId) {
+  if (!confirm('Challenge this player?')) return;
+
+  try {
+    const Challenge = AV.Object.extend('Challenge');
+    const ch = new Challenge();
+    ch.set('challengerId', currentStudent.id);
+    ch.set('challengedId', targetId);
+    ch.set('status', 'pending');
+
+    const vq = new AV.Query('Vocabulary');
+    vq.limit(1000);
+    const allWords = await vq.find();
+    if (allWords.length === 0) throw new Error('No vocabulary available');
+    
+    const shuffled = allWords.sort(() => 0.5 - Math.random()).slice(0, 10);
+    const vocabList = shuffled.map(v => ({
+      word: v.get('word'),
+      meaning: v.get('meaning')
+    }));
+    ch.set('vocabList', vocabList);
+
+    await ch.save();
+    challengeId = ch.id;
+
+    await setStudentActive(currentStudent.id, false);
+    await setStudentActive(targetId, false);
+
+    alert('Challenge sent! Waiting for response...');
+    waitForResponse(ch.id, targetId);
+  } catch (err) {
+    alert('Failed to send challenge: ' + err.message);
+    setStudentActive(currentStudent.id, true);
+  }
+}
+
+async function waitForResponse(challengeId, targetId) {
+  let countdown = 10;
+  const targetStudent = await AV.Object.createWithoutData('Student', targetId).fetch();
+  document.getElementById('challengerName').textContent = targetStudent.get('StudentId');
+  
+  document.getElementById('responseTimer').textContent = countdown;
+  document.getElementById('mainView').classList.add('hidden');
+  document.getElementById('challengeIncoming').classList.remove('hidden');
+
+  responseTimerInterval = setInterval(async () => {
+    countdown--;
+    document.getElementById('responseTimer').textContent = countdown;
+    if (countdown <= 0) {
+      clearInterval(responseTimerInterval);
+      autoAcceptChallenge(challengeId);
+    }
+  }, 1000);
+}
+
+async function acceptChallenge() {
+  clearInterval(responseTimerInterval);
+  document.getElementById('challengeIncoming').classList.add('hidden');
+  startQuiz();
+}
+
+async function surrender() {
+  clearInterval(responseTimerInterval);
+  try {
+    const newCoins = Math.max(0, (currentStudent.get('coins') || 100) - 1);
+    currentStudent.set('coins', newCoins);
+    await currentStudent.save();
+    updateMyCoins();
+
+    const ch = AV.Object.createWithoutData('Challenge', challengeId);
+    ch.set('status', 'surrendered');
+    await ch.save();
+
+    const chObj = await ch.fetch();
+    await setStudentActive(currentStudent.id, true);
+    await setStudentActive(chObj.get('challengerId'), true);
+
+    alert('You surrendered. -1 coin.');
+    backToMain();
+  } catch (err) {
+    console.error(err);
+    alert('Surrender failed');
+  }
+}
+
+async function autoAcceptChallenge(chId) {
+  document.getElementById('challengeIncoming').classList.add('hidden');
+  challengeId = chId;
+  startQuiz();
+}
+
+async function startQuiz() {
+  const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
+  vocabQuiz = ch.get('vocabList');
+  currentQuestionIndex = 0;
+  totalTime = 0;
+  startTime = Date.now();
+  showNextQuestion();
+}
+
+function showNextQuestion() {
+  if (currentQuestionIndex >= vocabQuiz.length) {
+    finishQuiz();
+    return;
+  }
+
+  const item = vocabQuiz[currentQuestionIndex];
+  document.getElementById('currentWord').textContent = item.word;
+  
+  const vq = new AV.Query('Vocabulary');
+  vq.notEqualTo('word', item.word);
+  vq.limit(10);
+  vq.find().then(fakeWords => {
+    const fakeMeanings = fakeWords.map(f => f.get('meaning')).slice(0, 2);
+    const options = [item.meaning, ...fakeMeanings].sort(() => 0.5 - Math.random());
+    
+    let html = '';
+    options.forEach((opt, i) => {
+      html += `<div class="option" onclick="selectOption(${i}, '${opt.replace(/'/g, "\\'")}')">${opt}</div>`;
+    });
+    document.getElementById('optionsContainer').innerHTML = html;
+  });
+
+  document.getElementById('quizView').classList.remove('hidden');
+  updateTimer();
+}
+
+function updateTimer() {
+  if (startTime) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    document.getElementById('timer').textContent = elapsed.toFixed(1) + 's';
+    setTimeout(updateTimer, 100);
+  }
+}
+
+function selectOption(index, selectedMeaning) {
+  const correct = selectedMeaning === vocabQuiz[currentQuestionIndex].meaning;
+  if (!correct) {
+    totalTime += 3;
+  }
+  currentQuestionIndex++;
+  showNextQuestion();
+}
+
+function finishQuiz() {
+  totalTime += (Date.now() - startTime) / 1000;
+  document.getElementById('quizView').classList.add('hidden');
+
+  const ch = AV.Object.createWithoutData('Challenge', challengeId);
+  ch.set(currentStudent.id + '_time', totalTime);
+  ch.set(currentStudent.id + '_done', true);
+  ch.save().then(waitForOpponentResult);
+}
+
+async function waitForOpponentResult() {
+  let checkCount = 0;
+  const interval = setInterval(async () => {
+    try {
+      const ch = await AV.Object.createWithoutData('Challenge', challengeId).fetch();
+      const otherId = ch.get('challengerId') === currentStudent.id 
+        ? ch.get('challengedId') 
+        : ch.get('challengerId');
+      
+      if (ch.get(otherId + '_done')) {
+        clearInterval(interval);
+        showResult(ch, otherId);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    checkCount++;
+    if (checkCount > 60) clearInterval(interval);
+  }, 1000);
+}
+
+async function showResult(challengeObj, opponentId) {
+  const myTime = challengeObj.get(currentStudent.id + '_time');
+  const oppTime = challengeObj.get(opponentId + '_time');
+  const iWin = myTime < oppTime;
+
+  const me = currentStudent;
+  const opponent = AV.Object.createWithoutData('Student', opponentId);
+  await opponent.fetch();
+
+  if (iWin) {
+    me.set('coins', (me.get('coins') || 100) + 5);
+    me.set('wins', (me.get('wins') || 0) + 1);
+    opponent.set('coins', Math.max(0, (opponent.get('coins') || 100) - 5));
+    opponent.set('losses', (opponent.get('losses') || 0) + 1);
+  } else {
+    me.set('coins', Math.max(0, (me.get('coins') || 100) - 5));
+    me.set('losses', (me.get('losses') || 0) + 1);
+    opponent.set('coins', (opponent.get('coins') || 100) + 5);
+    opponent.set('wins', (opponent.get('wins') || 0) + 1);
+  }
+
+  await me.save();
+  await opponent.save();
+
+  document.getElementById('yourTime').textContent = myTime.toFixed(2) + 's';
+  document.getElementById('oppTime').textContent = oppTime.toFixed(2) + 's';
+  document.getElementById('resultMessage').textContent = 
+    iWin ? '🎉 You won! +5 coins' : '😞 You lost. -5 coins';
+  
+  document.getElementById('resultView').classList.remove('hidden');
+  updateMyCoins();
+
+  let count = 5;
+  document.getElementById('redirectCountdown').textContent = count;
+  redirectTimer = setInterval(() => {
+    count--;
+    document.getElementById('redirectCountdown').textContent = count;
+    if (count <= 0) {
+      clearInterval(redirectTimer);
+      backToMain();
+    }
+  }, 1000);
+}
+
+function backToMain() {
+  document.getElementById('challengeIncoming').classList.add('hidden');
+  document.getElementById('quizView').classList.add('hidden');
+  document.getElementById('resultView').classList.add('hidden');
+  document.getElementById('mainView').classList.remove('hidden');
+  loadStudentsAndRanking();
+}
+
+async function requestPowerUp() {
+  if ((currentStudent.get('coins') || 100) >= 10) return;
+  
+  try {
+    const PowerUpRequest = AV.Object.extend('PowerUpRequest');
+    const req = new PowerUpRequest();
+    req.set('userId', currentStudent.id);
+    req.set('handled', false);
+    await req.save();
+    alert('Power-up requested! Wait for admin approval.');
+  } catch (err) {
+    alert('Request failed: ' + err.message);
+  }
+}
+
+</script>
+</body>
+</html>
