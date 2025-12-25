@@ -162,6 +162,9 @@ let currentIncomingChallenge = null;
 let isInChallengeMode = false;
 let hasChallengeStarted = false;
 
+// === FIX === Track last handled challenge to avoid reprocessing
+let lastHandledChallengeId = null;
+
 // === NEW === Warn before leaving during challenge
 window.addEventListener('beforeunload', function (e) {
   if (isInChallengeMode && currentStudent) {
@@ -185,11 +188,12 @@ async function login() {
     if (results.length === 0) throw new Error('Invalid credentials');
     
     currentStudent = results[0];
+    lastHandledChallengeId = null; // ← RESET on login
     renderMainView();
     loadStudentsAndRanking();
     setInterval(loadStudentsAndRanking, 5000);
 
-    // === NEW === Start checking for incoming challenges after login
+    // Start checking for incoming challenges after login
     setInterval(checkForIncomingChallenges, 3000);
   } catch (err) {
     console.error(err);
@@ -201,7 +205,7 @@ function showError(msg) {
   document.getElementById('loginMsg').textContent = msg;
 }
 
-// === NEW === Check if someone challenged me
+// === FIXED === Check if someone challenged me (with safeguards)
 async function checkForIncomingChallenges() {
   if (!currentStudent) return;
 
@@ -209,35 +213,42 @@ async function checkForIncomingChallenges() {
     const query = new AV.Query('Challenge');
     query.equalTo('challengedId', currentStudent.id);
     query.equalTo('status', 'pending');
+    // Only consider challenges created in the last 15 seconds
+    query.greaterThan('createdAt', new Date(Date.now() - 15000));
     query.descending('createdAt');
     const challenges = await query.limit(1).find();
 
     const popupVisible = !document.getElementById('challengeIncoming').classList.contains('hidden');
 
     if (challenges.length > 0) {
-      if (!popupVisible) {
-        const ch = challenges[0];
-        currentIncomingChallenge = ch;
-        challengeId = ch.id;
+      const ch = challenges[0];
 
-        const challenger = await AV.Object.createWithoutData('Student', ch.get('challengerId')).fetch();
-        document.getElementById('challengerName').textContent = challenger.get('StudentId');
-
-        document.getElementById('mainView').classList.add('hidden');
-        document.getElementById('challengeIncoming').classList.remove('hidden');
-
-        let timeLeft = 10;
-        document.getElementById('responseTimer').textContent = timeLeft;
-        clearInterval(responseTimerInterval);
-        responseTimerInterval = setInterval(() => {
-          timeLeft--;
-          document.getElementById('responseTimer').textContent = timeLeft;
-          if (timeLeft <= 0) {
-            clearInterval(responseTimerInterval);
-            autoSurrenderDueToTimeout(ch);
-          }
-        }, 1000);
+      // Skip if already handled or we're in a challenge
+      if (ch.id === lastHandledChallengeId || isInChallengeMode || hasChallengeStarted) {
+        return;
       }
+
+      currentIncomingChallenge = ch;
+      challengeId = ch.id;
+      lastHandledChallengeId = ch.id; // Mark as seen
+
+      const challenger = await AV.Object.createWithoutData('Student', ch.get('challengerId')).fetch();
+      document.getElementById('challengerName').textContent = challenger.get('StudentId');
+
+      document.getElementById('mainView').classList.add('hidden');
+      document.getElementById('challengeIncoming').classList.remove('hidden');
+
+      let timeLeft = 10;
+      document.getElementById('responseTimer').textContent = timeLeft;
+      clearInterval(responseTimerInterval);
+      responseTimerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('responseTimer').textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(responseTimerInterval);
+          autoSurrenderDueToTimeout(ch);
+        }
+      }, 1000);
     } else if (popupVisible) {
       clearInterval(responseTimerInterval);
       document.getElementById('challengeIncoming').classList.add('hidden');
@@ -248,7 +259,7 @@ async function checkForIncomingChallenges() {
   }
 }
 
-// === NEW === Auto-surrender if timeout
+// === FIXED === Auto-surrender if timeout
 async function autoSurrenderDueToTimeout(challenge) {
   try {
     let coins = currentStudent.get('coins') || 100;
@@ -260,6 +271,11 @@ async function autoSurrenderDueToTimeout(challenge) {
     challenge.set('status', 'surrendered');
     challenge.set('result', 'challenged_timeout');
     await challenge.save();
+
+    // Clear local challenge state
+    lastHandledChallengeId = challenge.id;
+    currentIncomingChallenge = null;
+    challengeId = null;
 
     alert('⏰ Challenge expired. You lost 1 coin.');
     backToMain();
@@ -491,6 +507,11 @@ async function acceptChallenge() {
     currentIncomingChallenge.set('status', 'accepted');
     await currentIncomingChallenge.save();
 
+    // Clear tracking state
+    lastHandledChallengeId = currentIncomingChallenge.id;
+    currentIncomingChallenge = null;
+    challengeId = null;
+
     document.getElementById('challengeIncoming').classList.add('hidden');
     isInChallengeMode = true;
     hasChallengeStarted = true;
@@ -513,6 +534,11 @@ async function surrender() {
 
     currentIncomingChallenge.set('status', 'surrendered');
     await currentIncomingChallenge.save();
+
+    // Clear tracking state
+    lastHandledChallengeId = currentIncomingChallenge.id;
+    currentIncomingChallenge = null;
+    challengeId = null;
 
     const chObj = await currentIncomingChallenge.fetch();
     await setStudentActive(currentStudent.id, true);
