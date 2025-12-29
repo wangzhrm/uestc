@@ -2,19 +2,35 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- ✅ Added viewport for mobile responsiveness -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Quiz</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
   <style>
-    body { font-family: Arial; margin: 20px; }
-    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
+    /* ✅ Keep everything the same, just enhance for mobile */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      margin: 12px;
+      padding: 0;
+      background-color: #fafafa;
+    }
+    .section {
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
     .option {
-      padding: 10px;
-      margin: 8px 0;
+      padding: 14px; /* ✅ Slightly larger tap area */
+      margin: 10px 0;
       border: 1px solid #ddd;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
       background-color: #f9f9f9;
       transition: all 0.2s;
+      font-size: 16px; /* ✅ Prevents zoom on iOS input */
     }
     .option:hover:not(.revealed) {
       background-color: #e9e9e9;
@@ -31,15 +47,55 @@
     .option.revealed {
       cursor: default;
     }
-    h3 { margin-top: 0; }
+    h2, h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px; /* ✅ Critical: prevents iOS zoom */
+      box-sizing: border-box;
+    }
+    button {
+      padding: 12px 16px;
+      margin: 6px 4px 6px 0;
+      border: none;
+      border-radius: 6px;
+      background-color: #007bff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0069d9;
+    }
+    #main-section > div {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    hr {
+      margin: 12px 0;
+    }
+
+    /* ✅ Responsive tweak: stack buttons vertically on small screens */
+    @media (max-width: 480px) {
+      button {
+        width: 100%;
+        margin: 6px 0;
+      }
+    }
   </style>
 </head>
 <body>
 
 <div id="login-section" class="section">
   <h2>Student Login</h2>
-  <input id="username" placeholder="Username" />
-  <input id="password" type="password" placeholder="Password" />
+  <input id="username" placeholder="Username" autocomplete="username" />
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
   <button onclick="login()">Login</button>
 </div>
 
@@ -55,7 +111,6 @@
 </div>
 
 <script>
-  // Initialize LeanCloud
   AV.init({
     appId: "WbBll4lUW3syAS5QTVPS4FFZ-gzGzoHsz",
     appKey: "SXHF1hrL8w38unw5T3ub9rWr",
@@ -142,30 +197,23 @@
     }
   }
 
-  async function submitAnswer(qIndex, choice) {
+  async function submitAnswer(qIndex, choiceLetter) {
     if (!currentStudent) return;
 
     try {
       const optionMap = cachedShuffledOptions[qIndex];
       if (!optionMap) return;
 
-      const qQuery = new AV.Query('Question');
-      qQuery.equalTo('order', qIndex + 1);
-      const q = await qQuery.first();
-      if (!q) return;
-
-      const correct = q.get('correct');
-      const isCorrect = (optionMap[choice] === correct);
+      // 🔑 CRITICAL FIX: Save the ACTUAL ANSWER TEXT, not the letter
+      const selectedAnswerText = optionMap[choiceLetter];
 
       const answerObj = await getOrCreateStudentAnswer(qIndex);
-      answerObj.set('selectedOption', choice);
-      answerObj.set('isCorrect', isCorrect);
+      answerObj.set('selectedOption', selectedAnswerText); // ✅ stores "Paris", not "B"
+      // Note: `isCorrect` is computed on reveal or can be omitted — teacher checks against truth
 
       await answerObj.save();
-
-      // Optional: update UI immediately (though poll will refresh soon)
     } catch (err) {
-      console.error("Auto-submit failed:", err);
+      console.error("Submit failed:", err);
     }
   }
 
@@ -225,17 +273,22 @@
         cachedShuffledOptions[qIndex] = optionMap;
       }
 
-      // Find correct letter
+      // Find correct letter for highlighting
       const correctLetter = Object.keys(optionMap).find(k => optionMap[k] === correct);
 
-      // Get student's answer
+      // Get student's saved answer (actual text)
       const ansQuery = new AV.Query('StudentAnswer');
       ansQuery.equalTo('studentId', currentStudent.username);
       ansQuery.equalTo('qIndex', qIndex);
       const existing = await ansQuery.find();
-      const studentChoice = existing.length > 0 ? existing[0].get('selectedOption') : null;
+      const studentAnswerText = existing.length > 0 ? existing[0].get('selectedOption') : null;
 
-      // Only re-render if needed
+      // Map text back to letter for UI highlighting (only for this student's view)
+      let studentChoiceLetter = null;
+      if (studentAnswerText !== null) {
+        studentChoiceLetter = Object.keys(optionMap).find(k => optionMap[k] === studentAnswerText);
+      }
+
       const shouldReRender =
         currentlyRenderedStatus !== status ||
         currentlyRenderedQIndex !== qIndex;
@@ -248,7 +301,6 @@
       currentlyRenderedQIndex = qIndex;
       currentlyRenderedStatus = status;
 
-      // Always show question + options
       let html = `<h3>${text}</h3>`;
 
       ['A','B','C','D'].forEach(opt => {
@@ -258,12 +310,9 @@
           if (opt === correctLetter) {
             classes.push('correct-answer');
           }
-          if (opt === studentChoice) {
+          if (opt === studentChoiceLetter) {
             classes.push('student-selected');
           }
-        } else {
-          // During answering: make clickable
-          classes.push('clickable');
         }
 
         const label = `${opt}. ${optionMap[opt]}`;
@@ -290,15 +339,14 @@
   }
 
   window.handleOptionClick = async function(qIndex, choice) {
-    // Visual feedback: update immediately
+    // Visual feedback
     document.querySelectorAll('.option').forEach(el => el.classList.remove('student-selected'));
     event.target.classList.add('student-selected');
 
-    // Submit
+    // Submit actual answer text
     await submitAnswer(qIndex, choice);
   };
 
-  // Start
   loadStudentFromStorage();
 </script>
 </body>
