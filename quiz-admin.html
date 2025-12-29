@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Teacher Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #999; }
+    button { margin: 5px; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+
+<div class="section">
+  <h2>Teacher Control Panel</h2>
+  <div id="quiz-display">Loading...</div>
+  
+  <div>
+    <button onclick="startQuiz()">▶ Start Quiz</button>
+    <button onclick="showAnswer()">👁️ Show Answer & Stats</button>
+    <button onclick="nextQuestion()">⏭️ Next Question</button>
+    <button onclick="finishQuiz()">⏹️ Finish Quiz</button>
+  </div>
+
+  <canvas id="statsChart" width="500" height="300" style="display:none; margin-top:20px;"></canvas>
+</div>
+
+<div class="section">
+  <h3>Import Questions from Excel</h3>
+  <p>Format: Column A = Question, B = Correct Answer, C/D/E = Wrong Answers</p>
+  <input type="file" id="excelFile" accept=".xlsx,.xls" />
+  <button onclick="importExcel()">Import to LeanCloud</button>
+  <div id="import-status"></div>
+</div>
+
+<script>
+  AV.init({
+    appId: "WbBll4lUW3syAS5QTVPS4FFZ-gzGzoHsz",
+    appKey: "SXHF1hrL8w38unw5T3ub9rWr",
+    serverURLs: "https://wbbl4luw3syas5qtvps4ffz.lc-cn-n1-shared.com"
+  });
+
+  let currentQuestion = null;
+  let optionMap = {};
+  let chart = null;
+
+  async function loadQuizState() {
+    try {
+      const state = await new AV.Query('QuizState').first();
+      if (!state) {
+        document.getElementById('quiz-display').innerText = "No QuizState found!";
+        return;
+      }
+
+      const status = state.get('status');
+      const qIndex = state.get('currentQIndex');
+
+      if (status === 'waiting') {
+        document.getElementById('quiz-display').innerHTML = "<em>Quiz not started.</em>";
+        document.getElementById('statsChart').style.display = 'none';
+        return;
+      }
+
+      if (status === 'finished') {
+        // Show final scores
+        const allAnswers = await new AV.Query('StudentAnswer').find();
+        const scoreMap = {};
+        allAnswers.forEach(a => {
+          const sid = a.get('studentId');
+          if (!scoreMap[sid]) scoreMap[sid] = 0;
+          if (a.get('isCorrect')) scoreMap[sid]++;
+        });
+        let html = "<h3>Final Scores</h3><ul>";
+        for (let s in scoreMap) {
+          html += `<li>${s}: ${scoreMap[s]} points</li>`;
+        }
+        html += "</ul>";
+        document.getElementById('quiz-display').innerHTML = html;
+        document.getElementById('statsChart').style.display = 'none';
+        return;
+      }
+
+      // Load question
+      const q = await new AV.Query('Question').equalTo('order', qIndex + 1).first();
+      if (!q) {
+        document.getElementById('quiz-display').innerText = "Question missing.";
+        return;
+        }
+      currentQuestion = q;
+      const text = q.get('text');
+      const correct = q.get('correct');
+      const distractors = q.get('distractors') || [];
+      const options = [correct, ...distractors];
+      const shuffled = [...options].sort(() => Math.random() - 0.5);
+      optionMap = { A: shuffled[0], B: shuffled[1], C: shuffled[2], D: shuffled[3] };
+
+      let html = `<h3>${text}</h3>`;
+      ['A','B','C','D'].forEach(opt => {
+        html += `<p>${opt}. ${optionMap[opt]}</p>`;
+      });
+
+      if (status === 'revealed') {
+        const correctLetter = Object.keys(optionMap).find(k => optionMap[k] === correct);
+        html += `<p><strong>✅ Correct: ${correctLetter}. ${correct}</strong></p>`;
+        await showStats(qIndex, correctLetter);
+      }
+
+      document.getElementById('quiz-display').innerHTML = html;
+    } catch (err) {
+      console.error(err);
+      document.getElementById('quiz-display').innerText = "Error loading state.";
+    }
+  }
+
+  async function updateQuizState(newStatus, deltaIndex = 0) {
+    const state = await new AV.Query('QuizState').first();
+    if (!state) {
+      alert("QuizState not initialized!");
+      return;
+    }
+    let newIndex = state.get('currentQIndex') + deltaIndex;
+    // Get total questions
+    const total = await new AV.Query('Question').count();
+    if (newIndex >= total && newStatus !== 'finished') {
+      alert("No more questions! Click 'Finish Quiz'.");
+      return;
+    }
+    if (newIndex < 0) newIndex = 0;
+
+    state.set('status', newStatus);
+    if (newStatus !== 'finished') {
+      state.set('currentQIndex', newIndex);
+    }
+    await state.save();
+    loadQuizState();
+  }
+
+  function startQuiz() { updateQuizState('question', 0); }
+  function showAnswer() { updateQuizState('revealed', 0); }
+  function nextQuestion() { updateQuizState('question', 1); }
+  function finishQuiz() { updateQuizState('finished', 0); }
+
+  async function showStats(qIndex, correctOpt) {
+    const answers = await new AV.Query('StudentAnswer')
+      .equalTo('qIndex', qIndex)
+      .find();
+
+    const counts = { A: 0, B: 0, C: 0, D: 0 };
+    const lists = { A: [], B: [], C: [], D: [] };
+
+    answers.forEach(a => {
+      const opt = a.get('selectedOption');
+      if (counts.hasOwnProperty(opt)) {
+        counts[opt]++;
+        lists[opt].push(a.get('studentId'));
+      }
+    });
+
+    // Render chart
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['A', 'B', 'C', 'D'],
+        datasets: [{
+          label: 'Number of Students',
+          data: [counts.A, counts.B, counts.C, counts.D],
+          backgroundColor: [
+            correctOpt === 'A' ? '#4CAF50' : '#FF6384',
+            correctOpt === 'B' ? '#4CAF50' : '#FF6384',
+            correctOpt === 'C' ? '#4CAF50' : '#FF6384',
+            correctOpt === 'D' ? '#4CAF50' : '#FF6384'
+          ]
+        }]
+      },
+      options: { responsive: false }
+    });
+    document.getElementById('statsChart').style.display = 'block';
+
+    // Optional: show names below
+    let details = '<h4>Who chose what:</h4>';
+    ['A','B','C','D'].forEach(opt => {
+      details += `<p><strong>${opt}:</strong> ${lists[opt].length > 0 ? lists[opt].join(', ') : 'None'}</p>`;
+    });
+    document.getElementById('quiz-display').innerHTML += details;
+  }
+
+  // Excel Import
+  async function importExcel() {
+    const file = document.getElementById('excelFile').files[0];
+    if (!file) {
+      alert("Please select a file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      document.getElementById('import-status').innerText = "Importing...";
+
+      // Clear old questions? Optional.
+      // For demo, just append.
+
+      let order = (await new AV.Query('Question').count()) + 1;
+
+      for (const row of rows) {
+        if (!row[0] || !row[1]) continue; // skip empty
+        const question = new AV.Object('Question');
+        question.set('text', row[0]);
+        question.set('correct', row[1]);
+        question.set('distractors', [row[2] || '', row[3] || '', row[4] || ''].filter(x => x));
+        question.set('order', order++);
+        await question.save();
+      }
+
+      document.getElementById('import-status').innerText = "Import successful!";
+      loadQuizState();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // Start
+  loadQuizState();
+</script>
+</body>
+</html>

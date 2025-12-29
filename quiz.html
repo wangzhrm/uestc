@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Student Quiz</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
+    .option {
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #f9f9f9;
+      transition: all 0.2s;
+    }
+    .option:hover:not(.revealed) {
+      background-color: #e9e9e9;
+    }
+    .option.student-selected {
+      background-color: #d1ecf1;
+      border-color: #2a9dcc;
+    }
+    .option.correct-answer {
+      background-color: #d4edda;
+      border-color: #28a745;
+      font-weight: bold;
+    }
+    .option.revealed {
+      cursor: default;
+    }
+    h3 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<div id="login-section" class="section">
+  <h2>Student Login</h2>
+  <input id="username" placeholder="Username" />
+  <input id="password" type="password" placeholder="Password" />
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="main-section" class="section" style="display:none;">
+  <div>
+    Logged in as: <strong id="display-username"></strong> |
+    <button onclick="logout()">Logout</button>
+  </div>
+  <hr>
+  <div id="quiz-content">
+    Please wait for the teacher to initiate the quiz...
+  </div>
+</div>
+
+<script>
+  // Initialize LeanCloud
+  AV.init({
+    appId: "WbBll4lUW3syAS5QTVPS4FFZ-gzGzoHsz",
+    appKey: "SXHF1hrL8w38unw5T3ub9rWr",
+    serverURLs: "https://wbbl4luw3syas5qtvps4ffz.lc-cn-n1-shared.com"
+  });
+
+  let currentStudent = null;
+  let cachedShuffledOptions = {};
+  let currentlyRenderedQIndex = null;
+  let currentlyRenderedStatus = null;
+
+  function saveStudentToStorage(student) {
+    localStorage.setItem('currentStudent', JSON.stringify(student));
+    currentStudent = student;
+  }
+
+  function loadStudentFromStorage() {
+    const data = localStorage.getItem('currentStudent');
+    if (data) {
+      currentStudent = JSON.parse(data);
+      renderMain();
+      pollQuizState();
+    }
+  }
+
+  async function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    if (!username || !password) {
+      alert("Please enter username and password.");
+      return;
+    }
+
+    try {
+      const query = new AV.Query('Student');
+      query.equalTo('username', username);
+      query.equalTo('password', password);
+      const results = await query.find();
+      if (results.length === 0) {
+        alert("Invalid username or password.");
+        return;
+      }
+      saveStudentToStorage({ username });
+      renderMain();
+      pollQuizState();
+    } catch (err) {
+      console.error(err);
+      alert("Login error: " + err.message);
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem('currentStudent');
+    currentStudent = null;
+    cachedShuffledOptions = {};
+    currentlyRenderedQIndex = null;
+    currentlyRenderedStatus = null;
+    document.getElementById('login-section').style.display = 'block';
+    document.getElementById('main-section').style.display = 'none';
+  }
+
+  function renderMain() {
+    if (currentStudent) {
+      document.getElementById('display-username').innerText = currentStudent.username;
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-section').style.display = 'block';
+    }
+  }
+
+  async function getOrCreateStudentAnswer(qIndex) {
+    const ansQuery = new AV.Query('StudentAnswer');
+    ansQuery.equalTo('studentId', currentStudent.username);
+    ansQuery.equalTo('qIndex', qIndex);
+    const existing = await ansQuery.find();
+
+    if (existing.length > 0) {
+      return existing[0];
+    } else {
+      const newAns = new AV.Object('StudentAnswer');
+      newAns.set('studentId', currentStudent.username);
+      newAns.set('qIndex', qIndex);
+      return newAns;
+    }
+  }
+
+  async function submitAnswer(qIndex, choice) {
+    if (!currentStudent) return;
+
+    try {
+      const optionMap = cachedShuffledOptions[qIndex];
+      if (!optionMap) return;
+
+      const qQuery = new AV.Query('Question');
+      qQuery.equalTo('order', qIndex + 1);
+      const q = await qQuery.first();
+      if (!q) return;
+
+      const correct = q.get('correct');
+      const isCorrect = (optionMap[choice] === correct);
+
+      const answerObj = await getOrCreateStudentAnswer(qIndex);
+      answerObj.set('selectedOption', choice);
+      answerObj.set('isCorrect', isCorrect);
+
+      await answerObj.save();
+
+      // Optional: update UI immediately (though poll will refresh soon)
+    } catch (err) {
+      console.error("Auto-submit failed:", err);
+    }
+  }
+
+  async function pollQuizState() {
+    if (!currentStudent) return;
+
+    try {
+      const stateQuery = new AV.Query('QuizState');
+      const state = await stateQuery.first();
+      if (!state) {
+        document.getElementById('quiz-content').innerText = "Quiz not ready.";
+        setTimeout(pollQuizState, 3000);
+        return;
+      }
+
+      const status = state.get('status');
+      const qIndex = state.get('currentQIndex');
+
+      if (status === 'waiting' || status === 'finished') {
+        cachedShuffledOptions = {};
+        currentlyRenderedQIndex = null;
+        currentlyRenderedStatus = null;
+      }
+
+      if (status === 'waiting') {
+        document.getElementById('quiz-content').innerHTML = "Please wait for the teacher to initiate the quiz...";
+        setTimeout(pollQuizState, 3000);
+        return;
+      }
+
+      if (status === 'finished') {
+        document.getElementById('quiz-content').innerHTML = "<h3>Quiz finished! Thank you.</h3>";
+        return;
+      }
+
+      // Load question
+      const qQuery = new AV.Query('Question');
+      qQuery.equalTo('order', qIndex + 1);
+      const question = await qQuery.first();
+      if (!question) {
+        document.getElementById('quiz-content').innerText = "Question not found.";
+        setTimeout(pollQuizState, 3000);
+        return;
+      }
+
+      const text = question.get('text');
+      const correct = question.get('correct');
+      const distractors = question.get('distractors') || [];
+      const options = [correct, ...distractors];
+
+      let optionMap;
+      if (cachedShuffledOptions.hasOwnProperty(qIndex)) {
+        optionMap = cachedShuffledOptions[qIndex];
+      } else {
+        const shuffled = [...options].sort(() => Math.random() - 0.5);
+        optionMap = { A: shuffled[0], B: shuffled[1], C: shuffled[2], D: shuffled[3] };
+        cachedShuffledOptions[qIndex] = optionMap;
+      }
+
+      // Find correct letter
+      const correctLetter = Object.keys(optionMap).find(k => optionMap[k] === correct);
+
+      // Get student's answer
+      const ansQuery = new AV.Query('StudentAnswer');
+      ansQuery.equalTo('studentId', currentStudent.username);
+      ansQuery.equalTo('qIndex', qIndex);
+      const existing = await ansQuery.find();
+      const studentChoice = existing.length > 0 ? existing[0].get('selectedOption') : null;
+
+      // Only re-render if needed
+      const shouldReRender =
+        currentlyRenderedStatus !== status ||
+        currentlyRenderedQIndex !== qIndex;
+
+      if (!shouldReRender) {
+        setTimeout(pollQuizState, 3000);
+        return;
+      }
+
+      currentlyRenderedQIndex = qIndex;
+      currentlyRenderedStatus = status;
+
+      // Always show question + options
+      let html = `<h3>${text}</h3>`;
+
+      ['A','B','C','D'].forEach(opt => {
+        let classes = ['option'];
+        if (status === 'revealed') {
+          classes.push('revealed');
+          if (opt === correctLetter) {
+            classes.push('correct-answer');
+          }
+          if (opt === studentChoice) {
+            classes.push('student-selected');
+          }
+        } else {
+          // During answering: make clickable
+          classes.push('clickable');
+        }
+
+        const label = `${opt}. ${optionMap[opt]}`;
+        if (status === 'revealed') {
+          html += `<div class="${classes.join(' ')}">${label}</div>`;
+        } else {
+          html += `
+            <div class="${classes.join(' ')}"
+                 onclick="handleOptionClick(${qIndex}, '${opt}')">
+              ${label}
+            </div>`;
+        }
+      });
+
+      document.getElementById('quiz-content').innerHTML = html;
+
+      if (status !== 'finished') {
+        setTimeout(pollQuizState, 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setTimeout(pollQuizState, 3000);
+    }
+  }
+
+  window.handleOptionClick = async function(qIndex, choice) {
+    // Visual feedback: update immediately
+    document.querySelectorAll('.option').forEach(el => el.classList.remove('student-selected'));
+    event.target.classList.add('student-selected');
+
+    // Submit
+    await submitAnswer(qIndex, choice);
+  };
+
+  // Start
+  loadStudentFromStorage();
+</script>
+</body>
+</html>
