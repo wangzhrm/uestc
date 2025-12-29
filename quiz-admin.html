@@ -47,6 +47,10 @@
       color: #495057;
     }
     canvas { margin-top: 20px; display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f8f9fa; }
+    tr.top3 { background-color: #fffde7; }
   </style>
 </head>
 <body>
@@ -89,7 +93,7 @@
   });
 
   let chart = null;
-  const teacherShuffledCache = {}; // declared as const — must not be reassigned
+  const teacherShuffledCache = {};
 
   function shuffleOptions(correct, distractors) {
     const options = [correct, ...distractors];
@@ -115,9 +119,12 @@
       }
 
       if (status === 'finished') {
-        document.getElementById('quiz-display').innerHTML = "<h3>Quiz finished!</h3>";
-        document.getElementById('statsChart').style.display = 'none';
-        document.getElementById('student-lists').innerHTML = '';
+        const totalQuestions = await new AV.Query('Question').count();
+        if (totalQuestions === 0) {
+          document.getElementById('quiz-display').innerHTML = "<h3>No questions found.</h3>";
+        } else {
+          await showFinalReport(totalQuestions);
+        }
         return;
       }
 
@@ -283,6 +290,103 @@
     studentListsContainer.innerHTML = listsHtml;
   }
 
+  async function showFinalReport(totalQuestions) {
+    // Fetch all questions to map qIndex → correct answer
+    const questions = await new AV.Query('Question')
+      .limit(1000)
+      .addAscending('order')
+      .find();
+    
+    const correctAnswersByIndex = {};
+    questions.forEach(q => {
+      const idx = q.get('order') - 1; // order starts at 1
+      correctAnswersByIndex[idx] = q.get('correct');
+    });
+
+    // Fetch all student answers
+    const allAnswers = await new AV.Query('StudentAnswer')
+      .limit(1000)
+      .find();
+
+    // Group answers by studentId
+    const studentResponses = {};
+    allAnswers.forEach(a => {
+      const sid = a.get('studentId');
+      const qIdx = a.get('qIndex');
+      const selected = a.get('selectedOption');
+      if (!studentResponses[sid]) studentResponses[sid] = {};
+      studentResponses[sid][qIdx] = selected;
+    });
+
+    // Compute stats per student
+    const studentStats = [];
+    for (const [studentId, responses] of Object.entries(studentResponses)) {
+      let correct = 0;
+
+      for (let qIdx = 0; qIdx < totalQuestions; qIdx++) {
+        const correctAns = correctAnswersByIndex[qIdx];
+        const studentAns = responses[qIdx];
+
+        if (studentAns === correctAns) {
+          correct++;
+        }
+        // If unanswered or wrong → no increment (treated as wrong)
+      }
+
+      const wrong = totalQuestions - correct;
+      const ratio = totalQuestions > 0 ? (correct / totalQuestions).toFixed(2) : 0;
+
+      studentStats.push({
+        studentId,
+        total: totalQuestions,
+        correct,
+        wrong,
+        ratio: parseFloat(ratio)
+      });
+    }
+
+    // Sort by correct (desc), then by ratio (desc)
+    studentStats.sort((a, b) => {
+      if (b.correct !== a.correct) return b.correct - a.correct;
+      return b.ratio - a.ratio;
+    });
+
+    // Render final report
+    let html = `<h3>🏆 Final Quiz Results (Total Questions: ${totalQuestions})</h3>`;
+    html += `<div style="margin-top: 15px;">`;
+    html += `<table>`;
+    html += `<thead><tr>
+      <th>Rank</th>
+      <th>Student ID</th>
+      <th>Correct</th>
+      <th>Wrong</th>
+      <th>Accuracy</th>
+    </tr></thead><tbody>`;
+
+    studentStats.forEach((stat, i) => {
+      const rank = i + 1;
+      const accuracyPercent = (stat.ratio * 100).toFixed(1) + '%';
+      const rowClass = rank <= 3 ? ' class="top3"' : '';
+      html += `<tr${rowClass}>
+        <td>${rank}</td>
+        <td>${stat.studentId}</td>
+        <td style="color:green; text-align:center;">${stat.correct}</td>
+        <td style="color:red; text-align:center;">${stat.wrong}</td>
+        <td style="font-weight:bold; text-align:center;">${accuracyPercent}</td>
+      </tr>`;
+    });
+
+    if (studentStats.length === 0) {
+      html += `<tr><td colspan="5" style="text-align:center; color:#666;">No student responses recorded.</td></tr>`;
+    }
+
+    html += `</tbody></table></div>`;
+
+    document.getElementById('quiz-display').innerHTML = html;
+    document.getElementById('statsChart').style.display = 'none';
+    document.getElementById('student-lists').innerHTML = '';
+  }
+
   async function importExcel() {
     const file = document.getElementById('excelFile').files[0];
     if (!file) {
@@ -318,7 +422,6 @@
     reader.readAsArrayBuffer(file);
   }
 
-  // ✅ FIXED: clearAllData without reassigning const
   async function clearAllData() {
     if (!confirm("⚠️ Are you sure?\n\nThis will permanently delete:\n• All questions\n• All student answers\n• Reset quiz state\n\nThis cannot be undone.")) {
       return;
@@ -328,19 +431,16 @@
     statusEl.innerText = "Clearing data...";
 
     try {
-      // Delete all Questions
       let questions = await new AV.Query('Question').limit(1000).find();
       if (questions.length > 0) {
         await AV.Object.destroyAll(questions);
       }
 
-      // Delete all StudentAnswers
       let answers = await new AV.Query('StudentAnswer').limit(1000).find();
       if (answers.length > 0) {
         await AV.Object.destroyAll(answers);
       }
 
-      // Reset or create QuizState
       let state = await new AV.Query('QuizState').first();
       if (!state) {
         state = new AV.Object('QuizState');
@@ -349,10 +449,8 @@
       state.set('currentQIndex', 0);
       await state.save();
 
-      // ✅ CORRECT WAY: Clear contents of const object
       Object.keys(teacherShuffledCache).forEach(key => delete teacherShuffledCache[key]);
 
-      // Update UI
       statusEl.innerText = "✅ All data cleared successfully!";
       setTimeout(() => {
         statusEl.innerText = "";
