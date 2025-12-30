@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher Admin Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    button {
+      margin: 5px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ccc;
+    }
+    h1 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0;
+    }
+    h2 { margin-top: 0; }
+    
+    /* Correct/incorrect button styling */
+    .answer-buttons button.correct {
+      background-color: #4CAF50; /* Green */
+      color: white;
+    }
+    .answer-buttons button.incorrect {
+      background-color: #f44336; /* Red */
+      color: white;
+    }
+
+    /* Per-option list styling */
+    .option-box {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 4px;
+    }
+    .option-correct {
+      background-color: #e8f5e9;
+      border-left: 4px solid #4CAF50;
+    }
+    .option-incorrect {
+      background-color: #ffebee;
+      border-left: 4px solid #f44336;
+    }
+
+    /* Bottom actions */
+    #bottomActions {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px dashed #ccc;
+    }
+    #bottomActions button {
+      background-color: #ff9800;
+      color: white;
+    }
+    #removeDataBtn {
+      background-color: #f44336;
+      color: white;
+    }
+
+    /* Final results table */
+    #finalResults table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    #finalResults th,
+    #finalResults td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    #finalResults th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    Quiz Admin Panel
+    <span>
+      <button onclick="startQuiz()">Start Quiz</button>
+      <button onclick="nextQuestion()">Next Question</button>
+    </span>
+  </h1>
+
+  <!-- Set Correct Answer Buttons -->
+  <div class="section answer-buttons">
+    <h2>Set Correct Answer</h2>
+    <button id="btn-A" onclick="setCorrectAnswer('A')">A</button>
+    <button id="btn-B" onclick="setCorrectAnswer('B')">B</button>
+    <button id="btn-C" onclick="setCorrectAnswer('C')">C</button>
+    <button id="btn-D" onclick="setCorrectAnswer('D')">D</button>
+  </div>
+
+  <!-- Combined Responses Section -->
+  <div class="section">
+    <h2>Responses</h2>
+    <p><strong>Current Question:</strong> <span id="questionIndex">0</span></p>
+    <p><strong>Total Students:</strong> <span id="totalStudents">0</span></p>
+    <p><strong>Submitted:</strong> <span id="submittedCount">0</span></p>
+    <div id="submittedList"></div>
+    <div id="notSubmittedList"></div>
+  </div>
+
+  <!-- Student Choices by Option -->
+  <div class="section" id="perOptionLists" style="display:none;">
+    <h2>Student Choices by Option</h2>
+    <div id="optionA" class="option-box"></div>
+    <div id="optionB" class="option-box"></div>
+    <div id="optionC" class="option-box"></div>
+    <div id="optionD" class="option-box"></div>
+  </div>
+
+  <!-- Final Results Table (hidden by default) -->
+  <div id="finalResults" style="display:none;" class="section">
+    <h2>Final Results</h2>
+    <table>
+      <thead>
+        <tr><th>Student</th><th>Correct</th><th>Wrong</th><th>Correct Rate</th></tr>
+      </thead>
+      <tbody id="finalTable"></tbody>
+    </table>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div id="bottomActions">
+    <button onclick="finishQuiz()">Finish Quiz</button>
+    <button id="removeDataBtn" onclick="removeAllData()">Remove All Data</button>
+  </div>
+
+  <script>
+    AV.init({
+      appId: "uVBVHbOKtEMRFzh62IZq45oN-gzGzoHsz",
+      appKey: "rSylV5CS5F1bpERGJCWAn5Ae",
+      serverURL: "https://uvbvhboktemrfzh62izq45on.lc-cn-n1-shared.com"
+    });
+
+    async function getOrCreateSession() {
+      const query = new AV.Query('QuizSession');
+      let session = await query.first();
+      if (!session) {
+        const Session = AV.Object.extend('QuizSession');
+        session = new Session();
+        session.set('isActive', false);
+        session.set('currentQuestionIndex', 0);
+        session.set('correctAnswer', null);
+        session.set('showResults', false);
+        await session.save();
+      }
+      return session;
+    }
+
+    function updateAnswerButtonUI(correctAns) {
+      ['A', 'B', 'C', 'D'].forEach(opt => {
+        const btn = document.getElementById(`btn-${opt}`);
+        if (btn) {
+          btn.classList.remove('correct', 'incorrect');
+          if (correctAns) {
+            if (opt === correctAns) {
+              btn.classList.add('correct');
+            } else {
+              btn.classList.add('incorrect');
+            }
+          }
+        }
+      });
+    }
+
+    async function refresh() {
+      const session = await getOrCreateSession();
+      const idx = session.get('currentQuestionIndex') || 0;
+      const showResults = session.get('showResults');
+      const correctAns = session.get('correctAnswer');
+
+      document.getElementById("questionIndex").textContent = idx;
+      updateAnswerButtonUI(correctAns);
+
+      const respQuery = new AV.Query('StudentResponse');
+      const responses = await respQuery.find();
+
+      document.getElementById("totalStudents").textContent = responses.length;
+
+      let submitted = 0;
+      let submittedNames = [], notSubmittedNames = [];
+      let studentByOption = { A: [], B: [], C: [], D: [] };
+
+      responses.forEach(r => {
+        const answers = r.get('answers') || [];
+        const ans = answers[idx];
+        const name = r.get('studentName') || 'Anonymous';
+        if (ans && ['A','B','C','D'].includes(ans)) {
+          submitted++;
+          submittedNames.push(name);
+          studentByOption[ans].push(name);
+        } else {
+          notSubmittedNames.push(name);
+        }
+      });
+
+      document.getElementById("submittedCount").textContent = submitted;
+      document.getElementById("submittedList").innerHTML = 
+        "<h3>Submitted:</h3>" + (submittedNames.length ? "<ul><li>" + submittedNames.join("</li><li>") + "</li></ul>" : "None");
+      document.getElementById("notSubmittedList").innerHTML = 
+        "<h3>Not Submitted:</h3>" + (notSubmittedNames.length ? "<ul><li>" + notSubmittedNames.join("</li><li>") + "</li></ul>" : "All done!");
+
+      // Show per-option breakdown when results are shown
+      document.getElementById("perOptionLists").style.display = showResults ? "block" : "none";
+      
+      if (showResults) {
+        ['A', 'B', 'C', 'D'].forEach(opt => {
+          const list = studentByOption[opt];
+          const isCorrect = opt === correctAns;
+          const className = isCorrect ? 'option-correct' : 'option-incorrect';
+          const title = `Option ${opt}: ${list.length} student(s)`;
+          const content = list.length 
+            ? `<ul><li>${list.join("</li><li>")}</li></ul>` 
+            : '<p>No students selected this option.</p>';
+
+          document.getElementById(`option${opt}`).innerHTML = `<strong>${title}</strong><br>${content}`;
+          document.getElementById(`option${opt}`).className = `option-box ${className}`;
+        });
+      }
+    }
+
+    async function startQuiz() {
+      const session = await getOrCreateSession();
+      session.set('isActive', true);
+      session.set('showResults', false);
+      session.set('correctAnswer', null);
+      await session.save();
+      refresh();
+    }
+
+    async function setCorrectAnswer(ans) {
+      const session = await getOrCreateSession();
+      session.set('correctAnswer', ans);
+      session.set('showResults', true);
+
+      const respQuery = new AV.Query('StudentResponse');
+      const responses = await respQuery.find();
+      const idx = session.get('currentQuestionIndex') || 0;
+
+      const batch = [];
+      responses.forEach(r => {
+        const answers = r.get('answers') || [];
+        const isCorrectArr = r.get('isCorrect') || [];
+        while (isCorrectArr.length <= idx) isCorrectArr.push(null);
+        isCorrectArr[idx] = (answers[idx] === ans);
+        r.set('isCorrect', isCorrectArr);
+        batch.push(r);
+      });
+
+      if (batch.length > 0) {
+        await AV.Object.saveAll(batch);
+      }
+
+      await session.save();
+      refresh();
+    }
+
+    async function nextQuestion() {
+      const session = await getOrCreateSession();
+      const idx = (session.get('currentQuestionIndex') || 0) + 1;
+      session.set('currentQuestionIndex', idx);
+      session.set('isActive', true);
+      session.set('showResults', false);
+      session.set('correctAnswer', null);
+      await session.save();
+      refresh();
+    }
+
+    async function finishQuiz() {
+      const session = await getOrCreateSession();
+      session.set('isActive', false);
+      session.set('showResults', false); // Hide per-question results
+      await session.save();
+
+      // Now compute and show FINAL results
+      const respQuery = new AV.Query('StudentResponse');
+      const responses = await respQuery.find();
+      const totalQuestions = (session.get('currentQuestionIndex') || 0) + 1; // Q0 → 1 question, etc.
+
+      const tbody = document.getElementById("finalTable");
+      tbody.innerHTML = "";
+
+      responses.forEach(r => {
+        const isCorrectArr = r.get('isCorrect') || [];
+        let correct = 0;
+        // Count only up to totalQuestions
+        for (let i = 0; i < totalQuestions; i++) {
+          if (i < isCorrectArr.length && isCorrectArr[i] === true) correct++;
+        }
+        const wrong = totalQuestions - correct;
+        const ratio = totalQuestions > 0 ? ((correct / totalQuestions) * 100).toFixed(1) : "0.0";
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${r.get('studentName') || 'Anonymous'}</td>
+          <td>${correct}</td>
+          <td>${wrong}</td>
+          <td>${ratio}%</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById("finalResults").style.display = "block";
+    }
+
+    async function removeAllData() {
+      if (!confirm("⚠️ Are you sure?\nThis will delete ALL student responses and reset the quiz.\nStudents will need to re-enter their names.")) {
+        return;
+      }
+
+      try {
+        const respQuery = new AV.Query('StudentResponse');
+        const responses = await respQuery.limit(1000).find();
+        if (responses.length > 0) {
+          await AV.Object.destroyAll(responses);
+        }
+
+        const sessionQuery = new AV.Query('QuizSession');
+        const session = await sessionQuery.first();
+        if (session) {
+          session.set('isActive', false);
+          session.set('currentQuestionIndex', 0);
+          session.set('correctAnswer', null);
+          session.set('showResults', false);
+          await session.save();
+        }
+
+        alert("✅ All data cleared. Ready for a new quiz!");
+        document.getElementById("finalResults").style.display = "none";
+        refresh();
+      } catch (error) {
+        console.error("Failed to clear data:", error);
+        alert("❌ Failed to clear data.");
+      }
+    }
+
+    // Auto-refresh every 2 seconds
+    setInterval(refresh, 2000);
+    refresh();
+  </script>
+</body>
+</html>

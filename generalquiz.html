@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Quiz</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+    button {
+      margin: 10px;
+      padding: 15px 25px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    #nameForm {
+      display: block;
+    }
+    #answerButtons {
+      display: none;
+    }
+    #status {
+      margin: 20px;
+      font-size: 20px;
+      color: #333;
+    }
+    #resultMessage {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📝 In-Class Quiz</h1>
+  <div id="nameForm">
+    <p>Enter your full name:</p>
+    <input type="text" id="studentName" placeholder="e.g., Alice Chen" autocomplete="off" />
+    <br /><br />
+    <button onclick="submitName()">Submit Name</button>
+  </div>
+
+  <div id="status">Please wait for the teacher to start the quiz...</div>
+
+  <div id="answerButtons">
+    <button onclick="submitAnswer('A')">A</button>
+    <button onclick="submitAnswer('B')">B</button>
+    <button onclick="submitAnswer('C')">C</button>
+    <button onclick="submitAnswer('D')">D</button>
+  </div>
+
+  <div id="resultMessage"></div>
+
+  <script>
+    // ✅ CORRECT CONFIGURATION FOR LEANCLOUD CHINA (North China)
+    AV.init({
+      appId: "uVBVHbOKtEMRFzh62IZq45oN-gzGzoHsz",
+      appKey: "rSylV5CS5F1bpERGJCWAn5Ae",
+      serverURL: "https://uvbvhboktemrfzh62izq45on.lc-cn-n1-shared.com"
+      // ⚠️ If you get ERR_NAME_NOT_RESOLVED, change "n1" to "e1" above
+    });
+
+    let studentName = "";
+    let currentQuestionIndex = -1;
+    let correctAnswer = null;
+    let showResults = false;
+
+    async function submitName() {
+      const name = document.getElementById("studentName").value.trim();
+      if (!name) {
+        alert("Please enter your name.");
+        return;
+      }
+      studentName = name;
+      document.getElementById("nameForm").style.display = "none";
+      document.getElementById("status").textContent = "✅ Name submitted. Waiting for quiz to start...";
+      await registerStudent();
+      pollQuizStatus();
+    }
+
+    async function registerStudent() {
+      try {
+        const query = new AV.Query('StudentResponse');
+        query.equalTo('studentName', studentName);
+        const results = await query.find();
+
+        if (results.length === 0) {
+          const StudentResponse = AV.Object.extend('StudentResponse');
+          const obj = new StudentResponse();
+          obj.set('studentName', studentName);
+          obj.set('answers', []);
+          obj.set('isCorrect', []);
+          await obj.save();
+        }
+      } catch (err) {
+        console.error("❌ Register error:", err);
+        console.error("Error code:", err.code, "Message:", err.message);
+        alert("Failed to register. Please check console (F12) and try again.");
+      }
+    }
+
+    async function pollQuizStatus() {
+      try {
+        const query = new AV.Query('QuizSession');
+        const session = await query.first();
+
+        if (!session) {
+          document.getElementById("status").textContent = "⏳ Waiting for teacher to initialize quiz...";
+          setTimeout(pollQuizStatus, 2000);
+          return;
+        }
+
+        const isActive = session.get('isActive');
+        const idx = session.get('currentQuestionIndex') || 0;
+        correctAnswer = session.get('correctAnswer');
+        showResults = session.get('showResults');
+
+        if (isActive && idx !== currentQuestionIndex) {
+          currentQuestionIndex = idx;
+          document.getElementById("status").textContent = "❓ Select your answer for Question " + (idx + 1) + ":";
+          document.getElementById("answerButtons").style.display = "block";
+          document.getElementById("resultMessage").textContent = "";
+        }
+
+        if (showResults && correctAnswer !== undefined) {
+          const respQuery = new AV.Query('StudentResponse');
+          respQuery.equalTo('studentName', studentName);
+          const resp = await respQuery.first();
+          if (resp) {
+            const answers = resp.get('answers') || [];
+            const myAnswer = answers[idx];
+            if (myAnswer !== undefined && myAnswer !== null) {
+              const isRight = (myAnswer === correctAnswer);
+              document.getElementById("resultMessage").textContent = 
+                isRight ? "✅ Correct!" : `❌ Incorrect. Correct answer: ${correctAnswer}`;
+              document.getElementById("answerButtons").style.display = "none";
+            }
+          }
+        }
+
+        setTimeout(pollQuizStatus, 2000);
+      } catch (err) {
+        console.error("Poll error:", err);
+        setTimeout(pollQuizStatus, 3000);
+      }
+    }
+
+    async function submitAnswer(choice) {
+      try {
+        const query = new AV.Query('StudentResponse');
+        query.equalTo('studentName', studentName);
+        const obj = await query.first();
+        if (!obj) {
+          alert("Student record not found. Please refresh the page.");
+          return;
+        }
+
+        let answers = obj.get('answers') || [];
+        let isCorrectArr = obj.get('isCorrect') || [];
+
+        // Ensure array is long enough
+        while (answers.length <= currentQuestionIndex) {
+          answers.push(null);
+          isCorrectArr.push(null);
+        }
+
+        answers[currentQuestionIndex] = choice;
+        obj.set('answers', answers);
+        // Note: isCorrect is computed later by admin; we don't set it here
+        await obj.save();
+
+        document.getElementById("answerButtons").style.display = "none";
+        document.getElementById("status").textContent = "📤 Answer submitted. Waiting for results...";
+      } catch (err) {
+        console.error("Submit answer error:", err);
+        alert("Failed to submit answer. Please try again.");
+      }
+    }
+  </script>
+</body>
+</html>
