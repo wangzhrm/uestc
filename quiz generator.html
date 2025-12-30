@@ -1,605 +1,879 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Teacher Admin</title>
-  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #999; }
-    button { margin: 5px; padding: 8px 12px; }
-    .option {
-      padding: 8px;
-      margin: 6px 0;
-      background: #f1f1f1;
-      border-radius: 4px;
-      border-left: 4px solid #6c757d;
-    }
-    .correct-answer {
-      border-left-color: #28a745;
-      background-color: #d4edda;
-      font-weight: bold;
-    }
-    #student-lists {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin-top: 20px;
-    }
-    .option-students {
-      flex: 1;
-      min-width: 120px;
-      background: #f8f9fa;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #dee2e6;
-    }
-    .option-label {
-      font-weight: bold;
-      margin-bottom: 6px;
-      font-size: 14px;
-      display: block;
-    }
-    .students-names {
-      font-size: 13px;
-      color: #495057;
-    }
-    canvas { margin-top: 20px; display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f8f9fa; }
-    tr.top3 { background-color: #fffde7; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Paper Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --light-gray: #e9ecef;
+            --border: #dee2e6;
+            --correct-answer: #1e88e5;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fb;
+            color: var(--dark);
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .card-title {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--light-gray);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            text-align: center;
+        }
+        
+        .btn:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .question-list-container {
+            margin-top: 10px;
+        }
 
-    /* Live Stats Panel */
-    #live-stats {
-      margin: 15px 0;
-      padding: 12px;
-      background: #f0f8ff;
-      border-radius: 6px;
-      font-family: Arial;
-      border: 1px solid #cce7ff;
-    }
-    #live-stats h3 {
-      margin-top: 0;
-      color: #0056b3;
-    }
+        .question-count {
+            margin-top: 8px;
+            font-size: 0.95rem;
+            color: var(--gray);
+            font-style: italic;
+        }
 
-    /* Preview table adjustments */
-    .preview-table th:nth-child(1),
-    .preview-table td:nth-child(1) {
-      width: 10%;
-      text-align: center;
-    }
-    .preview-table th:nth-child(2),
-    .preview-table td:nth-child(2) {
-      width: 90%;
-    }
-  </style>
+        .question-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        
+        .question-item {
+            padding: 12px;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .question-item:last-child {
+            border-bottom: none;
+        }
+        
+        .question-checkbox {
+            margin-right: 12px;
+            margin-top: 4px;
+            flex-shrink: 0;
+            width: 20px;
+        }
+        
+        .question-text {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .question-type {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+        
+        .preview-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-top: 20px;
+            min-height: 300px;
+        }
+        
+        .preview-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--light-gray);
+        }
+        
+        .preview-title {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .preview-subtitle {
+            color: var(--gray);
+            font-style: italic;
+        }
+        
+        .question-preview {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed var(--light-gray);
+        }
+        
+        .question-number {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .options {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        
+        .option {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .option:hover {
+            background-color: var(--light-gray);
+        }
+        
+        .correct-answer {
+            background-color: rgba(30, 136, 229, 0.1) !important;
+            border-left: 3px solid var(--correct-answer);
+        }
+        
+        .answer-space {
+            height: 80px;
+            border-bottom: 1px solid var(--border);
+            margin-top: 10px;
+            position: relative;
+        }
+        
+        .answer-label {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+        
+        .export-section {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .reassign-section {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .export-section {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .preview-container {
+                padding: 15px;
+            }
+        }
+    </style>
 </head>
 <body>
-
-<!-- ✅ NEW: Live Answer Status -->
-<div id="live-stats">
-  <h3>👥 Live Answer Status</h3>
-  <p><strong>Current Question:</strong> <span id="current-q-display">Loading...</span></p>
-  <p><strong>Students responded:</strong> <span id="response-count">0</span></p>
-  <p><strong>Usernames:</strong> <span id="responded-users">—</span></p>
-</div>
-
-<div class="section">
-  <h2>Teacher Control Panel</h2>
-  <div id="quiz-display">Loading...</div>
-  
-  <div>
-    <button onclick="startQuiz()">▶ Start Quiz</button>
-    <button onclick="showAnswer()">👁️ Show Answer & Stats</button>
-    <button onclick="nextQuestion()">⏭️ Next Question</button>
-    <button onclick="finishQuiz()">⏹️ Finish Quiz</button>
-  </div>
-
-  <canvas id="statsChart" width="700" height="350"></canvas>
-  <div id="student-lists"></div>
-</div>
-
-<div class="section">
-  <h3>Import Questions from Excel</h3>
-  <!-- ❌ REMOVED: Format instructions paragraph -->
-  <input type="file" id="excelFile" accept=".xlsx,.xls" />
-  <button onclick="parseExcelPreview()">Parse & Preview</button>
-  <button onclick="importParsedQuestions()">Import Selected to LeanCloud</button>
-  <div id="import-status"></div>
-  <div id="preview-container" style="margin-top: 15px; display: none;">
-    <h4>Select Questions to Include:</h4>
-    <table class="preview-table" id="preview-table">
-      <thead>
-        <tr>
-          <th style="width:10%">Include</th>
-          <th style="width:90%">Question (Correct: <em>green</em>, Distractors: <em>red</em>)</th>
-        </tr>
-      </thead>
-      <tbody id="preview-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ✅ Clear All Data Section -->
-<div class="section">
-  <h3>Danger Zone</h3>
-  <button onclick="clearAllData()" style="background-color: #dc3545; color: white;">🗑️ Clear All Questions, Answers & Reset Quiz</button>
-  <div id="clear-status" style="margin-top: 8px; font-size: 14px; color: #666;"></div>
-</div>
-
-<script>
-  AV.init({
-    appId: "WbBll4lUW3syAS5QTVPS4FFZ-gzGzoHsz",
-    appKey: "SXHF1hrL8w38unw5T3ub9rWr",
-    serverURLs: "https://wbbl4luw3syas5qtvps4ffz.lc-cn-n1-shared.com"
-  });
-
-  let chart = null;
-  const teacherShuffledCache = {};
-  let parsedQuestions = []; // Store parsed questions for selective import
-
-  // ✅ NEW: Fetch live stats for current question
-  async function fetchLiveStats() {
-    try {
-      const state = await new AV.Query('QuizState').first();
-      if (!state || state.get('status') !== 'question') {
-        document.getElementById('current-q-display').textContent = 'Not active';
-        document.getElementById('response-count').textContent = '0';
-        document.getElementById('responded-users').textContent = '—';
-        return;
-      }
-
-      const currentQIndex = state.get('currentQIndex');
-      document.getElementById('current-q-display').textContent = `Question #${currentQIndex + 1}`;
-
-      const answerQuery = new AV.Query('StudentAnswer');
-      answerQuery.equalTo('qIndex', currentQIndex);
-      answerQuery.select(['studentId']);
-      const answers = await answerQuery.find();
-
-      const usernames = [...new Set(answers.map(a => a.get('studentId')).filter(Boolean))];
-      document.getElementById('response-count').textContent = usernames.length;
-      document.getElementById('responded-users').textContent = 
-        usernames.length > 0 ? usernames.join(', ') : '—';
-
-    } catch (error) {
-      console.error('Live stats error:', error);
-      document.getElementById('responded-users').textContent = '⚠️ Error';
-    }
-  }
-
-  // Poll every 3 seconds
-  setInterval(fetchLiveStats, 3000);
-
-  function shuffleOptions(correct, distractors) {
-    const options = [correct, ...distractors];
-    return [...options].sort(() => Math.random() - 0.5);
-  }
-
-  async function loadQuizState() {
-    try {
-      const state = await new AV.Query('QuizState').first();
-      if (!state) {
-        document.getElementById('quiz-display').innerText = "No QuizState found!";
-        return;
-      }
-
-      const status = state.get('status');
-      const qIndex = state.get('currentQIndex');
-
-      if (status === 'waiting') {
-        document.getElementById('quiz-display').innerHTML = "<em>Quiz not started.</em>";
-        document.getElementById('statsChart').style.display = 'none';
-        document.getElementById('student-lists').innerHTML = '';
-        return;
-      }
-
-      if (status === 'finished') {
-        const totalQuestions = await new AV.Query('Question').count();
-        if (totalQuestions === 0) {
-          document.getElementById('quiz-display').innerHTML = "<h3>No questions found.</h3>";
-        } else {
-          await showFinalReport(totalQuestions);
-        }
-        return;
-      }
-
-      const q = await new AV.Query('Question').equalTo('order', qIndex + 1).first();
-      if (!q) {
-        document.getElementById('quiz-display').innerText = "Question missing.";
-        return;
-      }
-
-      const text = q.get('text');
-      const correct = q.get('correct');
-      const distractors = q.get('distractors') || [];
-
-      if (!teacherShuffledCache[qIndex]) {
-        teacherShuffledCache[qIndex] = shuffleOptions(correct, distractors);
-      }
-      const shuffledOptions = teacherShuffledCache[qIndex];
-
-      let html = `<h3>${text}</h3>`;
-      shuffledOptions.forEach((opt, i) => {
-        const letter = ['A', 'B', 'C', 'D'][i];
-        html += `<div class="option">${letter}. ${opt}</div>`;
-      });
-
-      document.getElementById('quiz-display').innerHTML = html;
-      document.getElementById('statsChart').style.display = 'none';
-      document.getElementById('student-lists').innerHTML = '';
-
-      if (status === 'revealed') {
-        await showStats(qIndex, correct, shuffledOptions);
-      }
-    } catch (err) {
-      console.error(err);
-      document.getElementById('quiz-display').innerText = "Error loading state.";
-    }
-  }
-
-  async function updateQuizState(newStatus, deltaIndex = 0) {
-    const state = await new AV.Query('QuizState').first();
-    if (!state) {
-      alert("QuizState not initialized!");
-      return;
-    }
-    let newIndex = state.get('currentQIndex') + deltaIndex;
-    const total = await new AV.Query('Question').count();
-    if (newIndex >= total && newStatus !== 'finished') {
-      alert("No more questions!");
-      return;
-    }
-    if (newIndex < 0) newIndex = 0;
-
-    state.set('status', newStatus);
-    if (newStatus !== 'finished') {
-      state.set('currentQIndex', newIndex);
-    }
-    await state.save();
-
-    if (deltaIndex !== 0) {
-      delete teacherShuffledCache[newIndex - deltaIndex];
-    }
-
-    loadQuizState();
-  }
-
-  function startQuiz() { updateQuizState('question', 0); }
-  function showAnswer() { updateQuizState('revealed', 0); }
-  function nextQuestion() { updateQuizState('question', 1); }
-  function finishQuiz() { updateQuizState('finished', 0); }
-
-  async function showStats(qIndex, correctAnswer, shuffledOptions) {
-    const answers = await new AV.Query('StudentAnswer')
-      .equalTo('qIndex', qIndex)
-      .find();
-
-    const responseMap = {};
-    shuffledOptions.forEach(opt => {
-      responseMap[opt] = { count: 0, students: [] };
-    });
-
-    answers.forEach(a => {
-      const answerText = a.get('selectedOption');
-      const studentId = a.get('studentId');
-      if (answerText == null) return;
-      if (!responseMap[answerText]) {
-        responseMap[answerText] = { count: 0, students: [] };
-      }
-      responseMap[answerText].count++;
-      responseMap[answerText].students.push(studentId);
-    });
-
-    const labels = shuffledOptions;
-    const counts = labels.map(label => responseMap[label]?.count || 0);
-    const backgroundColors = labels.map(label =>
-      label === correctAnswer ? '#28a745' : '#dc3545'
-    );
-
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels.map(l => l.length > 25 ? l.substring(0, 25) + '…' : l),
-        datasets: [{
-          label: 'Number of Students',
-          data: counts,
-          backgroundColor: backgroundColors,
-          borderColor: 'rgba(0,0,0,0.1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: false,
-        plugins: {
-          legend: { display: false }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { stepSize: 1 }
-          },
-          x: {
-            ticks: {
-              autoSkip: false,
-              maxRotation: 60,
-              minRotation: 60,
-              font: { size: 11 }
-            }
-          }
-        }
-      }
-    });
-    document.getElementById('statsChart').style.display = 'block';
-
-    // Highlight correct answer in options
-    const optionDivs = document.querySelectorAll('#quiz-display .option');
-    optionDivs.forEach((div, i) => {
-      if (shuffledOptions[i] === correctAnswer) {
-        div.classList.add('correct-answer');
-      }
-    });
-
-    // Render student usernames under each option
-    const studentListsContainer = document.getElementById('student-lists');
-    studentListsContainer.innerHTML = '';
-
-    const listsHtml = shuffledOptions.map((option, idx) => {
-      const students = responseMap[option]?.students || [];
-      const studentNames = students.length > 0 
-        ? students.join(', ') 
-        : '—';
-      
-      const isCorrect = option === correctAnswer;
-      const labelDisplay = `${['A','B','C','D'][idx]}. ${option}`;
-      
-      return `
-        <div class="option-students">
-          <span class="option-label">${labelDisplay}${isCorrect ? ' ✅' : ''}</span>
-          <div class="students-names">${studentNames}</div>
+    <div class="container">
+        <header>
+            <h1>Question Paper Generator</h1>
+            <p class="subtitle">Create professional exam papers from Excel files</p>
+        </header>
+        
+        <div class="card">
+            <h2 class="card-title">Paper Settings</h2>
+            <div class="form-group">
+                <label for="paperTitle">Test Paper Title</label>
+                <input type="text" id="paperTitle" placeholder="Enter the title of your question paper">
+            </div>
+            
+            <div class="form-group">
+                <label for="paperSubtitle">Subtitle (Optional)</label>
+                <input type="text" id="paperSubtitle" placeholder="e.g., Class X Science Test">
+            </div>
         </div>
-      `;
-    }).join('');
+        
+        <div class="card">
+            <h2 class="card-title">Upload Excel File</h2>
+            <div class="form-group">
+                <label for="excelFile">Select Excel File (.xlsx)</label>
+                <input type="file" id="excelFile" accept=".xlsx, .xls">
+            </div>
+            
+            <div class="form-group">
+                <label>Select Questions to Include:</label>
+                <div class="question-count" id="questionCount">Loading...</div>
+                <div class="question-list-container">
+                    <div class="question-list" id="questionList">
+                        <p>No questions loaded yet. Please upload an Excel file.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">Add Custom Questions</h2>
+            <div class="form-group">
+                <label for="customQuestion">Question Text</label>
+                <textarea id="customQuestion" rows="3" placeholder="Enter your custom question here..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="questionType">Question Type</label>
+                <select id="questionType">
+                    <option value="multiple-choice">Multiple Choice</option>
+                    <option value="written">Written Answer</option>
+                </select>
+            </div>
+            
+            <div id="mcOptions" style="display: block;">
+                <div class="form-group">
+                    <label for="correctAnswer">Correct Answer</label>
+                    <input type="text" id="correctAnswer" placeholder="Enter the correct answer">
+                </div>
+                
+                <div class="form-group">
+                    <label for="distractor1">Distractor 1</label>
+                    <input type="text" id="distractor1" placeholder="Enter first wrong option">
+                </div>
+                
+                <div class="form-group">
+                    <label for="distractor2">Distractor 2</label>
+                    <input type="text" id="distractor2" placeholder="Enter second wrong option">
+                </div>
+                
+                <div class="form-group">
+                    <label for="distractor3">Distractor 3</label>
+                    <input type="text" id="distractor3" placeholder="Enter third wrong option">
+                </div>
+            </div>
+            
+            <div id="writtenOptions" style="display: none;">
+                <div class="form-group">
+                    <label for="linesCount">Number of Lines for Answer</label>
+                    <select id="linesCount">
+                        <option value="4">4 lines</option>
+                        <option value="6">6 lines</option>
+                        <option value="8">8 lines</option>
+                        <option value="10">10 lines</option>
+                        <option value="12">12 lines</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button class="btn" id="addCustomQuestion">Add Custom Question</button>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">Preview & Export</h2>
+            <div class="preview-container" id="previewContainer">
+                <div class="preview-header">
+                    <h2 class="preview-title">Sample Question Paper</h2>
+                    <p class="preview-subtitle">Preview will appear here after adding questions</p>
+                </div>
+                <p>After adding questions, your preview will appear here. You can then export with or without answers.</p>
+            </div>
+            
+            <div class="export-section">
+                <button class="btn" id="exportWithoutAnswers">Export Without Answers</button>
+                <button class="btn btn-outline" id="exportWithAnswers">Export With Answers</button>
+            </div>
+        </div>
+    </div>
 
-    studentListsContainer.innerHTML = listsHtml;
-  }
-
-  async function showFinalReport(totalQuestions) {
-    // Fetch all questions to map qIndex → correct answer
-    const questions = await new AV.Query('Question')
-      .limit(1000)
-      .addAscending('order')
-      .find();
-    
-    const correctAnswersByIndex = {};
-    questions.forEach(q => {
-      const idx = q.get('order') - 1; // order starts at 1
-      correctAnswersByIndex[idx] = q.get('correct');
-    });
-
-    // Fetch all student answers
-    const allAnswers = await new AV.Query('StudentAnswer')
-      .limit(1000)
-      .find();
-
-    // Group answers by studentId
-    const studentResponses = {};
-    allAnswers.forEach(a => {
-      const sid = a.get('studentId');
-      const qIdx = a.get('qIndex');
-      const selected = a.get('selectedOption');
-      if (!studentResponses[sid]) studentResponses[sid] = {};
-      studentResponses[sid][qIdx] = selected;
-    });
-
-    // Compute stats per student
-    const studentStats = [];
-    for (const [studentId, responses] of Object.entries(studentResponses)) {
-      let correct = 0;
-
-      for (let qIdx = 0; qIdx < totalQuestions; qIdx++) {
-        const correctAns = correctAnswersByIndex[qIdx];
-        const studentAns = responses[qIdx];
-
-        if (studentAns === correctAns) {
-          correct++;
+    <script>
+        let excelQuestions = [];
+        let customQuestions = [];
+        let selectedExcelQuestions = [];
+        
+        const excelFileInput = document.getElementById('excelFile');
+        const questionList = document.getElementById('questionList');
+        const questionCountEl = document.getElementById('questionCount');
+        const paperTitleInput = document.getElementById('paperTitle');
+        const paperSubtitleInput = document.getElementById('paperSubtitle');
+        const questionTypeSelect = document.getElementById('questionType');
+        const mcOptionsDiv = document.getElementById('mcOptions');
+        const writtenOptionsDiv = document.getElementById('writtenOptions');
+        const addCustomBtn = document.getElementById('addCustomQuestion');
+        const previewContainer = document.getElementById('previewContainer');
+        const exportWithoutBtn = document.getElementById('exportWithoutAnswers');
+        const exportWithBtn = document.getElementById('exportWithAnswers');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            excelFileInput.addEventListener('change', handleExcelUpload);
+            questionTypeSelect.addEventListener('change', toggleQuestionType);
+            addCustomBtn.addEventListener('click', addCustomQuestion);
+            exportWithoutBtn.addEventListener('click', () => exportPaper(false));
+            exportWithBtn.addEventListener('click', () => exportPaper(true));
+            
+            paperTitleInput.value = "Mid-Term Examination";
+            paperSubtitleInput.value = "Class X - Science";
+        });
+        
+        function toggleQuestionType() {
+            if (questionTypeSelect.value === 'multiple-choice') {
+                mcOptionsDiv.style.display = 'block';
+                writtenOptionsDiv.style.display = 'none';
+            } else {
+                mcOptionsDiv.style.display = 'none';
+                writtenOptionsDiv.style.display = 'block';
+            }
         }
-      }
-
-      const wrong = totalQuestions - correct;
-      const ratio = totalQuestions > 0 ? (correct / totalQuestions).toFixed(2) : 0;
-
-      studentStats.push({
-        studentId,
-        total: totalQuestions,
-        correct,
-        wrong,
-        ratio: parseFloat(ratio)
-      });
-    }
-
-    // Sort by correct (desc), then by ratio (desc)
-    studentStats.sort((a, b) => {
-      if (b.correct !== a.correct) return b.correct - a.correct;
-      return b.ratio - a.ratio;
-    });
-
-    // Render final report
-    let html = `<h3>🏆 Final Quiz Results (Total Questions: ${totalQuestions})</h3>`;
-    html += `<div style="margin-top: 15px;">`;
-    html += `<table>`;
-    html += `<thead><tr>
-      <th>Rank</th>
-      <th>Student ID</th>
-      <th>Correct</th>
-      <th>Wrong</th>
-      <th>Accuracy</th>
-    </tr></thead><tbody>`;
-
-    studentStats.forEach((stat, i) => {
-      const rank = i + 1;
-      const accuracyPercent = (stat.ratio * 100).toFixed(1) + '%';
-      const rowClass = rank <= 3 ? ' class="top3"' : '';
-      html += `<tr${rowClass}>
-        <td>${rank}</td>
-        <td>${stat.studentId}</td>
-        <td style="color:green; text-align:center;">${stat.correct}</td>
-        <td style="color:red; text-align:center;">${stat.wrong}</td>
-        <td style="font-weight:bold; text-align:center;">${accuracyPercent}</td>
-      </tr>`;
-    });
-
-    if (studentStats.length === 0) {
-      html += `<tr><td colspan="5" style="text-align:center; color:#666;">No student responses recorded.</td></tr>`;
-    }
-
-    html += `</tbody></table></div>`;
-
-    document.getElementById('quiz-display').innerHTML = html;
-    document.getElementById('statsChart').style.display = 'none';
-    document.getElementById('student-lists').innerHTML = '';
-  }
-
-  // ✅ Parse Excel and show preview (with 3 distractors: C, D, E)
-  function parseExcelPreview() {
-    const file = document.getElementById('excelFile').files[0];
-    if (!file) {
-      alert("Please select a file.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      parsedQuestions = [];
-      const tbody = document.getElementById('preview-body');
-      tbody.innerHTML = '';
-
-      // Skip first row (header)
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row[0] || !row[1]) continue; // Skip if Q or correct missing
-
-        const questionText = row[0];
-        const correct = row[1];
-        // ✅ Read C, D, E as distractors (indices 2,3,4)
-        const distractors = [row[2] || '', row[3] || '', row[4] || ''].filter(x => x.trim() !== '');
-
-        parsedQuestions.push({ questionText, correct, distractors });
-
-        // Format options for display
-        const allOpts = [correct, ...distractors];
-        const optHtml = allOpts.map((opt, idx) => {
-          const color = idx === 0 ? 'green' : 'red';
-          return `<span style="color:${color};">${opt}</span>`;
-        }).join(' | ');
-
-        const rowHtml = `
-          <tr>
-            <td><input type="checkbox" checked data-index="${parsedQuestions.length - 1}"></td>
-            <td><strong>${questionText}</strong><br><small>${optHtml}</small></td>
-          </tr>
-        `;
-        tbody.insertAdjacentHTML('beforeend', rowHtml);
-      }
-
-      document.getElementById('preview-container').style.display = 'block';
-      document.getElementById('import-status').innerText = `Parsed ${parsedQuestions.length} questions.`;
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  // ✅ Import only selected questions
-  async function importParsedQuestions() {
-    const checkboxes = document.querySelectorAll('#preview-body input[type="checkbox"]');
-    const selectedIndices = Array.from(checkboxes)
-      .filter(cb => cb.checked)
-      .map(cb => parseInt(cb.dataset.index));
-
-    if (selectedIndices.length === 0) {
-      alert("No questions selected.");
-      return;
-    }
-
-    const selectedQuestions = selectedIndices.map(i => parsedQuestions[i]);
-
-    document.getElementById('import-status').innerText = "Importing...";
-
-    try {
-      let order = (await new AV.Query('Question').count()) + 1;
-
-      for (const q of selectedQuestions) {
-        const question = new AV.Object('Question');
-        question.set('text', q.questionText);
-        question.set('correct', q.correct);
-        question.set('distractors', q.distractors);
-        question.set('order', order++);
-        await question.save();
-      }
-
-      document.getElementById('import-status').innerText = `✅ Imported ${selectedQuestions.length} questions!`;
-      document.getElementById('preview-container').style.display = 'none';
-      loadQuizState();
-    } catch (err) {
-      console.error("Import failed:", err);
-      document.getElementById('import-status').innerHTML = "<span style='color:red;'>❌ Import error: " + (err.message || String(err)) + "</span>";
-    }
-  }
-
-  async function clearAllData() {
-    if (!confirm("⚠️ Are you sure?\n\nThis will permanently delete:\n• All questions\n• All student answers\n• Reset quiz state\n\nThis cannot be undone.")) {
-      return;
-    }
-
-    const statusEl = document.getElementById('clear-status');
-    statusEl.innerText = "Clearing data...";
-
-    try {
-      let questions = await new AV.Query('Question').limit(1000).find();
-      if (questions.length > 0) {
-        await AV.Object.destroyAll(questions);
-      }
-
-      let answers = await new AV.Query('StudentAnswer').limit(1000).find();
-      if (answers.length > 0) {
-        await AV.Object.destroyAll(answers);
-      }
-
-      let state = await new AV.Query('QuizState').first();
-      if (!state) {
-        state = new AV.Object('QuizState');
-      }
-      state.set('status', 'waiting');
-      state.set('currentQIndex', 0);
-      await state.save();
-
-      Object.keys(teacherShuffledCache).forEach(key => delete teacherShuffledCache[key]);
-
-      statusEl.innerText = "✅ All data cleared successfully!";
-      setTimeout(() => {
-        statusEl.innerText = "";
-        loadQuizState();
-      }, 1500);
-
-    } catch (err) {
-      console.error("Clear failed:", err);
-      statusEl.innerHTML = "<span style='color:red;'>❌ Error: " + (err.message || String(err)) + "</span>";
-    }
-  }
-
-  // Initial load
-  loadQuizState();
-</script>
+        
+        function handleExcelUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    // Get raw data as array of arrays — NO header assumption
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                    
+                    const questions = [];
+                    // Start from i = 0 — include first row as data
+                    for (let i = 0; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        // Skip empty rows or rows with insufficient data
+                        if (!row || row.length < 5) continue;
+                        // Skip if first cell is empty (optional safety)
+                        if (typeof row[0] !== 'string' && typeof row[0] !== 'number') continue;
+                        
+                        questions.push({
+                            question: String(row[0] || '').trim(),
+                            correct: String(row[1] || '').trim(),
+                            distractor1: String(row[2] || '').trim(),
+                            distractor2: String(row[3] || '').trim(),
+                            distractor3: String(row[4] || '').trim(),
+                            type: 'multiple-choice'
+                        });
+                    }
+                    
+                    excelQuestions = questions;
+                    renderQuestionList();
+                    questionCountEl.textContent = `Total questions loaded: ${excelQuestions.length}`;
+                } catch (error) {
+                    console.error(error);
+                    alert('Error reading Excel file: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function renderQuestionList() {
+            if (excelQuestions.length === 0) {
+                questionList.innerHTML = '<p>No valid questions found in the Excel file.</p>';
+                return;
+            }
+            
+            let html = '';
+            excelQuestions.forEach((q, index) => {
+                // Truncate long questions for display
+                const displayText = q.question.length > 100 ? q.question.substring(0, 100) + '...' : q.question;
+                html += `
+                    <div class="question-item">
+                        <input type="checkbox" class="question-checkbox" data-index="${index}">
+                        <div class="question-text">
+                            <div>${displayText}</div>
+                            <div class="question-type">Multiple Choice</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            questionList.innerHTML = html;
+            
+            document.querySelectorAll('.question-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', handleQuestionSelection);
+            });
+        }
+        
+        function handleQuestionSelection(e) {
+            const index = parseInt(e.target.dataset.index);
+            if (e.target.checked) {
+                if (!selectedExcelQuestions.includes(index)) {
+                    selectedExcelQuestions.push(index);
+                }
+            } else {
+                selectedExcelQuestions = selectedExcelQuestions.filter(i => i !== index);
+            }
+            updatePreview();
+        }
+        
+        function addCustomQuestion() {
+            const type = questionTypeSelect.value;
+            
+            if (type === 'multiple-choice') {
+                const question = document.getElementById('customQuestion').value.trim();
+                const correct = document.getElementById('correctAnswer').value.trim();
+                const d1 = document.getElementById('distractor1').value.trim();
+                const d2 = document.getElementById('distractor2').value.trim();
+                const d3 = document.getElementById('distractor3').value.trim();
+                
+                if (!question || !correct || !d1 || !d2 || !d3) {
+                    alert('Please fill in all fields for multiple choice questions.');
+                    return;
+                }
+                
+                customQuestions.push({
+                    question,
+                    correct,
+                    distractor1: d1,
+                    distractor2: d2,
+                    distractor3: d3,
+                    type: 'multiple-choice'
+                });
+            } else {
+                const question = document.getElementById('customQuestion').value.trim();
+                const lines = parseInt(document.getElementById('linesCount').value);
+                
+                if (!question) {
+                    alert('Please enter a question.');
+                    return;
+                }
+                
+                customQuestions.push({
+                    question,
+                    lines,
+                    type: 'written'
+                });
+            }
+            
+            document.getElementById('customQuestion').value = '';
+            document.getElementById('correctAnswer').value = '';
+            document.getElementById('distractor1').value = '';
+            document.getElementById('distractor2').value = '';
+            document.getElementById('distractor3').value = '';
+            
+            updatePreview();
+        }
+        
+        function updatePreview() {
+            const title = paperTitleInput.value || 'Question Paper';
+            const subtitle = paperSubtitleInput.value || '';
+            
+            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
+            const allQuestions = [...selectedFromExcel, ...customQuestions];
+            
+            if (allQuestions.length === 0) {
+                previewContainer.innerHTML = `
+                    <div class="preview-header">
+                        <h2 class="preview-title">${title}</h2>
+                        ${subtitle ? `<p class="preview-subtitle">${subtitle}</p>` : ''}
+                    </div>
+                    <p>No questions added yet. Please select questions from Excel or add custom questions.</p>
+                `;
+                return;
+            }
+            
+            let previewHTML = `
+                <div class="preview-header">
+                    <h2 class="preview-title">${title}</h2>
+                    ${subtitle ? `<p class="preview-subtitle">${subtitle}</p>` : ''}
+                </div>
+            `;
+            
+            allQuestions.forEach((q, index) => {
+                if (q.type === 'multiple-choice') {
+                    const options = [q.correct, q.distractor1, q.distractor2, q.distractor3];
+                    shuffleArray(options);
+                    if (!q.currentAssignment) {
+                        q.currentAssignment = { options: [...options], correctIndex: options.indexOf(q.correct) };
+                    }
+                    
+                    previewHTML += `
+                        <div class="question-preview">
+                            <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
+                            <div class="options" data-question-index="${index}">
+                                <div class="option ${q.currentAssignment.correctIndex === 0 ? 'correct-answer' : ''}" 
+                                     data-option-index="0">A. ${q.currentAssignment.options[0]}</div>
+                                <div class="option ${q.currentAssignment.correctIndex === 1 ? 'correct-answer' : ''}" 
+                                     data-option-index="1">B. ${q.currentAssignment.options[1]}</div>
+                                <div class="option ${q.currentAssignment.correctIndex === 2 ? 'correct-answer' : ''}" 
+                                     data-option-index="2">C. ${q.currentAssignment.options[2]}</div>
+                                <div class="option ${q.currentAssignment.correctIndex === 3 ? 'correct-answer' : ''}" 
+                                     data-option-index="3">D. ${q.currentAssignment.options[3]}</div>
+                            </div>
+                            <div class="reassign-section">
+                                <button class="btn btn-sm" onclick="reassignAnswer(${index})">Reassign Correct Answer</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const lineHeight = 20;
+                    const totalHeight = q.lines * lineHeight;
+                    previewHTML += `
+                        <div class="question-preview">
+                            <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
+                            <div class="answer-space" style="height: ${totalHeight}px;">
+                                <span class="answer-label">${q.lines} lines for answer</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            previewContainer.innerHTML = previewHTML;
+            
+            document.querySelectorAll('.option').forEach(option => {
+                option.addEventListener('click', handleOptionClick);
+            });
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        function handleOptionClick(e) {
+            const optionIndex = parseInt(e.target.dataset.optionIndex);
+            const questionIndex = parseInt(e.currentTarget.parentElement.dataset.questionIndex);
+            
+            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
+            const allQuestions = [...selectedFromExcel, ...customQuestions];
+            
+            allQuestions[questionIndex].currentAssignment.correctIndex = optionIndex;
+            
+            if (questionIndex < selectedFromExcel.length) {
+                excelQuestions[selectedExcelQuestions[questionIndex]].currentAssignment = 
+                    allQuestions[questionIndex].currentAssignment;
+            } else {
+                customQuestions[questionIndex - selectedFromExcel.length].currentAssignment = 
+                    allQuestions[questionIndex].currentAssignment;
+            }
+            
+            updatePreview();
+        }
+        
+        function reassignAnswer(questionIndex) {
+            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
+            const allQuestions = [...selectedFromExcel, ...customQuestions];
+            
+            const question = allQuestions[questionIndex];
+            const options = [question.correct, question.distractor1, question.distractor2, question.distractor3];
+            shuffleArray(options);
+            const correctIndex = options.indexOf(question.correct);
+            
+            question.currentAssignment = { options: [...options], correctIndex };
+            
+            if (questionIndex < selectedFromExcel.length) {
+                excelQuestions[selectedExcelQuestions[questionIndex]].currentAssignment = 
+                    question.currentAssignment;
+            } else {
+                customQuestions[questionIndex - selectedFromExcel.length].currentAssignment = 
+                    question.currentAssignment;
+            }
+            
+            updatePreview();
+        }
+        
+        window.reassignAnswer = reassignAnswer;
+        
+        function exportPaper(includeAnswers) {
+            const title = paperTitleInput.value || 'Question Paper';
+            const subtitle = paperSubtitleInput.value || '';
+            
+            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
+            const allQuestions = [...selectedFromExcel, ...customQuestions];
+            
+            if (allQuestions.length === 0) {
+                alert('Please add at least one question before exporting.');
+                return;
+            }
+            
+            let htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ccc;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-style: italic;
+            color: #666;
+        }
+        .question {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #eee;
+        }
+        .question-number {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .options {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .option {
+            margin-bottom: 8px;
+        }
+        .answer-space {
+            min-height: 80px;
+            border-bottom: 1px solid #ccc;
+            margin-top: 10px;
+            position: relative;
+        }
+        .answer-label {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            color: #999;
+            font-size: 12px;
+        }
+        .answers-section {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ccc;
+        }
+        .answers-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">${title}</div>
+        ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+    </div>
+            `;
+            
+            allQuestions.forEach((q, index) => {
+                if (q.type === 'multiple-choice') {
+                    const options = q.currentAssignment ? q.currentAssignment.options : 
+                                   [q.correct, q.distractor1, q.distractor2, q.distractor3];
+                    const correctIndex = q.currentAssignment ? q.currentAssignment.correctIndex : 
+                                        options.indexOf(q.correct);
+                    
+                    let correctOption = '';
+                    if (correctIndex === 0) correctOption = 'A';
+                    else if (correctIndex === 1) correctOption = 'B';
+                    else if (correctIndex === 2) correctOption = 'C';
+                    else if (correctIndex === 3) correctOption = 'D';
+                    
+                    htmlContent += `
+    <div class="question">
+        <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
+        <div class="options">
+            <div class="option">A. ${options[0]}</div>
+            <div class="option">B. ${options[1]}</div>
+            <div class="option">C. ${options[2]}</div>
+            <div class="option">D. ${options[3]}</div>
+        </div>
+        ${includeAnswers ? `<div style="margin-top: 8px; color: #d63031; font-weight: bold;">Answer: ${correctOption}</div>` : ''}
+    </div>
+                    `;
+                } else {
+                    const lineHeight = 20;
+                    const totalHeight = q.lines * lineHeight;
+                    
+                    htmlContent += `
+    <div class="question">
+        <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
+        <div class="answer-space" style="height: ${totalHeight}px;">
+            <span class="answer-label">${q.lines} lines for answer</span>
+        </div>
+    </div>
+                    `;
+                }
+            });
+            
+            if (includeAnswers) {
+                htmlContent += `
+    <div class="answers-section">
+        <div class="answers-title">Answer Key</div>
+                `;
+                
+                allQuestions.forEach((q, index) => {
+                    if (q.type === 'multiple-choice') {
+                        const options = q.currentAssignment ? q.currentAssignment.options : 
+                                       [q.correct, q.distractor1, q.distractor2, q.distractor3];
+                        const correctIndex = q.currentAssignment ? q.currentAssignment.correctIndex : 
+                                            options.indexOf(q.correct);
+                        
+                        let correctOption = '';
+                        if (correctIndex === 0) correctOption = 'A';
+                        else if (correctIndex === 1) correctOption = 'B';
+                        else if (correctIndex === 2) correctOption = 'C';
+                        else if (correctIndex === 3) correctOption = 'D';
+                        
+                        htmlContent += `<div>${index + 1}. ${correctOption}</div>`;
+                    } else {
+                        htmlContent += `<div>${index + 1}. [Written Answer]</div>`;
+                    }
+                });
+                
+                htmlContent += `
+    </div>
+                `;
+            }
+            
+            htmlContent += `
+</body>
+</html>
+            `;
+            
+            const blob = new Blob([htmlContent], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/\s+/g, '_')}_Question_Paper.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        updatePreview();
+    </script>
 </body>
 </html>
