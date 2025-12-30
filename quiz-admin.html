@@ -51,9 +51,31 @@
     th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     th { background-color: #f8f9fa; }
     tr.top3 { background-color: #fffde7; }
+
+    /* Live Stats Panel */
+    #live-stats {
+      margin: 15px 0;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 6px;
+      font-family: Arial;
+      border: 1px solid #cce7ff;
+    }
+    #live-stats h3 {
+      margin-top: 0;
+      color: #0056b3;
+    }
   </style>
 </head>
 <body>
+
+<!-- ✅ NEW: Live Answer Status -->
+<div id="live-stats">
+  <h3>👥 Live Answer Status</h3>
+  <p><strong>Current Question:</strong> <span id="current-q-display">Loading...</span></p>
+  <p><strong>Students responded:</strong> <span id="response-count">0</span></p>
+  <p><strong>Usernames:</strong> <span id="responded-users">—</span></p>
+</div>
 
 <div class="section">
   <h2>Teacher Control Panel</h2>
@@ -94,6 +116,39 @@
 
   let chart = null;
   const teacherShuffledCache = {};
+
+  // ✅ NEW: Fetch live stats for current question
+  async function fetchLiveStats() {
+    try {
+      const state = await new AV.Query('QuizState').first();
+      if (!state || state.get('status') !== 'question') {
+        document.getElementById('current-q-display').textContent = 'Not active';
+        document.getElementById('response-count').textContent = '0';
+        document.getElementById('responded-users').textContent = '—';
+        return;
+      }
+
+      const currentQIndex = state.get('currentQIndex');
+      document.getElementById('current-q-display').textContent = `Question #${currentQIndex + 1}`;
+
+      const answerQuery = new AV.Query('StudentAnswer');
+      answerQuery.equalTo('qIndex', currentQIndex);
+      answerQuery.select(['studentId']);
+      const answers = await answerQuery.find();
+
+      const usernames = [...new Set(answers.map(a => a.get('studentId')).filter(Boolean))];
+      document.getElementById('response-count').textContent = usernames.length;
+      document.getElementById('responded-users').textContent = 
+        usernames.length > 0 ? usernames.join(', ') : '—';
+
+    } catch (error) {
+      console.error('Live stats error:', error);
+      document.getElementById('responded-users').textContent = '⚠️ Error';
+    }
+  }
+
+  // Poll every 3 seconds
+  setInterval(fetchLiveStats, 3000);
 
   function shuffleOptions(correct, distractors) {
     const options = [correct, ...distractors];
@@ -330,7 +385,6 @@
         if (studentAns === correctAns) {
           correct++;
         }
-        // If unanswered or wrong → no increment (treated as wrong)
       }
 
       const wrong = totalQuestions - correct;
@@ -463,6 +517,7 @@
     }
   }
 
+  // Initial load
   loadQuizState();
 </script>
 </body>
