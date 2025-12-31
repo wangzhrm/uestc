@@ -6,140 +6,214 @@
   <title>Everyday English</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
-    /* Global Styles */
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 12px; line-height: 1.5; }
-    .container { max-width: 900px; margin: 0 auto; padding-bottom: 30px; } 
-    h1 { color: #2c3e50; text-align: center; margin: 10px 0 20px; font-size: 1.6rem; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f7f6;
+      color: #333;
+      margin: 0;
+      padding: 12px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding-bottom: 30px;
+    } 
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin: 10px 0 20px;
+      font-size: 1.6rem;
+    }
 
     /* Audio Player */
-    #now-playing { text-align: center; margin: 16px 0 8px; font-weight: bold; color: #2c3e50; display: none; font-size: 1.1rem; }
-    #global-player { width: 100%; height: 50px; border-radius: 6px; display: none; }
-    .loading, .error { padding: 16px; text-align: center; color: #7f8c8d; font-size: 0.95rem; }
-    .error { color: #e74c3c; }
+    #now-playing {
+      text-align: center;
+      margin: 16px 0 8px;
+      font-weight: bold;
+      color: #2c3e50;
+      display: none;
+      font-size: 1.1rem;
+    }
+    #global-player {
+      width: 100%;
+      height: 50px;
+      border-radius: 6px;
+      display: none;
+    }
+    .loading, .error {
+      padding: 16px;
+      text-align: center;
+      color: #7f8c8d;
+      font-size: 0.95rem;
+    }
+    .error {
+      color: #e74c3c;
+    }
 
     /* Podcast Card */
-    .podcast-card { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; overflow: hidden; }
-    .podcast-header { padding: 14px 16px; background: #3498db; color: white; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 1.1rem; }
-    .podcast-header:hover { background: #2980b9; }
-    .episodes-list { display: none; padding: 0; }
-    .episodes-list.active { display: block; }
-
-    /* Episode Row Layout */
-    .episode-item { 
-        padding: 14px 16px; 
-        border-bottom: 1px solid #eee; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        gap: 10px; 
-        cursor: pointer; 
+    .podcast-card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+      overflow: hidden;
     }
-    .episode-item:last-child { border-bottom: none; }
-    .episode-item:hover { background: #f8fbff; }
-    .episode-item.active { background: #eaf4ff; border-left: 3px solid #3498db; }
-
-    .episode-info { flex: 1; min-width: 0; }
-    .episode-title { font-weight: 600; margin: 0 0 4px; font-size: 1rem; word-break: break-word; color: #2c3e50; }
-    .episode-date { font-size: 0.8rem; color: #7f8c8d; }
-
-    /* Text Button Logic */
-    .btn-text { 
-        flex-shrink: 0;
-        padding: 6px 12px;
-        font-size: 0.85rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background: #f9f9f9;
-        color: #555;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        height: fit-content;
-        margin-top: 2px;
-        transition: background-color 0.2s, color 0.2s;
+    .podcast-header {
+      padding: 14px 16px;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+      font-size: 1.1rem;
     }
-    .btn-text.has-transcript { 
-        background-color: #e3f2fd; /* Light Blue BG */
-        color: #1976d2; /* Strong Blue Text */
-        border-color: #bbdefb; 
-    } 
-    .btn-text.has-transcript:hover { background-color: #bbdefb; }
-    .btn-text:not(.has-transcript) { 
-        color: #ccc; 
-        cursor: default; 
-        border-color: #eee; 
-        background: #fafafa;
-    } 
+    .podcast-header:hover {
+      background: #2980b9;
+    }
+    .episodes-list {
+      display: none;
+      padding: 0;
+    }
+    .episodes-list.active {
+      display: block;
+    }
 
-    /* Transcript/Editor Area */
+    .episode-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .episode-item:last-child {
+      border-bottom: none;
+    }
+    .episode-item:hover {
+      background: #f8fbff;
+    }
+    .episode-item.active {
+      background: #eaf4ff;
+      border-left: 3px solid #3498db;
+    }
+
+    .episode-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .episode-title {
+      font-weight: 600;
+      margin: 0 0 4px;
+      font-size: 1rem;
+      word-break: break-word;
+      color: #2c3e50;
+    }
+    .episode-date {
+      font-size: 0.8rem;
+      color: #7f8c8d;
+    }
+
+    .btn-text {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f9f9f9;
+      color: #555;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      height: fit-content;
+      margin-top: 2px;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .btn-text.has-transcript {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      border-color: #bbdefb;
+    } 
+    .btn-text.has-transcript:hover {
+      background-color: #bbdefb;
+    }
+    .btn-text:not(.has-transcript) {
+      color: #ccc;
+      cursor: default;
+      border-color: #eee;
+      background: #fafafa;
+    }
+
     #transcript-area {
-        display: none;
-        margin-top: 15px;
-        padding: 15px;
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
+      display: none;
+      margin-top: 15px;
+      padding: 15px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
     }
 
     #transcript-area h3 {
-        margin-top: 0;
-        padding-bottom: 5px;
-        border-bottom: 1px solid #eee;
-    }
-    
-    #transcript-content {
-        width: 100%;
-        height: 300px;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-family: inherit;
-        line-height: 1.6;
-        resize: vertical;
-        white-space: pre-wrap;
-    }
-    
-    #editor-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 10px;
+      margin-top: 0;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #eee;
     }
 
-    #editor-actions button {
-        padding: 8px 12px;
-        border: none;
-        border-radius: 4px;
-        font-weight: bold;
-        cursor: pointer;
+    #locked-view, #unlocked-view {
+      margin-top: 10px;
     }
 
-    .btn-edit { background-color: #f39c12; color: white; }
-    .btn-save { background-color: #2ecc71; color: white; }
-    .btn-cancel { background-color: #e74c3c; color: white; }
-
-    /* --- Contact Info Section --- */
-    #contact-info {
-      text-align: center;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
+    #srt-upload {
+      margin-top: 6px;
+      padding: 4px;
+      width: 100%;
+      font-size: 0.95rem;
     }
 
-    #contact-image {
-      width: 120px;
-      height: 120px;
-      display: block;
-      margin: 0 auto 10px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    
-    #wechat-text {
+    #upload-status {
+      margin-top: 8px;
       font-size: 0.9rem;
-      color: #555;
-      margin: 0;
+      color: #7f8c8d;
+    }
+
+    /* Subtitle Display Window */
+    #sync-transcript {
+      display: block;
+      margin-top: 15px;
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 6px;
+      height: 320px;
+      overflow-y: auto;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .btn-edit {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      background-color: #f39c12;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    /* Edit Area */
+    #srt-edit-area {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
     }
   </style>
 </head>
@@ -151,91 +225,84 @@
     <audio id="global-player" controls>Your browser does not support audio.</audio>
 
     <div id="transcript-area">
-        <h3>Transcript for <span id="transcript-episode-title"></span></h3>
-        <textarea id="transcript-content" readonly placeholder="No transcript loaded. Click 'Edit' to add one."></textarea>
-        <div id="editor-actions">
-            <button id="edit-button" class="btn-edit" onclick="enterEditMode()">Edit Transcript</button>
-            <button id="cancel-button" class="btn-cancel" style="display:none;" onclick="cancelEdit()">Cancel</button>
-            <button id="save-button" class="btn-save" style="display:none;" onclick="saveTranscript()">Save Transcript</button>
+      <h3>Transcript for <span id="transcript-episode-title"></span></h3>
+
+      <!-- We keep this minimal — no message, just edit button if needed -->
+      <div id="locked-view" style="display: none;">
+        <!-- Not used anymore — we go straight to unlocked-view when transcript loads -->
+      </div>
+
+      <div id="unlocked-view" style="display: none;">
+        <div id="upload-section" style="display: none;">
+          <label for="srt-upload">Upload .srt file:</label>
+          <input type="file" id="srt-upload" accept=".srt" />
+          <p id="upload-status"></p>
         </div>
+
+        <!-- Edit button inside subtitle window -->
+        <div style="margin-top: 8px; text-align: right;">
+          <button id="edit-srt-btn" class="btn-edit" onclick="toggleSrtEditMode()" style="display: none;">edit</button>
+        </div>
+
+        <div id="sync-transcript">
+          <!-- Subtitle lines appear here -->
+        </div>
+
+        <!-- Editable textarea (hidden by default) -->
+        <textarea id="srt-edit-area" 
+                  style="display: none; width: 100%; height: 250px; margin-top: 10px;"
+                  placeholder="Paste or edit your .srt content here..."></textarea>
+        <div id="edit-actions" style="display: none; margin-top: 8px;">
+          <button class="btn-edit" onclick="saveEditedSrt()">Save Changes</button>
+          <button style="margin-left: 8px; background: #95a5a6;" onclick="cancelSrtEdit()">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <div id="podcasts-container">
       <div class="loading">Loading podcast programs...</div>
     </div>
-
   </div>
 
   <script>
-    // --- LeanCloud Config ---
+    // === CONFIGURATION (PERSONAL USE ONLY) ===
     const APP_ID = 'wUyKly0pmyWB9KTdnd5Haal5-gzGzoHsz';
     const APP_KEY = 'y17v810tf534T8dISL1ozVgF';
-    const CLASS_NAME = 'podcast';
-    const TRANSCRIPT_PASS = 'wang123'; // Hardcoded password
+    const MASTER_KEY = 'U17JUEyx4GAK7ERghxyrpBBw'; // 🔑 MASTER KEY — DO NOT SHARE!
+    const TRANSCRIPT_PASS = 'wang123';
 
     AV.init({
       appId: APP_ID,
       appKey: APP_KEY,
+      masterKey: MASTER_KEY,
       serverURLs: 'https://api.leancloud.cn'
     });
-    
-    const Transcript = AV.Object.extend('Transcript'); 
 
-    // --- DOM Elements & State ---
-    const container = document.getElementById('podcasts-container');
-    const player = document.getElementById('global-player');
-    const nowPlayingTitleEl = document.getElementById('now-playing-title');
-    const nowPlayingEl = document.getElementById('now-playing');
-    
-    const transcriptArea = document.getElementById('transcript-area');
-    const transcriptTitleEl = document.getElementById('transcript-episode-title');
-    const transcriptContentEl = document.getElementById('transcript-content');
-    const editButton = document.getElementById('edit-button');
-    const saveButton = document.getElementById('save-button');
-    const cancelButton = document.getElementById('cancel-button');
+    const TranscriptClass = AV.Object.extend('Transcript');
 
+    // === STATE ===
     let currentEpisodeUrl = null;
     let currentEpisodeTitle = null;
     let currentEpisodeButton = null;
+    let syncInterval = null;
+    let currentCues = [];
 
-    // --- Visit Logging Function ---
-    async function logVisit() {
-      try {
-        let deviceId = localStorage.getItem('everyday_english_device_id');
-        if (!deviceId) {
-          if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-            deviceId = crypto.randomUUID();
-          } else {
-            deviceId = 'device-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
-          }
-          localStorage.setItem('everyday_english_device_id', deviceId);
-        }
+    // === DOM ELEMENTS ===
+    const player = document.getElementById('global-player');
+    const nowPlayingTitleEl = document.getElementById('now-playing-title');
+    const nowPlayingEl = document.getElementById('now-playing');
+    const transcriptArea = document.getElementById('transcript-area');
+    const transcriptTitleEl = document.getElementById('transcript-episode-title');
 
-        const VisitLog = AV.Object.extend('VisitLog');
-        const visit = new VisitLog();
-        visit.set('deviceId', deviceId);
-        visit.set('userAgent', navigator.userAgent);
-        visit.set('visitTime', new Date());
-        visit.set('ipAddress', ''); // Leave empty (client-side limitation)
-
-        await visit.save();
-        console.log('Visit logged for device:', deviceId);
-      } catch (err) {
-        console.warn('Visit logging failed:', err);
-      }
-    }
-
-    // --- Helpers ---
+    // === HELPER FUNCTIONS ===
     function escapeHTML(str) {
       if (typeof str !== 'string') return '';
       return str
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replace(/>/g, '&gt;');
     }
-    
+
     async function fetchEpisodesViaRSS2JSON(feedUrl) {
       const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
       const res = await fetch(proxyUrl);
@@ -249,13 +316,184 @@
       if (episodeUrls.length === 0) return new Set();
       const query = new AV.Query('Transcript');
       query.containedIn('episodeUrl', episodeUrls);
-      query.equalTo('empty', 1);
-      query.select(['episodeUrl']); 
-      const results = await query.find(); 
+      query.exists('srtContent');
+      query.select(['episodeUrl']);
+      const results = await query.find();
       return new Set(results.map(r => r.get('episodeUrl')));
     }
 
+    function parseSRT(srtText) {
+      const blocks = srtText.trim().split(/\n\s*\n/);
+      const cues = [];
+      for (const block of blocks) {
+        const lines = block.split('\n').filter(line => line.trim() !== '');
+        if (lines.length < 3) continue;
+        const timeLine = lines[1];
+        const text = lines.slice(2).join(' ');
+        const match = timeLine.match(/(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/);
+        if (!match) continue;
+        const start = timeToSeconds(match[1]);
+        const end = timeToSeconds(match[2]);
+        cues.push({ start, end, text });
+      }
+      return cues.sort((a, b) => a.start - b.start);
+    }
+
+    function timeToSeconds(timeStr) {
+      const [hours, minutes, secondsMs] = timeStr.replace(',', '.').split(':');
+      const [seconds, ms] = secondsMs.split('.');
+      return parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds) + parseFloat('0.' + ms);
+    }
+
+    function secondsToSrtTime(seconds) {
+      const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+      const ms = Math.floor((seconds % 1) * 1000).toString().padStart(3, '0');
+      return `${h}:${m}:${s},${ms}`;
+    }
+
+    function startSyncTranscript(cues) {
+      currentCues = cues;
+      clearInterval(syncInterval);
+      syncInterval = setInterval(updateTranscriptDisplay, 100);
+    }
+
+    function updateTranscriptDisplay() {
+      if (!player || currentCues.length === 0) return;
+
+      const currentTime = player.currentTime;
+      let currentIndex = -1;
+
+      for (let i = 0; i < currentCues.length; i++) {
+        if (currentTime >= currentCues[i].start) {
+          currentIndex = i;
+        } else {
+          break;
+        }
+      }
+
+      const syncDiv = document.getElementById('sync-transcript');
+      let linesHTML = [];
+
+      if (currentIndex === -1) {
+        const futureCount = Math.min(3, currentCues.length);
+        for (let i = 0; i < futureCount; i++) {
+          linesHTML.push(`<div>${escapeHTML(currentCues[i].text)}</div>`);
+        }
+      } else {
+        const startIdx = Math.max(0, currentIndex - 10);
+        for (let i = startIdx; i <= currentIndex; i++) {
+          linesHTML.push(`<div style="font-weight: ${i === currentIndex ? 'bold' : 'normal'};">${escapeHTML(currentCues[i].text)}</div>`);
+        }
+
+        const futureEnd = Math.min(currentIndex + 3, currentCues.length - 1);
+        for (let i = currentIndex + 1; i <= futureEnd; i++) {
+          linesHTML.push(`<div>${escapeHTML(currentCues[i].text)}</div>`);
+        }
+      }
+
+      syncDiv.innerHTML = linesHTML.join('');
+    }
+
+    // === EDIT MODE WITH PASSWORD ===
+    async function toggleSrtEditMode() {
+      const syncDiv = document.getElementById('sync-transcript');
+      const editArea = document.getElementById('srt-edit-area');
+      const editActions = document.getElementById('edit-actions');
+      const editBtn = document.getElementById('edit-srt-btn');
+
+      if (syncDiv.style.display !== 'none') {
+        // Entering edit mode — require password
+        const password = prompt("Enter password to edit subtitles:");
+        if (password !== TRANSCRIPT_PASS) {
+          alert("Incorrect password.");
+          return;
+        }
+
+        try {
+          // Fetch latest SRT from LeanCloud
+          const query = new AV.Query('Transcript');
+          query.equalTo('episodeUrl', currentEpisodeUrl);
+          const results = await query.find();
+          let srtText = '';
+
+          if (results.length > 0) {
+            srtText = results[0].get('srtContent') || '';
+          } else {
+            // Fallback: reconstruct from currentCues
+            srtText = currentCues.map((cue, i) => {
+              const start = secondsToSrtTime(cue.start);
+              const end = secondsToSrtTime(cue.end);
+              return `${i + 1}\n${start} --> ${end}\n${cue.text}\n`;
+            }).join('\n');
+          }
+
+          editArea.value = srtText;
+          syncDiv.style.display = 'none';
+          editArea.style.display = 'block';
+          editActions.style.display = 'block';
+          editBtn.textContent = 'view';
+        } catch (err) {
+          console.error('Failed to load SRT for editing:', err);
+          alert('Could not load transcript for editing.');
+        }
+      } else {
+        // Exiting edit mode — no password needed
+        syncDiv.style.display = 'block';
+        editArea.style.display = 'none';
+        editActions.style.display = 'none';
+        editBtn.textContent = 'edit';
+      }
+    }
+
+    async function saveEditedSrt() {
+      const newText = document.getElementById('srt-edit-area').value.trim();
+      if (!newText) {
+        alert("SRT content cannot be empty.");
+        return;
+      }
+
+      try {
+        const newCues = parseSRT(newText);
+        if (newCues.length === 0) throw new Error("No valid subtitles found.");
+
+        const query = new AV.Query('Transcript');
+        query.equalTo('episodeUrl', currentEpisodeUrl);
+        let transcriptObj = await query.first();
+
+        if (!transcriptObj) {
+          transcriptObj = new TranscriptClass();
+          transcriptObj.set('episodeUrl', currentEpisodeUrl);
+        }
+        transcriptObj.set('srtContent', newText);
+
+        await transcriptObj.save(null, { useMasterKey: true });
+
+        document.getElementById('upload-status').textContent = 'Changes saved successfully.';
+        document.getElementById('upload-status').style.color = '#27ae60';
+
+        currentCues = newCues;
+        updateTranscriptDisplay();
+        toggleSrtEditMode(); // back to view
+
+        if (currentEpisodeButton) {
+          currentEpisodeButton.classList.add('has-transcript');
+        }
+
+      } catch (err) {
+        console.error('Save error:', err);
+        alert('Failed to save: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    function cancelSrtEdit() {
+      toggleSrtEditMode();
+    }
+
+    // === PODCAST RENDERING ===
     function renderPodcast(program) {
+      const container = document.getElementById('podcasts-container');
       const card = document.createElement('div');
       card.className = 'podcast-card';
       card.innerHTML = `
@@ -281,12 +519,12 @@
         } else {
           episodesList.classList.add('active');
           header.querySelector('span').textContent = '▼';
-          
+
           if (episodesList.children.length === 1 && episodesList.querySelector('.loading')) {
             try {
               const items = await fetchEpisodesViaRSS2JSON(program.get('feedURL'));
               episodesList.innerHTML = '';
-              
+
               if (items.length === 0) {
                 episodesList.innerHTML = '<div class="error">No playable episodes found.</div>';
                 return;
@@ -294,14 +532,14 @@
 
               const urls = items.map(i => i.enclosure?.link).filter(l => l);
               const availableTranscripts = await checkTranscriptsExistence(urls);
-              
+
               items.forEach(item => {
                 if (!item.enclosure?.link) return;
-                
+
                 const url = item.enclosure.link;
                 const hasTranscript = availableTranscripts.has(url);
                 const pubDate = new Date(item.pubDate).toLocaleDateString();
-                
+
                 const li = document.createElement('li');
                 li.className = 'episode-item';
                 li.dataset.url = url;
@@ -311,8 +549,8 @@
                 textButton.className = `btn-text ${hasTranscript ? 'has-transcript' : ''}`;
                 textButton.textContent = 'Text';
                 textButton.onclick = (e) => {
-                    e.stopPropagation();
-                    toggleTranscript(url, item.title, textButton, hasTranscript);
+                  e.stopPropagation();
+                  toggleTranscript(url, item.title, textButton, hasTranscript);
                 };
 
                 li.innerHTML = `
@@ -322,7 +560,6 @@
                   </div>
                 `;
                 li.appendChild(textButton);
-                
                 li.addEventListener('click', () => playEpisode(url, item.title, li));
                 episodesList.appendChild(li);
               });
@@ -339,131 +576,61 @@
       player.src = url;
       player.load();
       player.play();
-
       nowPlayingTitleEl.textContent = title;
       nowPlayingEl.style.display = 'block';
       player.style.display = 'block';
-
       document.querySelectorAll('.episode-item').forEach(el => el.classList.remove('active'));
       listItem.classList.add('active');
+      clearInterval(syncInterval);
+      currentCues = [];
     }
 
     async function toggleTranscript(url, title, buttonElement, hasTranscript) {
-        if (transcriptArea.style.display === 'block' && currentEpisodeUrl === url) {
-            transcriptArea.style.display = 'none';
-            return;
-        }
+      if (transcriptArea.style.display === 'block' && currentEpisodeUrl === url) {
+        transcriptArea.style.display = 'none';
+        return;
+      }
 
-        currentEpisodeUrl = url;
-        currentEpisodeTitle = title;
-        currentEpisodeButton = buttonElement;
-        transcriptTitleEl.textContent = title;
-        transcriptArea.style.display = 'block';
-        
-        transcriptContentEl.setAttribute('readonly', true);
-        editButton.style.display = 'inline-block';
-        saveButton.style.display = 'none';
-        cancelButton.style.display = 'none';
-        transcriptContentEl.value = 'Loading transcript...';
-        
-        if (!hasTranscript) {
-            transcriptContentEl.value = 'No transcript stored for this episode. Click "Edit Transcript" below to add one.';
-            return;
-        }
+      currentEpisodeUrl = url;
+      currentEpisodeTitle = title;
+      currentEpisodeButton = buttonElement;
+      transcriptTitleEl.textContent = title;
+      transcriptArea.style.display = 'block';
 
+      document.getElementById('unlocked-view').style.display = 'block';
+      document.getElementById('sync-transcript').innerHTML = '';
+      document.getElementById('edit-srt-btn').style.display = hasTranscript ? 'inline-block' : 'none';
+
+      clearInterval(syncInterval);
+      currentCues = [];
+
+      if (hasTranscript) {
         try {
-            const query = new AV.Query('Transcript');
-            query.equalTo('episodeUrl', url);
-            query.select(['content']);
-            const result = await query.first();
-            
-            if (result) {
-                transcriptContentEl.value = result.get('content') || '';
-            } else {
-                transcriptContentEl.value = 'Transcript marked available but content could not be retrieved.';
+          const query = new AV.Query('Transcript');
+          query.equalTo('episodeUrl', url);
+          const results = await query.find();
+          if (results.length > 0) {
+            const srtText = results[0].get('srtContent');
+            const cues = parseSRT(srtText);
+            if (cues.length > 0) {
+              startSyncTranscript(cues);
+              return;
             }
+          }
         } catch (err) {
-            console.error("Transcript retrieval error:", err);
-            transcriptContentEl.value = "Error loading transcript.";
+          console.error('Failed to load saved transcript:', err);
         }
+      }
+
+      // If no transcript or failed to load
+      document.getElementById('sync-transcript').innerHTML = 'No subtitle available.';
     }
 
-    window.enterEditMode = () => {
-        const password = prompt("Please enter the password to edit the transcript:");
-        if (password === TRANSCRIPT_PASS) {
-            transcriptContentEl.removeAttribute('readonly');
-            editButton.style.display = 'none';
-            saveButton.style.display = 'inline-block';
-            cancelButton.style.display = 'inline-block';
-            transcriptContentEl.focus();
-            alert("Edit mode unlocked. Be careful when editing!");
-        } else {
-            alert("Incorrect password.");
-        }
-    };
-    
-    window.cancelEdit = () => {
-        toggleTranscript(currentEpisodeUrl, currentEpisodeTitle, currentEpisodeButton, true); 
-        transcriptContentEl.setAttribute('readonly', true);
-        editButton.style.display = 'inline-block';
-        saveButton.style.display = 'none';
-        cancelButton.style.display = 'none';
-    };
-
-    window.saveTranscript = async () => {
-        const content = transcriptContentEl.value.trim();
-        if (!content) {
-            alert("Transcript content cannot be empty.");
-            return;
-        }
-
-        saveButton.disabled = true;
-        saveButton.textContent = 'Saving...';
-        
-        try {
-            const query = new AV.Query('Transcript');
-            query.equalTo('episodeUrl', currentEpisodeUrl);
-            let transcript = await query.first();
-            
-            if (!transcript) {
-                transcript = new Transcript();
-                transcript.set('episodeUrl', currentEpisodeUrl);
-                const acl = new AV.ACL();
-                acl.setPublicReadAccess(true);
-                acl.setPublicWriteAccess(false);
-                transcript.setACL(acl);
-            }
-            
-            transcript.set('content', content); 
-            transcript.set('title', currentEpisodeTitle);
-            transcript.set('empty', 1); 
-            await transcript.save();
-            
-            alert('Transcript Saved successfully!');
-            
-            transcriptContentEl.setAttribute('readonly', true);
-            editButton.style.display = 'inline-block';
-            saveButton.style.display = 'none';
-            cancelButton.style.display = 'none';
-
-            if (currentEpisodeButton) {
-                currentEpisodeButton.classList.add('has-transcript');
-            }
-        } catch (err) {
-            console.error('Save error:', err);
-            alert('Error saving: ' + err.message);
-        }
-        saveButton.textContent = 'Save Transcript';
-        saveButton.disabled = false;
-    };
-
-    // --- Initialize: Log visit AND load programs ---
-    logVisit();       // ← NEW: Track this visit
-    loadPrograms();   // ← Existing logic
-
+    // === INIT ===
     async function loadPrograms() {
+      const container = document.getElementById('podcasts-container');
       try {
-        const query = new AV.Query(CLASS_NAME);
+        const query = new AV.Query('podcast');
         query.addDescending('createdAt');
         const results = await query.find();
         container.innerHTML = '';
@@ -477,6 +644,8 @@
         container.innerHTML = `<div class="error">Failed to load podcasts: ${err.message}</div>`;
       }
     }
+
+    loadPrograms();
   </script>
 </body>
 </html>
