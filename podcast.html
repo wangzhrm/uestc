@@ -163,8 +163,13 @@
       border-bottom: 1px solid #eee;
     }
 
-    #locked-view, #unlocked-view {
-      margin-top: 10px;
+    /* Upload & Edit Controls */
+    #upload-section {
+      margin-top: 12px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      display: none;
     }
 
     #srt-upload {
@@ -196,7 +201,7 @@
       word-break: break-word;
     }
 
-    .btn-edit {
+    .btn-edit, .btn-upload-trigger {
       padding: 8px 12px;
       border: none;
       border-radius: 4px;
@@ -205,6 +210,7 @@
       font-weight: bold;
       cursor: pointer;
       font-size: 0.95rem;
+      margin-top: 8px;
     }
 
     /* Edit Area */
@@ -227,25 +233,15 @@
     <div id="transcript-area">
       <h3>Transcript for <span id="transcript-episode-title"></span></h3>
 
-      <!-- We keep this minimal — no message, just edit button if needed -->
-      <div id="locked-view" style="display: none;">
-        <!-- Not used anymore — we go straight to unlocked-view when transcript loads -->
-      </div>
-
-      <div id="unlocked-view" style="display: none;">
-        <div id="upload-section" style="display: none;">
-          <label for="srt-upload">Upload .srt file:</label>
-          <input type="file" id="srt-upload" accept=".srt" />
-          <p id="upload-status"></p>
-        </div>
-
-        <!-- Edit button inside subtitle window -->
-        <div style="margin-top: 8px; text-align: right;">
+      <div id="unlocked-view">
+        <!-- Edit button (shown only when transcript exists) -->
+        <div style="text-align: right;">
           <button id="edit-srt-btn" class="btn-edit" onclick="toggleSrtEditMode()" style="display: none;">edit</button>
         </div>
 
+        <!-- Subtitle display -->
         <div id="sync-transcript">
-          <!-- Subtitle lines appear here -->
+          <!-- Content loaded dynamically -->
         </div>
 
         <!-- Editable textarea (hidden by default) -->
@@ -254,7 +250,15 @@
                   placeholder="Paste or edit your .srt content here..."></textarea>
         <div id="edit-actions" style="display: none; margin-top: 8px;">
           <button class="btn-edit" onclick="saveEditedSrt()">Save Changes</button>
-          <button style="margin-left: 8px; background: #95a5a6;" onclick="cancelSrtEdit()">Cancel</button>
+          <button style="margin-left: 8; background: #95a5a6;" onclick="cancelSrtEdit()">Cancel</button>
+        </div>
+
+        <!-- Upload section (initially hidden) -->
+        <div id="upload-section">
+          <p><strong>No subtitle available.</strong></p>
+          <button class="btn-upload-trigger" onclick="promptUploadPassword()">Upload .srt File</button>
+          <input type="file" id="srt-upload" accept=".srt" style="display: none;" onchange="handleSrtFileSelect(event)" />
+          <p id="upload-status"></p>
         </div>
       </div>
     </div>
@@ -286,6 +290,7 @@
     let currentEpisodeButton = null;
     let syncInterval = null;
     let currentCues = [];
+    let transcriptExists = false; // tracks if transcript is in DB
 
     // === DOM ELEMENTS ===
     const player = document.getElementById('global-player');
@@ -293,6 +298,9 @@
     const nowPlayingEl = document.getElementById('now-playing');
     const transcriptArea = document.getElementById('transcript-area');
     const transcriptTitleEl = document.getElementById('transcript-episode-title');
+    const syncTranscriptDiv = document.getElementById('sync-transcript');
+    const uploadSection = document.getElementById('upload-section');
+    const editBtn = document.getElementById('edit-srt-btn');
 
     // === HELPER FUNCTIONS ===
     function escapeHTML(str) {
@@ -373,7 +381,6 @@
         }
       }
 
-      const syncDiv = document.getElementById('sync-transcript');
       let linesHTML = [];
 
       if (currentIndex === -1) {
@@ -393,18 +400,15 @@
         }
       }
 
-      syncDiv.innerHTML = linesHTML.join('');
+      syncTranscriptDiv.innerHTML = linesHTML.join('');
     }
 
-    // === EDIT MODE WITH PASSWORD ===
+    // === EDIT MODE ===
     async function toggleSrtEditMode() {
-      const syncDiv = document.getElementById('sync-transcript');
       const editArea = document.getElementById('srt-edit-area');
       const editActions = document.getElementById('edit-actions');
-      const editBtn = document.getElementById('edit-srt-btn');
 
-      if (syncDiv.style.display !== 'none') {
-        // Entering edit mode — require password
+      if (syncTranscriptDiv.style.display !== 'none') {
         const password = prompt("Enter password to edit subtitles:");
         if (password !== TRANSCRIPT_PASS) {
           alert("Incorrect password.");
@@ -412,7 +416,6 @@
         }
 
         try {
-          // Fetch latest SRT from LeanCloud
           const query = new AV.Query('Transcript');
           query.equalTo('episodeUrl', currentEpisodeUrl);
           const results = await query.find();
@@ -421,7 +424,6 @@
           if (results.length > 0) {
             srtText = results[0].get('srtContent') || '';
           } else {
-            // Fallback: reconstruct from currentCues
             srtText = currentCues.map((cue, i) => {
               const start = secondsToSrtTime(cue.start);
               const end = secondsToSrtTime(cue.end);
@@ -430,7 +432,7 @@
           }
 
           editArea.value = srtText;
-          syncDiv.style.display = 'none';
+          syncTranscriptDiv.style.display = 'none';
           editArea.style.display = 'block';
           editActions.style.display = 'block';
           editBtn.textContent = 'view';
@@ -439,8 +441,7 @@
           alert('Could not load transcript for editing.');
         }
       } else {
-        // Exiting edit mode — no password needed
-        syncDiv.style.display = 'block';
+        syncTranscriptDiv.style.display = 'block';
         editArea.style.display = 'none';
         editActions.style.display = 'none';
         editBtn.textContent = 'edit';
@@ -489,6 +490,62 @@
 
     function cancelSrtEdit() {
       toggleSrtEditMode();
+    }
+
+    // === UPLOAD NEW TRANSCRIPT ===
+    function promptUploadPassword() {
+      const password = prompt("Enter password to upload subtitles:");
+      if (password !== TRANSCRIPT_PASS) {
+        alert("Incorrect password.");
+        return;
+      }
+      // Show file input
+      document.getElementById('srt-upload').style.display = 'block';
+    }
+
+    async function handleSrtFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const statusEl = document.getElementById('upload-status');
+      statusEl.textContent = 'Processing...';
+      statusEl.style.color = '#7f8c8d';
+
+      try {
+        const text = await file.text();
+        const cues = parseSRT(text);
+        if (cues.length === 0) throw new Error("No valid SRT content found.");
+
+        // Save to LeanCloud
+        const transcriptObj = new TranscriptClass();
+        transcriptObj.set('episodeUrl', currentEpisodeUrl);
+        transcriptObj.set('srtContent', text);
+        await transcriptObj.save(null, { useMasterKey: true });
+
+        // Update UI
+        statusEl.textContent = 'Upload successful! Loading subtitles...';
+        statusEl.style.color = '#27ae60';
+
+        // Hide upload section
+        uploadSection.style.display = 'none';
+
+        // Start syncing
+        startSyncTranscript(cues);
+
+        // Enable edit button
+        transcriptExists = true;
+        editBtn.style.display = 'inline-block';
+
+        // Update episode button
+        if (currentEpisodeButton) {
+          currentEpisodeButton.classList.add('has-transcript');
+        }
+
+      } catch (err) {
+        console.error('Upload error:', err);
+        statusEl.textContent = 'Error: ' + (err.message || 'Invalid file');
+        statusEl.style.color = '#e74c3c';
+      }
     }
 
     // === PODCAST RENDERING ===
@@ -597,9 +654,14 @@
       transcriptTitleEl.textContent = title;
       transcriptArea.style.display = 'block';
 
-      document.getElementById('unlocked-view').style.display = 'block';
-      document.getElementById('sync-transcript').innerHTML = '';
-      document.getElementById('edit-srt-btn').style.display = hasTranscript ? 'inline-block' : 'none';
+      transcriptExists = hasTranscript;
+      editBtn.style.display = hasTranscript ? 'inline-block' : 'none';
+      uploadSection.style.display = hasTranscript ? 'none' : 'block';
+      syncTranscriptDiv.innerHTML = hasTranscript ? '' : 'No subtitle available.';
+      syncTranscriptDiv.style.display = 'block';
+      document.getElementById('srt-edit-area').style.display = 'none';
+      document.getElementById('edit-actions').style.display = 'none';
+      document.getElementById('srt-upload').value = ''; // reset file input
 
       clearInterval(syncInterval);
       currentCues = [];
@@ -620,10 +682,9 @@
         } catch (err) {
           console.error('Failed to load saved transcript:', err);
         }
+        // Fallback if parsing fails
+        syncTranscriptDiv.innerHTML = 'Failed to load subtitles.';
       }
-
-      // If no transcript or failed to load
-      document.getElementById('sync-transcript').innerHTML = 'No subtitle available.';
     }
 
     // === INIT ===
