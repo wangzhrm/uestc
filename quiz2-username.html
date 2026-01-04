@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Data Manager (Local Use Only)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 10px; }
+    button, input { margin: 8px 0; padding: 8px 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+    #status { margin: 10px 0; padding: 8px; background: #f8f8f8; border-left: 4px solid #4CAF50; }
+    .error { border-left-color: #f44336; color: #d32f2f; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Student Data Manager (Local Use)</h2>
+  <p><strong>Important:</strong> This only works when opened via <code>http://localhost</code> (not file://).</p>
+
+  <button onclick="fetchData()">📥 Fetch All Student Data</button>
+  <button onclick="downloadExcel()" id="dlBtn" disabled>💾 Download as Excel</button>
+
+  <div style="margin-top: 20px;">
+    <input type="file" id="uploadFile" accept=".xlsx, .xls" />
+    <button onclick="uploadAndReplace()">📤 Upload & Replace ALL Data</button>
+  </div>
+
+  <div id="status"></div>
+
+  <table id="dataTable">
+    <thead><tr><th>Username</th><th>Password</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <script>
+    // 🔑 YOUR CREDENTIALS (for local use only!)
+    const APP_ID = "xYMCd0tsKLFbIFffaGAJ1i8b-gzGzoHsz";
+    const MASTER_KEY = "Ur8rrhJAoi3lJObVXM6FeQhL";
+    const CLASS_NAME = "Student";
+
+    let studentData = [];
+
+    // Helper: show status message
+    function setStatus(msg, isError = false) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = isError ? 'error' : '';
+    }
+
+    // Helper: escape HTML
+    function escapeHtml(text) {
+      return String(text || '').replace(/[&<>"']/g, m => 
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])
+      );
+    }
+
+    // 🔌 Generic REST call to LeanCloud
+    async function leancloudRequest(method, path, body = null) {
+      const url = `https://wbbl4lluw3syas5qtvps4ffz.lc-cn-n1-shared.com/1.1${path}`;
+      
+      const headers = {
+        'X-LC-Id': APP_ID,
+        'X-LC-Key': MASTER_KEY + ',master',
+        'Content-Type': 'application/json'
+      };
+
+      const options = { method, headers };
+      if (body) options.body = JSON.stringify(body);
+
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`[${res.status}] ${err.error || 'Request failed'}`);
+      }
+      return await res.json();
+    }
+
+    // 📥 Fetch all students
+    async function fetchData() {
+      try {
+        setStatus('Fetching data...');
+        // ✅ FIXED: was CLASS_SIZE, now CLASS_NAME
+        const response = await leancloudRequest('GET', `/classes/${CLASS_NAME}?limit=1000`);
+        studentData = (response.results || []).map(obj => ({
+          username: obj.username || '',
+          password: obj.password || ''
+        }));
+        renderTable();
+        document.getElementById('dlBtn').disabled = studentData.length === 0;
+        setStatus(`✅ Loaded ${studentData.length} records.`);
+      } catch (err) {
+        console.error(err);
+        setStatus(`❌ Fetch failed: ${err.message}`, true);
+      }
+    }
+
+    // 🖥️ Render table
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      studentData.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(row.username)}</td><td>${escapeHtml(row.password)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 💾 Download as Excel (no header, row1 = first record)
+    function downloadExcel() {
+      if (studentData.length === 0) return;
+      
+      const wsData = studentData.map(r => [r.username, r.password]);
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Students");
+      XLSX.writeFile(wb, "students.xlsx");
+    }
+
+    // 📤 Upload and replace all data
+    async function uploadAndReplace() {
+      const file = document.getElementById('uploadFile').files[0];
+      if (!file) {
+        alert('Please select an Excel file.');
+        return;
+      }
+
+      try {
+        setStatus('Reading Excel file...');
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const students = [];
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (row && row.length >= 2 && row[0] != null && String(row[0]).trim() !== '') {
+            students.push({
+              username: String(row[0]).trim(),
+              password: String(row[1] || '').trim()
+            });
+          }
+        }
+
+        if (students.length === 0) {
+          throw new Error('No valid data found in Excel file.');
+        }
+
+        setStatus('Deleting all existing records...');
+        // Fetch current records to get objectIds for deletion
+        const allRecords = await leancloudRequest('GET', `/classes/${CLASS_NAME}?limit=1000`);
+        if (allRecords.results && allRecords.results.length > 0) {
+          const deleteBatch = allRecords.results.map(record => ({
+            method: "DELETE",
+            path: `/1.1/classes/${CLASS_NAME}/${record.objectId}`
+          }));
+          // Send in chunks of 50 (LeanCloud batch limit)
+          for (let i = 0; i < deleteBatch.length; i += 50) {
+            const chunk = deleteBatch.slice(i, i + 50);
+            await leancloudRequest('POST', '/batch', { requests: chunk });
+          }
+        }
+
+        setStatus(`Saving ${students.length} new records...`);
+        // Save new records in batches
+        const saveBatch = students.map(s => ({
+          method: "POST",
+          path: `/1.1/classes/${CLASS_NAME}`,
+          body: { username: s.username, password: s.password }
+        }));
+
+        for (let i = 0; i < saveBatch.length; i += 50) {
+          const chunk = saveBatch.slice(i, i + 50);
+          await leancloudRequest('POST', '/batch', { requests: chunk });
+        }
+
+        setStatus(`✅ Successfully replaced with ${students.length} records!`, false);
+        fetchData(); // refresh
+      } catch (err) {
+        console.error(err);
+        setStatus(`❌ Operation failed: ${err.message}`, true);
+      }
+    }
+  </script>
+</body>
+</html>

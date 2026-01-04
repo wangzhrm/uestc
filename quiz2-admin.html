@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Teacher Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.0/dist/av-min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    .section { margin-bottom: 20px; padding: 10px; border: 1px solid #999; }
+    button { margin: 5px; padding: 8px 12px; }
+    .option {
+      padding: 8px;
+      margin: 6px 0;
+      background: #f1f1f1;
+      border-radius: 4px;
+      border-left: 4px solid #6c757d;
+    }
+    .correct-answer {
+      border-left-color: #28a745;
+      background-color: #d4edda;
+      font-weight: bold;
+    }
+    #student-lists {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .option-students {
+      flex: 1;
+      min-width: 120px;
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+    }
+    .option-label {
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 14px;
+      display: block;
+    }
+    .students-names {
+      font-size: 13px;
+      color: #495057;
+    }
+    canvas { margin-top: 20px; display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f8f9fa; }
+    tr.top3 { background-color: #fffde7; }
+
+    /* Live Stats Panel */
+    #live-stats {
+      margin: 15px 0;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 6px;
+      font-family: Arial;
+      border: 1px solid #cce7ff;
+    }
+    #live-stats h3 {
+      margin-top: 0;
+      color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ✅ NEW: Live Answer Status -->
+<div id="live-stats">
+  <h3>👥 Live Answer Status</h3>
+  <p><strong>Current Question:</strong> <span id="current-q-display">Loading...</span></p>
+  <p><strong>Students responded:</strong> <span id="response-count">0</span></p>
+  <p><strong>Usernames:</strong> <span id="responded-users">—</span></p>
+</div>
+
+<div class="section">
+  <h2>Teacher Control Panel</h2>
+  <div id="quiz-display">Loading...</div>
+  
+  <div>
+    <button onclick="startQuiz()">▶ Start Quiz</button>
+    <button onclick="showAnswer()">👁️ Show Answer & Stats</button>
+    <button onclick="nextQuestion()">⏭️ Next Question</button>
+    <button onclick="finishQuiz()">⏹️ Finish Quiz</button>
+  </div>
+
+  <canvas id="statsChart" width="700" height="350"></canvas>
+  <div id="student-lists"></div>
+</div>
+
+<div class="section">
+  <h3>Import Questions from Excel</h3>
+  <p>Format: Column A = Question, B = Correct Answer, C/D/E = Wrong Answers</p>
+  <input type="file" id="excelFile" accept=".xlsx,.xls" />
+  <button onclick="importExcel()">Import to LeanCloud</button>
+  <div id="import-status"></div>
+</div>
+
+<!-- ✅ Clear All Data Section -->
+<div class="section">
+  <h3>Danger Zone</h3>
+  <button onclick="clearAllData()" style="background-color: #dc3545; color: white;">🗑️ Clear All Questions, Answers & Reset Quiz</button>
+  <div id="clear-status" style="margin-top: 8px; font-size: 14px; color: #666;"></div>
+</div>
+
+<script>
+  AV.init({
+    appId: "xYMCd0tsKLFbIFffaGAJ1i8b-gzGzoHsz",
+    appKey: "V047I9XiABOAH3zA0dw4ayo8",
+    serverURLs: "https://xymcd0tsklfbiffagaj1i8b.lc-cn-n1-shared.com"
+  });
+
+  let chart = null;
+  const teacherShuffledCache = {};
+
+  // ✅ NEW: Fetch live stats for current question
+  async function fetchLiveStats() {
+    try {
+      const state = await new AV.Query('QuizState').first();
+      if (!state || state.get('status') !== 'question') {
+        document.getElementById('current-q-display').textContent = 'Not active';
+        document.getElementById('response-count').textContent = '0';
+        document.getElementById('responded-users').textContent = '—';
+        return;
+      }
+
+      const currentQIndex = state.get('currentQIndex');
+      document.getElementById('current-q-display').textContent = `Question #${currentQIndex + 1}`;
+
+      const answerQuery = new AV.Query('StudentAnswer');
+      answerQuery.equalTo('qIndex', currentQIndex);
+      answerQuery.select(['studentId']);
+      const answers = await answerQuery.find();
+
+      const usernames = [...new Set(answers.map(a => a.get('studentId')).filter(Boolean))];
+      document.getElementById('response-count').textContent = usernames.length;
+      document.getElementById('responded-users').textContent = 
+        usernames.length > 0 ? usernames.join(', ') : '—';
+
+    } catch (error) {
+      console.error('Live stats error:', error);
+      document.getElementById('responded-users').textContent = '⚠️ Error';
+    }
+  }
+
+  // Poll every 3 seconds
+  setInterval(fetchLiveStats, 3000);
+
+  function shuffleOptions(correct, distractors) {
+    const options = [correct, ...distractors];
+    return [...options].sort(() => Math.random() - 0.5);
+  }
+
+  async function loadQuizState() {
+    try {
+      const state = await new AV.Query('QuizState').first();
+      if (!state) {
+        document.getElementById('quiz-display').innerText = "No QuizState found!";
+        return;
+      }
+
+      const status = state.get('status');
+      const qIndex = state.get('currentQIndex');
+
+      if (status === 'waiting') {
+        document.getElementById('quiz-display').innerHTML = "<em>Quiz not started.</em>";
+        document.getElementById('statsChart').style.display = 'none';
+        document.getElementById('student-lists').innerHTML = '';
+        return;
+      }
+
+      if (status === 'finished') {
+        const totalQuestions = await new AV.Query('Question').count();
+        if (totalQuestions === 0) {
+          document.getElementById('quiz-display').innerHTML = "<h3>No questions found.</h3>";
+        } else {
+          await showFinalReport(totalQuestions);
+        }
+        return;
+      }
+
+      const q = await new AV.Query('Question').equalTo('order', qIndex + 1).first();
+      if (!q) {
+        document.getElementById('quiz-display').innerText = "Question missing.";
+        return;
+      }
+
+      const text = q.get('text');
+      const correct = q.get('correct');
+      const distractors = q.get('distractors') || [];
+
+      if (!teacherShuffledCache[qIndex]) {
+        teacherShuffledCache[qIndex] = shuffleOptions(correct, distractors);
+      }
+      const shuffledOptions = teacherShuffledCache[qIndex];
+
+      let html = `<h3>${text}</h3>`;
+      shuffledOptions.forEach((opt, i) => {
+        const letter = ['A', 'B', 'C', 'D'][i];
+        html += `<div class="option">${letter}. ${opt}</div>`;
+      });
+
+      document.getElementById('quiz-display').innerHTML = html;
+      document.getElementById('statsChart').style.display = 'none';
+      document.getElementById('student-lists').innerHTML = '';
+
+      if (status === 'revealed') {
+        await showStats(qIndex, correct, shuffledOptions);
+      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById('quiz-display').innerText = "Error loading state.";
+    }
+  }
+
+  async function updateQuizState(newStatus, deltaIndex = 0) {
+    const state = await new AV.Query('QuizState').first();
+    if (!state) {
+      alert("QuizState not initialized!");
+      return;
+    }
+    let newIndex = state.get('currentQIndex') + deltaIndex;
+    const total = await new AV.Query('Question').count();
+    if (newIndex >= total && newStatus !== 'finished') {
+      alert("No more questions!");
+      return;
+    }
+    if (newIndex < 0) newIndex = 0;
+
+    state.set('status', newStatus);
+    if (newStatus !== 'finished') {
+      state.set('currentQIndex', newIndex);
+    }
+    await state.save();
+
+    if (deltaIndex !== 0) {
+      delete teacherShuffledCache[newIndex - deltaIndex];
+    }
+
+    loadQuizState();
+  }
+
+  function startQuiz() { updateQuizState('question', 0); }
+  function showAnswer() { updateQuizState('revealed', 0); }
+  function nextQuestion() { updateQuizState('question', 1); }
+  function finishQuiz() { updateQuizState('finished', 0); }
+
+  async function showStats(qIndex, correctAnswer, shuffledOptions) {
+    const answers = await new AV.Query('StudentAnswer')
+      .equalTo('qIndex', qIndex)
+      .find();
+
+    const responseMap = {};
+    shuffledOptions.forEach(opt => {
+      responseMap[opt] = { count: 0, students: [] };
+    });
+
+    answers.forEach(a => {
+      const answerText = a.get('selectedOption');
+      const studentId = a.get('studentId');
+      if (answerText == null) return;
+      if (!responseMap[answerText]) {
+        responseMap[answerText] = { count: 0, students: [] };
+      }
+      responseMap[answerText].count++;
+      responseMap[answerText].students.push(studentId);
+    });
+
+    const labels = shuffledOptions;
+    const counts = labels.map(label => responseMap[label]?.count || 0);
+    const backgroundColors = labels.map(label =>
+      label === correctAnswer ? '#28a745' : '#dc3545'
+    );
+
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels.map(l => l.length > 25 ? l.substring(0, 25) + '…' : l),
+        datasets: [{
+          label: 'Number of Students',
+          data: counts,
+          backgroundColor: backgroundColors,
+          borderColor: 'rgba(0,0,0,0.1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1 }
+          },
+          x: {
+            ticks: {
+              autoSkip: false,
+              maxRotation: 60,
+              minRotation: 60,
+              font: { size: 11 }
+            }
+          }
+        }
+      }
+    });
+    document.getElementById('statsChart').style.display = 'block';
+
+    // Highlight correct answer in options
+    const optionDivs = document.querySelectorAll('#quiz-display .option');
+    optionDivs.forEach((div, i) => {
+      if (shuffledOptions[i] === correctAnswer) {
+        div.classList.add('correct-answer');
+      }
+    });
+
+    // Render student usernames under each option
+    const studentListsContainer = document.getElementById('student-lists');
+    studentListsContainer.innerHTML = '';
+
+    const listsHtml = shuffledOptions.map((option, idx) => {
+      const students = responseMap[option]?.students || [];
+      const studentNames = students.length > 0 
+        ? students.join(', ') 
+        : '—';
+      
+      const isCorrect = option === correctAnswer;
+      const labelDisplay = `${['A','B','C','D'][idx]}. ${option}`;
+      
+      return `
+        <div class="option-students">
+          <span class="option-label">${labelDisplay}${isCorrect ? ' ✅' : ''}</span>
+          <div class="students-names">${studentNames}</div>
+        </div>
+      `;
+    }).join('');
+
+    studentListsContainer.innerHTML = listsHtml;
+  }
+
+  async function showFinalReport(totalQuestions) {
+    // Fetch all questions to map qIndex → correct answer
+    const questions = await new AV.Query('Question')
+      .limit(1000)
+      .addAscending('order')
+      .find();
+    
+    const correctAnswersByIndex = {};
+    questions.forEach(q => {
+      const idx = q.get('order') - 1; // order starts at 1
+      correctAnswersByIndex[idx] = q.get('correct');
+    });
+
+    // Fetch all student answers
+    const allAnswers = await new AV.Query('StudentAnswer')
+      .limit(1000)
+      .find();
+
+    // Group answers by studentId
+    const studentResponses = {};
+    allAnswers.forEach(a => {
+      const sid = a.get('studentId');
+      const qIdx = a.get('qIndex');
+      const selected = a.get('selectedOption');
+      if (!studentResponses[sid]) studentResponses[sid] = {};
+      studentResponses[sid][qIdx] = selected;
+    });
+
+    // Compute stats per student
+    const studentStats = [];
+    for (const [studentId, responses] of Object.entries(studentResponses)) {
+      let correct = 0;
+
+      for (let qIdx = 0; qIdx < totalQuestions; qIdx++) {
+        const correctAns = correctAnswersByIndex[qIdx];
+        const studentAns = responses[qIdx];
+
+        if (studentAns === correctAns) {
+          correct++;
+        }
+      }
+
+      const wrong = totalQuestions - correct;
+      const ratio = totalQuestions > 0 ? (correct / totalQuestions).toFixed(2) : 0;
+
+      studentStats.push({
+        studentId,
+        total: totalQuestions,
+        correct,
+        wrong,
+        ratio: parseFloat(ratio)
+      });
+    }
+
+    // Sort by correct (desc), then by ratio (desc)
+    studentStats.sort((a, b) => {
+      if (b.correct !== a.correct) return b.correct - a.correct;
+      return b.ratio - a.ratio;
+    });
+
+    // Render final report
+    let html = `<h3>🏆 Final Quiz Results (Total Questions: ${totalQuestions})</h3>`;
+    html += `<div style="margin-top: 15px;">`;
+    html += `<table>`;
+    html += `<thead><tr>
+      <th>Rank</th>
+      <th>Student ID</th>
+      <th>Correct</th>
+      <th>Wrong</th>
+      <th>Accuracy</th>
+    </tr></thead><tbody>`;
+
+    studentStats.forEach((stat, i) => {
+      const rank = i + 1;
+      const accuracyPercent = (stat.ratio * 100).toFixed(1) + '%';
+      const rowClass = rank <= 3 ? ' class="top3"' : '';
+      html += `<tr${rowClass}>
+        <td>${rank}</td>
+        <td>${stat.studentId}</td>
+        <td style="color:green; text-align:center;">${stat.correct}</td>
+        <td style="color:red; text-align:center;">${stat.wrong}</td>
+        <td style="font-weight:bold; text-align:center;">${accuracyPercent}</td>
+      </tr>`;
+    });
+
+    if (studentStats.length === 0) {
+      html += `<tr><td colspan="5" style="text-align:center; color:#666;">No student responses recorded.</td></tr>`;
+    }
+
+    html += `</tbody></table></div>`;
+
+    document.getElementById('quiz-display').innerHTML = html;
+    document.getElementById('statsChart').style.display = 'none';
+    document.getElementById('student-lists').innerHTML = '';
+  }
+
+  async function importExcel() {
+    const file = document.getElementById('excelFile').files[0];
+    if (!file) {
+      alert("Please select a file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      document.getElementById('import-status').innerText = "Importing...";
+
+      let order = (await new AV.Query('Question').count()) + 1;
+
+      for (const row of rows) {
+        if (!row[0] || !row[1]) continue;
+        const question = new AV.Object('Question');
+        question.set('text', row[0]);
+        question.set('correct', row[1]);
+        question.set('distractors', [row[2] || '', row[3] || '', row[4] || ''].filter(x => x));
+        question.set('order', order++);
+        await question.save();
+      }
+
+      document.getElementById('import-status').innerText = "Import successful!";
+      loadQuizState();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function clearAllData() {
+    if (!confirm("⚠️ Are you sure?\n\nThis will permanently delete:\n• All questions\n• All student answers\n• Reset quiz state\n\nThis cannot be undone.")) {
+      return;
+    }
+
+    const statusEl = document.getElementById('clear-status');
+    statusEl.innerText = "Clearing data...";
+
+    try {
+      let questions = await new AV.Query('Question').limit(1000).find();
+      if (questions.length > 0) {
+        await AV.Object.destroyAll(questions);
+      }
+
+      let answers = await new AV.Query('StudentAnswer').limit(1000).find();
+      if (answers.length > 0) {
+        await AV.Object.destroyAll(answers);
+      }
+
+      let state = await new AV.Query('QuizState').first();
+      if (!state) {
+        state = new AV.Object('QuizState');
+      }
+      state.set('status', 'waiting');
+      state.set('currentQIndex', 0);
+      await state.save();
+
+      Object.keys(teacherShuffledCache).forEach(key => delete teacherShuffledCache[key]);
+
+      statusEl.innerText = "✅ All data cleared successfully!";
+      setTimeout(() => {
+        statusEl.innerText = "";
+        loadQuizState();
+      }, 1500);
+
+    } catch (err) {
+      console.error("Clear failed:", err);
+      statusEl.innerHTML = "<span style='color:red;'>❌ Error: " + (err.message || String(err)) + "</span>";
+    }
+  }
+
+  // Initial load
+  loadQuizState();
+</script>
+</body>
+</html>
