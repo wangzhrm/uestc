@@ -28,26 +28,27 @@
     .btn:hover { opacity: 0.9; }
     .btn-success { background: #34c759; }
     .btn-danger { background: #ff3b30; }
+    
     .survey-item { padding: 10px; margin: 6px 0; background: #f0f0f0; border-radius: 4px; transition: background 0.2s; cursor: pointer; font-size: 14px; }
     .survey-item:hover { background: #e8e8e8; }
-    .survey-item > div:first-child { font-weight: 500; }
+    
     input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
     textarea { min-height: 60px; resize: vertical; }
 
-    /* Question Editor */
+    /* Question Editor Box */
     .question-editor { position: relative; border: 1px solid #ddd; padding: 16px 16px 40px 16px; border-radius: 8px; margin: 12px 0; background: #fafafa; cursor: move; }
     .question-editor.dragging { opacity: 0.4; border: 2px dashed #007aff; }
-    .q-number-label { font-size: 0.9rem; font-weight: bold; color: #007aff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .q-text { margin-bottom: 10px; border-color: #eee; }
+    .q-number-label { font-size: 0.85rem; font-weight: bold; color: #007aff; margin-bottom: 8px; text-transform: uppercase; }
+    .q-text { margin-bottom: 10px; }
+    
     .dynamic-options { margin: 10px 0; padding-left: 10px; border-left: 2px solid #eee; }
     .option-line { display: flex; gap: 8px; margin: 6px 0; align-items: center; }
     .option-line input { flex: 1; }
     .remove-opt { background: #eee; border: none; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
 
-    .delete-question-btn { position: absolute; bottom: 10px; right: 10px; background: #ff3b30; color: white; width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .delete-question-btn { position: absolute; bottom: 10px; right: 10px; background: #ff3b30; color: white; width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
 
-    .add-question-section { margin-top: 20px; padding-top: 16px; border-top: 1px dashed #ccc; }
-    .save-all-section { margin-top: 20px; text-align: right; }
+    .save-all-section { margin-top: 20px; text-align: right; border-top: 1px solid #eee; padding-top: 15px; }
   </style>
 </head>
 <body>
@@ -56,11 +57,11 @@
   <h2>Admin Login</h2>
   <div class="form-group">
     <label>Username</label>
-    <input type="text" id="login-username" placeholder="Enter username" />
+    <input type="text" id="login-username" placeholder="Username" />
   </div>
   <div class="form-group">
     <label>Password</label>
-    <input type="password" id="login-password" placeholder="Enter password" />
+    <input type="password" id="login-password" placeholder="Password" />
   </div>
   <button class="btn-login" onclick="attemptLogin()">🔑 Log In</button>
   <div id="login-error" class="alert-error"></div>
@@ -70,17 +71,17 @@
   <div class="sidebar">
     <h2>Surveys</h2>
     <button class="btn" style="width:100%; margin-bottom:15px;" onclick="createNewSurvey()">➕ New Survey</button>
-    <div id="survey-list">Loading surveys...</div>
+    <div id="survey-list">Loading...</div>
   </div>
   <div class="main">
     <div id="editor">
-      <p>Select a survey from the list to edit.</p>
+      <p>Select a survey from the sidebar to begin.</p>
     </div>
   </div>
 </div>
 
 <script>
-  // 🔑 LeanCloud Credentials
+  // 🔑 LeanCloud Config
   const APP_ID = 'htY6FjuugSzKkkI6NKwFqyJb-gzGzoHsz';
   const APP_KEY = '9ZZ31UOLEbw2nyRcYeD0otWj';
   const SERVER_URL = 'https://hty6fjuugszkkki6nkwfqyjb.lc-cn-n1-shared.com';
@@ -90,66 +91,47 @@
   let currentSurvey = null;
   let questionEditors = []; 
 
-  // ===== LOGIN =====
   async function attemptLogin() {
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
-    const errorEl = document.getElementById('login-error');
-    errorEl.style.display = 'none';
-
+    const u = document.getElementById('login-username').value.trim();
+    const p = document.getElementById('login-password').value;
     try {
-      const user = await AV.User.logIn(username, password);
+      await AV.User.logIn(u, p);
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-ui').style.display = 'flex';
       loadSurveys();
     } catch (err) {
-      showError('login-error', '❌ Invalid username or password.');
+      document.getElementById('login-error').textContent = "❌ Login failed.";
+      document.getElementById('login-error').style.display = "block";
     }
   }
 
-  function showError(elId, message) {
-    const el = document.getElementById(elId);
-    el.textContent = message;
-    el.style.display = 'block';
-  }
-
-  // ===== SURVEY LIST =====
   async function loadSurveys() {
     const listEl = document.getElementById('survey-list');
     try {
-      const query = new AV.Query('Questionnaire');
-      query.addDescending('createdAt');
+      const query = new AV.Query('Questionnaire').addDescending('createdAt');
       const currentUser = AV.User.current();
       if (currentUser.get('role') !== 'admin') query.equalTo('createdBy', currentUser);
-      
       const surveys = await query.find();
       listEl.innerHTML = surveys.map(s => `
         <div class="survey-item" onclick="loadSurvey('${s.id}')">
-          <strong>${escapeHtml(s.get('title'))}</strong><br>
-          <small>${s.id}</small>
+          <strong>${escapeHtml(s.get('title'))}</strong><br><small>${s.id}</small>
         </div>
-      `).join('') || '<p>No surveys found.</p>';
-    } catch (err) {
-      listEl.innerHTML = 'Error loading surveys';
-    }
+      `).join('');
+    } catch (err) { listEl.innerHTML = "Error loading list."; }
   }
 
-  // ===== AUTO-RENUMBERING LOGIC =====
+  // ===== AUTO-NUMBERING =====
   function renumberQuestions() {
     const editors = document.querySelectorAll('#questions-container .question-editor');
-    let index = 1;
-    editors.forEach(el => {
-      if (el.style.display !== 'none') {
-        const label = el.querySelector('.q-number-label');
-        if (label) label.textContent = 'Question ' + index;
-        el.dataset.sequence = index; 
-        index++;
-      }
+    editors.forEach((el, i) => {
+      const label = el.querySelector('.q-number-label');
+      if (label) label.textContent = 'Question ' + (i + 1);
+      el.dataset.sequence = (i + 1);
     });
   }
 
-  // ===== BUILD EDITOR (COMPACT + FIXED BUTTON) =====
-  function buildQuestionEditor(questionObj, isNew = false) {
+  // ===== EDITOR UI =====
+  function buildQuestionEditor(questionObj) {
     const q = questionObj || {};
     const id = q.id || 'new_' + Date.now();
     const text = q.get ? escapeHtml(q.get('text') || '') : '';
@@ -161,37 +143,31 @@
     if (hasOptions) {
       const optList = options.length > 0 ? options : ['Option 1', 'Option 2'];
       optList.forEach(opt => {
-        optsHtml += `
-          <div class="option-line">
-            <input type="text" value="${escapeHtml(String(opt))}" placeholder="Option" />
-            <button type="button" class="remove-opt" onclick="this.closest('.option-line').remove()">−</button>
-          </div>`;
+        optsHtml += `<div class="option-line">
+          <input type="text" value="${escapeHtml(String(opt))}" />
+          <button class="remove-opt" onclick="this.parentElement.remove()">−</button>
+        </div>`;
       });
     }
-    optsHtml += '</div>'; // Close options-list
+    optsHtml += '</div>';
 
-    // Button is now ALWAYS outside and below the options-list
-    const addOptBtn = `
-      <button type="button" class="btn btn-add-opt" 
-        style="margin-top:8px; font-size:0.75rem; background:#666; display: ${hasOptions ? 'inline-block' : 'none'}" 
+    const addOptBtn = `<button type="button" class="btn btn-add-opt" 
+        style="margin-top:8px; font-size:11px; background:#666; display: ${hasOptions ? 'inline-block' : 'none'}" 
         onclick="addOptionToEditor(this.closest('.question-editor'))">+ Add Option</button>`;
 
-    return `
-      <div class="question-editor" data-id="${id}" draggable="true">
+    return `<div class="question-editor" data-id="${id}" draggable="true">
         <div class="q-number-label">Question</div>
-        <textarea class="q-text" placeholder="What is your question?">${text}</textarea>
-        <div class="form-group">
-          <select class="q-type" onchange="handleTypeChange(this)">
-            <option value="text" ${type==='text'?'selected':''}>Text</option>
-            <option value="number" ${type==='number'?'selected':''}>Number</option>
-            <option value="radio" ${type==='radio'?'selected':''}>Single Choice</option>
-            <option value="checkbox" ${type==='checkbox'?'selected':''}>Multiple Choice</option>
-            <option value="select" ${type==='select'?'selected':''}>Dropdown</option>
-            <option value="scale" ${type==='scale'?'selected':''}>Scale (1-5)</option>
-          </select>
-        </div>
+        <textarea class="q-text" placeholder="Question text">${text}</textarea>
+        <select class="q-type" onchange="handleTypeChange(this)">
+          <option value="text" ${type==='text'?'selected':''}>Text</option>
+          <option value="number" ${type==='number'?'selected':''}>Number</option>
+          <option value="radio" ${type==='radio'?'selected':''}>Single Choice</option>
+          <option value="checkbox" ${type==='checkbox'?'selected':''}>Multiple Choice</option>
+          <option value="select" ${type==='select'?'selected':''}>Dropdown</option>
+          <option value="scale" ${type==='scale'?'selected':''}>Scale (1-5)</option>
+        </select>
         <div class="dynamic-options">${optsHtml}${addOptBtn}</div>
-        <button class="delete-question-btn" onclick="markQuestionForDeletion('${id}')">×</button>
+        <button class="delete-question-btn" onclick="removeQuestionUI('${id}')">×</button>
       </div>`;
   }
 
@@ -200,19 +176,10 @@
     const container = editor.querySelector('.options-list');
     const btn = editor.querySelector('.btn-add-opt');
     const hasOptions = ['radio', 'checkbox', 'select', 'scale'].includes(select.value);
-
-    if (hasOptions) {
-      if (container.children.length === 0) {
-        container.innerHTML = `
-          <div class="option-line"><input type="text" value="Option 1" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button></div>
-          <div class="option-line"><input type="text" value="Option 2" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button></div>`;
-      }
-      container.style.display = 'block';
-      btn.style.display = 'inline-block';
-    } else {
-      container.innerHTML = '';
-      btn.style.display = 'none';
-    }
+    btn.style.display = hasOptions ? 'inline-block' : 'none';
+    if (hasOptions && container.children.length === 0) {
+      container.innerHTML = `<div class="option-line"><input type="text" value="Option 1" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button></div>`;
+    } else if (!hasOptions) { container.innerHTML = ''; }
   }
 
   function addOptionToEditor(editorEl) {
@@ -223,116 +190,99 @@
     list.appendChild(div);
   }
 
-  // ===== LOAD INDIVIDUAL SURVEY =====
+  // ===== SURVEY OPERATIONS =====
   async function loadSurvey(surveyId) {
     try {
       const surveyObj = AV.Object.createWithoutData('Questionnaire', surveyId);
       await surveyObj.fetch();
       currentSurvey = surveyObj;
+      const questions = await new AV.Query('Question').equalTo('questionnaire', surveyObj).addAscending('order').find();
 
-      const qQuery = new AV.Query('Question');
-      qQuery.equalTo('questionnaire', surveyObj);
-      qQuery.addAscending('order');
-      const questions = await qQuery.find();
-
-      let html = `
-        <h2>Editing: ${escapeHtml(surveyObj.get('title'))}</h2>
-        <input type="text" id="survey-title" value="${escapeHtml(surveyObj.get('title'))}" style="font-size:1.2em; margin-bottom:15px;" />
-        
-        <div style="margin-bottom:15px; display:flex; gap:10px;">
+      document.getElementById('editor').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2>Editing: ${escapeHtml(surveyObj.get('title'))}</h2>
+          <button class="btn btn-danger" onclick="deleteCurrentSurvey('${surveyId}')">🗑️ Delete Survey</button>
+        </div>
+        <input type="text" id="survey-title" value="${escapeHtml(surveyObj.get('title'))}" style="margin: 10px 0;" />
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
           <button class="btn" onclick="openSurveyData('${surveyId}')">📊 Data</button>
           <input type="text" readonly value="https://wangzhrm.github.io/uestc/questionnaire?survey=${surveyId}" style="background:#eee; flex:1;" />
         </div>
-
-        <div id="questions-container">
-          ${questions.map(q => buildQuestionEditor(q)).join('')}
-        </div>
-
-        <div class="add-question-section">
-          <button class="btn" onclick="addNewQuestion()">➕ Add Question</button>
-        </div>
-
-        <div class="save-all-section">
-          <button class="btn btn-success" onclick="saveEntireSurvey()">✅ Update Survey</button>
-        </div>
+        <div id="questions-container">${questions.map(q => buildQuestionEditor(q)).join('')}</div>
+        <button class="btn" onclick="addNewQuestion()" style="margin-top:15px;">➕ Add Question</button>
+        <div class="save-all-section"><button class="btn btn-success" onclick="saveEntireSurvey()">✅ Save Changes</button></div>
       `;
-
-      document.getElementById('editor').innerHTML = html;
-      questionEditors = questions.map(q => ({ id: q.id, deleted: false }));
+      questionEditors = questions.map(q => ({ id: q.id }));
       renumberQuestions();
       initDragAndDrop();
-    } catch (err) {
-      alert('Error loading survey');
-    }
+    } catch (err) { alert('Load failed.'); }
   }
 
-  // ===== SAVE ALL =====
   async function saveEntireSurvey() {
-    if (!currentSurvey) return;
     const title = document.getElementById('survey-title').value.trim();
     if (!title) return alert('Title required');
-
     try {
       currentSurvey.set('title', title);
       await currentSurvey.save();
 
       const editorEls = Array.from(document.querySelectorAll('#questions-container .question-editor'));
-      
-      // Delete questions first
       const idsInDom = new Set(editorEls.map(el => el.dataset.id));
+      
+      // Cleanup deleted questions
       const toDelete = questionEditors.filter(q => !idsInDom.has(q.id) && !q.id.startsWith('new_'));
-      if (toDelete.length > 0) {
-        await AV.Object.destroyAll(toDelete.map(q => AV.Object.createWithoutData('Question', q.id)));
-      }
+      if (toDelete.length > 0) await AV.Object.destroyAll(toDelete.map(q => AV.Object.createWithoutData('Question', q.id)));
 
-      // Save/Update questions
-      const promises = editorEls.map((el, idx) => {
+      // Save questions
+      await Promise.all(editorEls.map((el, idx) => {
         const id = el.dataset.id;
-        const seq = el.dataset.sequence; // Use the auto-generated sequence
         const obj = id.startsWith('new_') ? new (AV.Object.extend('Question'))() : AV.Object.createWithoutData('Question', id);
-        
         if (id.startsWith('new_')) obj.set('questionnaire', currentSurvey);
-        
-        obj.set('key', 'Q' + seq); // Automated Key
+        obj.set('key', 'Q' + el.dataset.sequence);
         obj.set('text', el.querySelector('.q-text').value);
         obj.set('type', el.querySelector('.q-type').value);
         obj.set('order', idx);
-        
-        const opts = Array.from(el.querySelectorAll('.options-list input')).map(i => i.value.trim()).filter(v => v);
-        obj.set('options', opts);
-        
+        obj.set('options', Array.from(el.querySelectorAll('.options-list input')).map(i => i.value.trim()).filter(v => v));
         return obj.save();
-      });
+      }));
 
-      await Promise.all(promises);
-      alert('✅ Saved successfully!');
+      alert('✅ Saved!');
       loadSurvey(currentSurvey.id);
       loadSurveys();
-    } catch (err) {
-      alert('Save failed: ' + err.message);
-    }
+    } catch (err) { alert('Save failed.'); }
+  }
+
+  async function deleteCurrentSurvey(surveyId) {
+    if (!confirm('⚠️ Delete this survey and ALL questions permanently?')) return;
+    try {
+      const hasResponses = await new AV.Query('Response').equalTo('questionnaire', AV.Object.createWithoutData('Questionnaire', surveyId)).count();
+      if (hasResponses > 0) return alert('Cannot delete: This survey has active responses.');
+
+      const questions = await new AV.Query('Question').equalTo('questionnaire', AV.Object.createWithoutData('Questionnaire', surveyId)).find();
+      if (questions.length > 0) await AV.Object.destroyAll(questions);
+      await AV.Object.createWithoutData('Questionnaire', surveyId).destroy();
+
+      alert('✅ Survey Deleted');
+      document.getElementById('editor').innerHTML = '<p>Survey removed.</p>';
+      loadSurveys();
+    } catch (err) { alert('Delete failed.'); }
   }
 
   function addNewQuestion() {
-    const container = document.getElementById('questions-container');
-    container.insertAdjacentHTML('beforeend', buildQuestionEditor(null, true));
+    document.getElementById('questions-container').insertAdjacentHTML('beforeend', buildQuestionEditor(null));
     renumberQuestions();
     initDragAndDrop();
   }
 
-  function markQuestionForDeletion(id) {
-    const el = document.querySelector(`.question-editor[data-id="${id}"]`);
-    if (el) {
-      el.remove();
-      renumberQuestions();
-    }
+  function removeQuestionUI(id) {
+    document.querySelector(`.question-editor[data-id="${id}"]`).remove();
+    renumberQuestions();
   }
 
   async function createNewSurvey() {
-    const title = prompt('Survey Title:');
-    if (!title) return;
+    const t = prompt('Title:');
+    if (!t) return;
     const s = new (AV.Object.extend('Questionnaire'))();
-    s.set('title', title);
+    s.set('title', t);
     s.set('createdBy', AV.User.current());
     await s.save();
     loadSurveys();
@@ -341,17 +291,13 @@
   function initDragAndDrop() {
     const container = document.getElementById('questions-container');
     let draggedItem = null;
-
     container.querySelectorAll('.question-editor').forEach(item => {
       item.addEventListener('dragstart', () => { draggedItem = item; item.classList.add('dragging'); });
-      item.addEventListener('dragend', () => { 
-        item.classList.remove('dragging'); 
-        draggedItem = null; 
-        renumberQuestions(); 
-      });
+      item.addEventListener('dragend', () => { item.classList.remove('dragging'); renumberQuestions(); });
       item.addEventListener('dragover', e => {
         e.preventDefault();
-        const afterElement = [...container.querySelectorAll('.question-editor:not(.dragging)')].reduce((closest, child) => {
+        const draggable = [...container.querySelectorAll('.question-editor:not(.dragging)')];
+        const afterElement = draggable.reduce((closest, child) => {
           const box = child.getBoundingClientRect();
           const offset = e.clientY - box.top - box.height / 2;
           return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
@@ -362,23 +308,16 @@
     });
   }
 
-  function openSurveyData(id) {
-    window.open(`https://wangzhrm.github.io/uestc/questionnaire-data.html?survey=${id}`, '_blank');
-  }
-
-  function escapeHtml(text) {
-    return text ? String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
-  }
+  function openSurveyData(id) { window.open(`https://wangzhrm.github.io/uestc/questionnaire-data.html?survey=${id}`, '_blank'); }
+  function escapeHtml(t) { return t ? String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''; }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const user = AV.User.current();
-    if (user) {
+    if (AV.User.current()) {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('admin-ui').style.display = 'flex';
       loadSurveys();
     }
   });
 </script>
-
 </body>
 </html>
