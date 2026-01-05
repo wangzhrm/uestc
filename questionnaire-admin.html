@@ -3,220 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Questionnaire Admin</title>
+  <title>Questionnaire Admin - Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body {
-      background: #f9f9f9;
-      padding: 20px;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+    body { background: #f9f9f9; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
 
     /* Login Screen */
-    .login-container {
-      width: 100%;
-      max-width: 400px;
-      background: white;
-      padding: 32px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    .login-container h2 {
-      text-align: center;
-      margin-bottom: 24px;
-      color: #333;
-    }
-    .form-group {
-      margin: 16px 0;
-    }
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: bold;
-      color: #444;
-    }
-    input[type="text"], input[type="password"] {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 16px;
-    }
-    .btn-login {
-      width: 100%;
-      background: #007aff;
-      color: white;
-      border: none;
-      padding: 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-      margin-top: 10px;
-    }
+    .login-container { width: 100%; max-width: 400px; background: white; padding: 32px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .login-container h2 { text-align: center; margin-bottom: 24px; color: #333; }
+    .form-group { margin: 16px 0; }
+    label { display: block; margin-bottom: 6px; font-weight: bold; color: #444; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+    .btn-login { width: 100%; background: #007aff; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; }
     .btn-login:hover { opacity: 0.9; }
-    .alert-error {
-      color: red;
-      background: #ffebee;
-      padding: 10px;
-      border-radius: 4px;
-      margin-top: 12px;
-      text-align: center;
-      display: none;
-    }
+    .alert-error { color: red; background: #ffebee; padding: 10px; border-radius: 4px; margin-top: 12px; text-align: center; display: none; }
 
     /* Admin UI */
-    .admin-ui {
-      display: none;
-      width: 100%;
-      max-width: 1200px;
-      gap: 20px;
-      display: flex;
-    }
-    .sidebar {
-      width: 280px;
-      background: white;
-      border-radius: 8px;
-      padding: 16px;
-      height: fit-content;
-    }
-    .main {
-      flex: 1;
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-    }
-    h1, h2, h3 {
-      margin-bottom: 12px;
-      color: #333;
-    }
-    .btn {
-      background: #007aff;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      margin-right: 8px;
-    }
+    .admin-ui { display: none; width: 100%; max-width: 1200px; gap: 20px; }
+    .sidebar { width: 280px; background: white; border-radius: 8px; padding: 16px; height: fit-content; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .main { flex: 1; background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    h1, h2, h3 { margin-bottom: 12px; color: #333; }
+    .btn { background: #007aff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; }
     .btn:hover { opacity: 0.9; }
     .btn-success { background: #34c759; }
     .btn-danger { background: #ff3b30; }
-    .survey-item {
-      padding: 10px;
-      margin: 6px 0;
-      background: #f0f0f0;
-      border-radius: 4px;
-      transition: background 0.2s;
-      cursor: pointer;
-    }
-    .survey-item:hover {
-      background: #e8e8e8;
-    }
-    .survey-item > div:first-child {
-      font-weight: 500;
-    }
-    .form-group label { display: block; margin-bottom: 4px; font-weight: bold; }
-    input, textarea, select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    textarea { min-height: 40px; resize: vertical; }
+    .survey-item { padding: 10px; margin: 6px 0; background: #f0f0f0; border-radius: 4px; transition: background 0.2s; cursor: pointer; font-size: 14px; }
+    .survey-item:hover { background: #e8e8e8; }
+    .survey-item > div:first-child { font-weight: 500; }
+    input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    textarea { min-height: 60px; resize: vertical; }
 
-    /* Question Editor Compact */
-    .question-editor {
-      position: relative;
-      border: 1px solid #ddd;
-      padding: 14px 14px 30px 14px;
-      border-radius: 8px;
-      margin: 12px 0;
-      background: #fafafa;
-      cursor: move;
-    }
-    .question-editor.dragging {
-      opacity: 0.6;
-      background: #eef;
-    }
-    .q-key, .q-text {
-      margin-bottom: 10px;
-    }
-    .q-key::placeholder { color: #888; font-style: italic; }
-    .q-text::placeholder { color: #888; font-style: italic; }
-
-    .dynamic-options { margin: 10px 0; }
-    .option-line {
-      display: flex;
-      gap: 8px;
-      margin: 6px 0;
-      align-items: center;
-    }
+    /* Question Editor */
+    .question-editor { position: relative; border: 1px solid #ddd; padding: 16px 16px 40px 16px; border-radius: 8px; margin: 12px 0; background: #fafafa; cursor: move; }
+    .question-editor.dragging { opacity: 0.4; border: 2px dashed #007aff; }
+    .q-number-label { font-size: 0.9rem; font-weight: bold; color: #007aff; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .q-text { margin-bottom: 10px; border-color: #eee; }
+    .dynamic-options { margin: 10px 0; padding-left: 10px; border-left: 2px solid #eee; }
+    .option-line { display: flex; gap: 8px; margin: 6px 0; align-items: center; }
     .option-line input { flex: 1; }
+    .remove-opt { background: #eee; border: none; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
 
-    /* Delete X button */
-    .delete-question-btn {
-      position: absolute;
-      bottom: 6px;
-      right: 6px;
-      background: #ff3b30;
-      color: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: none;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      padding: 0;
-    }
-    .delete-question-btn:hover {
-      background: #d63031;
-    }
+    .delete-question-btn { position: absolute; bottom: 10px; right: 10px; background: #ff3b30; color: white; width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-    /* Add Question Button */
-    .add-question-section {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px dashed #ccc;
-    }
-
-    /* Save All Button */
-    .save-all-section {
-      margin-top: 20px;
-      text-align: right;
-    }
+    .add-question-section { margin-top: 20px; padding-top: 16px; border-top: 1px dashed #ccc; }
+    .save-all-section { margin-top: 20px; text-align: right; }
   </style>
 </head>
 <body>
 
-<!-- Login Form -->
 <div id="login-screen" class="login-container">
   <h2>Admin Login</h2>
   <div class="form-group">
     <label>Username</label>
-    <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" />
+    <input type="text" id="login-username" placeholder="Enter username" />
   </div>
   <div class="form-group">
     <label>Password</label>
-    <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" />
+    <input type="password" id="login-password" placeholder="Enter password" />
   </div>
   <button class="btn-login" onclick="attemptLogin()">🔑 Log In</button>
   <div id="login-error" class="alert-error"></div>
 </div>
 
-<!-- Admin Interface -->
 <div id="admin-ui" class="admin-ui">
   <div class="sidebar">
     <h2>Surveys</h2>
-    <button class="btn" onclick="createNewSurvey()">➕ Create New Survey</button>
+    <button class="btn" style="width:100%; margin-bottom:15px;" onclick="createNewSurvey()">➕ New Survey</button>
     <div id="survey-list">Loading surveys...</div>
   </div>
   <div class="main">
@@ -235,34 +88,21 @@
   AV.init({ appId: APP_ID, appKey: APP_KEY, serverURLs: SERVER_URL });
 
   let currentSurvey = null;
-  let questionEditors = []; // [{id, key, text, type, options}]
+  let questionEditors = []; 
 
-  // ===== LOGIN HANDLER =====
+  // ===== LOGIN =====
   async function attemptLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
-
     errorEl.style.display = 'none';
-
-    if (!username || !password) {
-      showError('login-error', 'Please enter both username and password.');
-      return;
-    }
 
     try {
       const user = await AV.User.logIn(username, password);
-      const role = user.get('role');
-      if (role === 'admin' || role === 'user') {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('admin-ui').style.display = 'flex';
-        loadSurveys();
-      } else {
-        showError('login-error', '❌ Access denied. Invalid role.');
-        AV.User.logOut();
-      }
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-ui').style.display = 'flex';
+      loadSurveys();
     } catch (err) {
-      console.error('Login failed:', err);
       showError('login-error', '❌ Invalid username or password.');
     }
   }
@@ -273,171 +113,114 @@
     el.style.display = 'block';
   }
 
-  // ===== SURVEY LISTING =====
+  // ===== SURVEY LIST =====
   async function loadSurveys() {
     const listEl = document.getElementById('survey-list');
     try {
       const query = new AV.Query('Questionnaire');
       query.addDescending('createdAt');
-      query.limit(100);
-
       const currentUser = AV.User.current();
-      const userRole = currentUser.get('role');
-
-      if (userRole !== 'admin') {
-        query.equalTo('createdBy', currentUser);
-      }
-
-      query.include('createdBy');
-
+      if (currentUser.get('role') !== 'admin') query.equalTo('createdBy', currentUser);
+      
       const surveys = await query.find();
-
-      if (!surveys || surveys.length === 0) {
-        listEl.innerHTML = '<p>No surveys found.</p>';
-        return;
-      }
-
-      let html = '';
-      surveys.forEach(s => {
-        const title = s.get('title') || '(Untitled)';
-        const escapedTitle = String(title).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        let createdByInfo = '';
-        const createdBy = s.get('createdBy');
-        if (createdBy && createdBy.get && createdBy.get('username')) {
-          const creatorName = String(createdBy.get('username')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          createdByInfo = ` by <strong>${creatorName}</strong>`;
-        }
-
-        html += `
-          <div class="survey-item" onclick="loadSurvey('${s.id}')">
-            ${escapedTitle}${createdByInfo} <small>(${s.id})</small>
-          </div>
-        `;
-      });
-      listEl.innerHTML = html;
+      listEl.innerHTML = surveys.map(s => `
+        <div class="survey-item" onclick="loadSurvey('${s.id}')">
+          <strong>${escapeHtml(s.get('title'))}</strong><br>
+          <small>${s.id}</small>
+        </div>
+      `).join('') || '<p>No surveys found.</p>';
     } catch (err) {
-      console.error('Failed to load surveys:', err);
-      listEl.innerHTML = `<div style="color:red;">❌ Error: ${err.message || 'Unknown'}</div>`;
+      listEl.innerHTML = 'Error loading surveys';
     }
   }
 
-  // ===== ESCAPE HELPER =====
-  function escapeHtml(text) {
-    if (typeof text !== 'string') return '';
-    return text.replace(/&/g, '&amp;')
-               .replace(/</g, '&lt;')
-               .replace(/>/g, '&gt;')
-               .replace(/"/g, '&quot;');
+  // ===== AUTO-RENUMBERING LOGIC =====
+  function renumberQuestions() {
+    const editors = document.querySelectorAll('#questions-container .question-editor');
+    let index = 1;
+    editors.forEach(el => {
+      if (el.style.display !== 'none') {
+        const label = el.querySelector('.q-number-label');
+        if (label) label.textContent = 'Question ' + index;
+        el.dataset.sequence = index; 
+        index++;
+      }
+    });
   }
 
-  // ===== BUILD QUESTION EDITOR (COMPACT) =====
+  // ===== BUILD EDITOR (COMPACT + FIXED BUTTON) =====
   function buildQuestionEditor(questionObj, isNew = false) {
     const q = questionObj || {};
     const id = q.id || 'new_' + Date.now();
-    const key = q.get ? escapeHtml(q.get('key') || '') : '';
     const text = q.get ? escapeHtml(q.get('text') || '') : '';
     const type = q.get ? (q.get('type') || 'text') : 'text';
     const options = (q.get ? (q.get('options') || []) : []);
-
     const hasOptions = ['radio','checkbox','select','scale'].includes(type);
 
-    let optsHtml = '';
+    let optsHtml = '<div class="options-list">';
     if (hasOptions) {
-      optsHtml = '<div class="options-list">';
       const optList = options.length > 0 ? options : ['Option 1', 'Option 2'];
       optList.forEach(opt => {
-        const safeOpt = escapeHtml(String(opt));
         optsHtml += `
           <div class="option-line">
-            <input type="text" value="${safeOpt}" placeholder="Option" />
+            <input type="text" value="${escapeHtml(String(opt))}" placeholder="Option" />
             <button type="button" class="remove-opt" onclick="this.closest('.option-line').remove()">−</button>
-          </div>
-        `;
+          </div>`;
       });
-      optsHtml += `
-        <button type="button" class="btn" style="margin-top:6px;font-size:0.85rem;padding:5px;"
-          onclick="addOptionToEditor(this.closest('.question-editor'))">+ Add Option</button>
-      </div>
-      `;
     }
+    optsHtml += '</div>'; // Close options-list
 
-    const deleteBtn = isNew ? '' : `<button class="delete-question-btn" onclick="markQuestionForDeletion('${id}')">×</button>`;
+    // Button is now ALWAYS outside and below the options-list
+    const addOptBtn = `
+      <button type="button" class="btn btn-add-opt" 
+        style="margin-top:8px; font-size:0.75rem; background:#666; display: ${hasOptions ? 'inline-block' : 'none'}" 
+        onclick="addOptionToEditor(this.closest('.question-editor'))">+ Add Option</button>`;
 
     return `
       <div class="question-editor" data-id="${id}" draggable="true">
-        <input type="text" class="q-key" placeholder="Question Key (e.g., Q1)" value="${key}" />
-        <textarea class="q-text" placeholder="Question Text">${text}</textarea>
+        <div class="q-number-label">Question</div>
+        <textarea class="q-text" placeholder="What is your question?">${text}</textarea>
         <div class="form-group">
-          <select class="q-type">
+          <select class="q-type" onchange="handleTypeChange(this)">
             <option value="text" ${type==='text'?'selected':''}>Text</option>
             <option value="number" ${type==='number'?'selected':''}>Number</option>
             <option value="radio" ${type==='radio'?'selected':''}>Single Choice</option>
             <option value="checkbox" ${type==='checkbox'?'selected':''}>Multiple Choice</option>
             <option value="select" ${type==='select'?'selected':''}>Dropdown</option>
-            <option value="scale" ${type==='scale'?'selected':''}>Scale (e.g., 1–5)</option>
+            <option value="scale" ${type==='scale'?'selected':''}>Scale (1-5)</option>
           </select>
         </div>
-        <div class="dynamic-options">${optsHtml}</div>
-        ${deleteBtn}
-      </div>
-    `;
+        <div class="dynamic-options">${optsHtml}${addOptBtn}</div>
+        <button class="delete-question-btn" onclick="markQuestionForDeletion('${id}')">×</button>
+      </div>`;
   }
 
-  // ===== DYNAMIC OPTION UI UPDATE =====
-  function setupTypeChangeListeners(container) {
-    (container || document).querySelectorAll('.question-editor').forEach(editor => {
-      const select = editor.querySelector('.q-type');
-      const dynamicContainer = editor.querySelector('.dynamic-options');
+  function handleTypeChange(select) {
+    const editor = select.closest('.question-editor');
+    const container = editor.querySelector('.options-list');
+    const btn = editor.querySelector('.btn-add-opt');
+    const hasOptions = ['radio', 'checkbox', 'select', 'scale'].includes(select.value);
 
-      if (select.dataset.bound) return;
-      select.dataset.bound = 'true';
-
-      select.addEventListener('change', function () {
-        const type = this.value;
-        const hasOptions = ['radio', 'checkbox', 'select', 'scale'].includes(type);
-
-        if (hasOptions) {
-          const existingInputs = dynamicContainer.querySelectorAll('.option-line input');
-          let values = Array.from(existingInputs)
-            .map(inp => inp.value.trim())
-            .filter(v => v);
-          if (values.length === 0) {
-            values = ['Option 1', 'Option 2'];
-          }
-
-          let optsHtml = '<div class="options-list">';
-          values.forEach(opt => {
-            const safeOpt = escapeHtml(String(opt));
-            optsHtml += `
-              <div class="option-line">
-                <input type="text" value="${safeOpt}" placeholder="Option" />
-                <button type="button" class="remove-opt" onclick="this.closest('.option-line').remove()">−</button>
-              </div>
-            `;
-          });
-          optsHtml += `
-            <button type="button" class="btn" style="margin-top:6px;font-size:0.85rem;padding:5px;"
-              onclick="addOptionToEditor(this.closest('.question-editor'))">+ Add Option</button>
-          </div>
-          `;
-          dynamicContainer.innerHTML = optsHtml;
-        } else {
-          dynamicContainer.innerHTML = '';
-        }
-      });
-    });
+    if (hasOptions) {
+      if (container.children.length === 0) {
+        container.innerHTML = `
+          <div class="option-line"><input type="text" value="Option 1" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button></div>
+          <div class="option-line"><input type="text" value="Option 2" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button></div>`;
+      }
+      container.style.display = 'block';
+      btn.style.display = 'inline-block';
+    } else {
+      container.innerHTML = '';
+      btn.style.display = 'none';
+    }
   }
 
   function addOptionToEditor(editorEl) {
-    const container = editorEl.querySelector('.options-list');
-    if (!container) return;
-    const newOpt = document.createElement('div');
-    newOpt.className = 'option-line';
-    newOpt.innerHTML = `
-      <input type="text" placeholder="Option" />
-      <button type="button" class="remove-opt" onclick="this.closest('.option-line').remove()">−</button>
-    `;
-    container.appendChild(newOpt);
+    const list = editorEl.querySelector('.options-list');
+    const div = document.createElement('div');
+    div.className = 'option-line';
+    div.innerHTML = `<input type="text" placeholder="Option" /><button class="remove-opt" onclick="this.parentElement.remove()">−</button>`;
+    list.appendChild(div);
   }
 
   // ===== LOAD INDIVIDUAL SURVEY =====
@@ -447,54 +230,22 @@
       await surveyObj.fetch();
       currentSurvey = surveyObj;
 
-      const query = new AV.Query('Question');
-      query.equalTo('questionnaire', surveyObj);
-      query.addAscending('order');
-      const questions = await query.find();
-
-      const title = surveyObj.get('title') || '';
-      const escapedTitle = escapeHtml(title);
-      const id = surveyObj.id;
+      const qQuery = new AV.Query('Question');
+      qQuery.equalTo('questionnaire', surveyObj);
+      qQuery.addAscending('order');
+      const questions = await qQuery.find();
 
       let html = `
-        <h2>Editing: ${escapedTitle}</h2>
-        <div class="form-group">
-          <input type="text" id="survey-title" value="${escapedTitle}" placeholder="Survey Title" style="font-size:1.2em; padding:10px;" />
+        <h2>Editing: ${escapeHtml(surveyObj.get('title'))}</h2>
+        <input type="text" id="survey-title" value="${escapeHtml(surveyObj.get('title'))}" style="font-size:1.2em; margin-bottom:15px;" />
+        
+        <div style="margin-bottom:15px; display:flex; gap:10px;">
+          <button class="btn" onclick="openSurveyData('${surveyId}')">📊 Data</button>
+          <input type="text" readonly value="https://wangzhrm.github.io/uestc/questionnaire?survey=${surveyId}" style="background:#eee; flex:1;" />
         </div>
 
-        <!-- Action Row: Data Button + Share URL -->
-        <div style="display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; align-items:center;">
-          <button class="btn" onclick="openSurveyData('${id}')">📊 Data</button>
-          <input type="text" id="survey-share-url" 
-            value="https://wangzhrm.github.io/uestc/questionnaire?survey=${id}" 
-            readonly style="flex:1; background:#f5f5f5; font-size:0.9em; min-width:200px;" />
-        </div>
-        <small>Send the link above to respondents.</small>
-
-        <!-- Delete Survey Button -->
-        <div style="margin:16px 0;">
-          <button class="btn btn-danger" onclick="deleteCurrentSurvey('${id}')">🗑️ Delete This Survey</button>
-        </div>
-
-        <hr style="margin:20px 0;">
-        <h3>Questions (${questions.length})</h3>
         <div id="questions-container">
-      `;
-
-      questionEditors = [];
-      questions.forEach(q => {
-        html += buildQuestionEditor(q);
-        questionEditors.push({
-          id: q.id,
-          key: q.get('key'),
-          text: q.get('text'),
-          type: q.get('type'),
-          options: q.get('options') || [],
-          deleted: false
-        });
-      });
-
-      html += `
+          ${questions.map(q => buildQuestionEditor(q)).join('')}
         </div>
 
         <div class="add-question-section">
@@ -507,291 +258,125 @@
       `;
 
       document.getElementById('editor').innerHTML = html;
-
-      // Setup drag & drop
+      questionEditors = questions.map(q => ({ id: q.id, deleted: false }));
+      renumberQuestions();
       initDragAndDrop();
-      setupTypeChangeListeners();
     } catch (err) {
-      console.error('Error loading survey:', err);
-      document.getElementById('editor').innerHTML = `
-        <div class="alert-error">❌ Failed to load survey: ${err.message || err.toString()}</div>
-      `;
+      alert('Error loading survey');
     }
   }
 
-  // ===== CHECK IF RESPONSES EXIST (CORRECTED) =====
-  async function checkIfResponsesExist(surveyId) {
-    const Response = AV.Object.extend('Response');
-    const query = new AV.Query(Response);
-    
-    // Create a pointer to the Questionnaire object
-    const questionnaireObj = AV.Object.createWithoutData('Questionnaire', surveyId);
-    
-    // Match responses where 'questionnaire' points to this survey
-    query.equalTo('questionnaire', questionnaireObj);
-    query.limit(1); // We only care if at least one exists
-    
-    try {
-      const results = await query.find();
-      return results.length > 0;
-    } catch (err) {
-      console.error('Error checking for responses:', err);
-      // In case of error, assume there might be data (fail-safe)
-      return true;
-    }
-  }
-
-  // ===== DELETE CURRENT SURVEY =====
-  async function deleteCurrentSurvey(surveyId) {
-    if (!confirm('⚠️ Are you sure you want to delete this survey?')) return;
+  // ===== SAVE ALL =====
+  async function saveEntireSurvey() {
+    if (!currentSurvey) return;
+    const title = document.getElementById('survey-title').value.trim();
+    if (!title) return alert('Title required');
 
     try {
-      const hasData = await checkIfResponsesExist(surveyId);
-      if (hasData) {
-        alert('❗ This survey has collected responses.\n\nPlease go to the “📊 Data” page to export or delete the responses first, then try deleting the survey again.');
-        return;
+      currentSurvey.set('title', title);
+      await currentSurvey.save();
+
+      const editorEls = Array.from(document.querySelectorAll('#questions-container .question-editor'));
+      
+      // Delete questions first
+      const idsInDom = new Set(editorEls.map(el => el.dataset.id));
+      const toDelete = questionEditors.filter(q => !idsInDom.has(q.id) && !q.id.startsWith('new_'));
+      if (toDelete.length > 0) {
+        await AV.Object.destroyAll(toDelete.map(q => AV.Object.createWithoutData('Question', q.id)));
       }
 
-      const confirmed = confirm('❗ This survey will be permanently deleted and cannot be recovered.\n\nAre you absolutely sure?');
-      if (!confirmed) return;
+      // Save/Update questions
+      const promises = editorEls.map((el, idx) => {
+        const id = el.dataset.id;
+        const seq = el.dataset.sequence; // Use the auto-generated sequence
+        const obj = id.startsWith('new_') ? new (AV.Object.extend('Question'))() : AV.Object.createWithoutData('Question', id);
+        
+        if (id.startsWith('new_')) obj.set('questionnaire', currentSurvey);
+        
+        obj.set('key', 'Q' + seq); // Automated Key
+        obj.set('text', el.querySelector('.q-text').value);
+        obj.set('type', el.querySelector('.q-type').value);
+        obj.set('order', idx);
+        
+        const opts = Array.from(el.querySelectorAll('.options-list input')).map(i => i.value.trim()).filter(v => v);
+        obj.set('options', opts);
+        
+        return obj.save();
+      });
 
-      const password = prompt('🔒 Please re-enter your password to confirm deletion:');
-      if (!password) return;
-
-      // Re-authenticate
-      const currentUser = AV.User.current();
-      const username = currentUser.get('username');
-      try {
-        await AV.User.logIn(username, password);
-      } catch (err) {
-        alert('❌ Incorrect password. Deletion aborted.');
-        return;
-      }
-
-      // Fetch full survey object
-      const surveyObj = AV.Object.createWithoutData('Questionnaire', surveyId);
-      await surveyObj.fetch();
-
-      // Check ownership (non-admin users only)
-      const userRole = currentUser.get('role');
-      if (userRole !== 'admin') {
-        const creator = surveyObj.get('createdBy');
-        if (!creator || creator.id !== currentUser.id) {
-          alert('❌ You do not own this survey.');
-          return;
-        }
-      }
-
-      // Delete all questions first
-      const qQuery = new AV.Query('Question');
-      qQuery.equalTo('questionnaire', surveyObj);
-      const questions = await qQuery.find();
-      if (questions.length > 0) {
-        await AV.Object.destroyAll(questions);
-      }
-
-      // Delete the survey itself
-      await surveyObj.destroy();
-
-      alert('✅ Survey deleted successfully!');
-      document.getElementById('editor').innerHTML = '<p>Survey deleted. Select another survey or create a new one.</p>';
-      loadSurveys(); // Refresh sidebar
-
+      await Promise.all(promises);
+      alert('✅ Saved successfully!');
+      loadSurvey(currentSurvey.id);
+      loadSurveys();
     } catch (err) {
-      console.error('Delete survey error:', err);
-      alert('❌ Failed to delete survey: ' + (err.message || err.toString()));
+      alert('Save failed: ' + err.message);
     }
   }
 
-  // ===== DRAG & DROP REORDERING =====
+  function addNewQuestion() {
+    const container = document.getElementById('questions-container');
+    container.insertAdjacentHTML('beforeend', buildQuestionEditor(null, true));
+    renumberQuestions();
+    initDragAndDrop();
+  }
+
+  function markQuestionForDeletion(id) {
+    const el = document.querySelector(`.question-editor[data-id="${id}"]`);
+    if (el) {
+      el.remove();
+      renumberQuestions();
+    }
+  }
+
+  async function createNewSurvey() {
+    const title = prompt('Survey Title:');
+    if (!title) return;
+    const s = new (AV.Object.extend('Questionnaire'))();
+    s.set('title', title);
+    s.set('createdBy', AV.User.current());
+    await s.save();
+    loadSurveys();
+  }
+
   function initDragAndDrop() {
     const container = document.getElementById('questions-container');
     let draggedItem = null;
 
     container.querySelectorAll('.question-editor').forEach(item => {
-      item.addEventListener('dragstart', () => {
-        draggedItem = item;
-        setTimeout(() => item.classList.add('dragging'), 0);
+      item.addEventListener('dragstart', () => { draggedItem = item; item.classList.add('dragging'); });
+      item.addEventListener('dragend', () => { 
+        item.classList.remove('dragging'); 
+        draggedItem = null; 
+        renumberQuestions(); 
       });
-
-      item.addEventListener('dragend', () => {
-        item.classList.remove('dragging');
-        draggedItem = null;
-      });
-
       item.addEventListener('dragover', e => {
         e.preventDefault();
-        const afterElement = getDragAfterElement(container, e.clientY);
-        if (afterElement == null) {
-          container.appendChild(draggedItem);
-        } else {
-          container.insertBefore(draggedItem, afterElement);
-        }
+        const afterElement = [...container.querySelectorAll('.question-editor:not(.dragging)')].reduce((closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = e.clientY - box.top - box.height / 2;
+          return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        if (!afterElement) container.appendChild(draggedItem);
+        else container.insertBefore(draggedItem, afterElement);
       });
     });
   }
 
-  function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.question-editor:not(.dragging)')];
-
-    return draggableElements.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      } else {
-        return closest;
-      }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  function openSurveyData(id) {
+    window.open(`https://wangzhrm.github.io/uestc/questionnaire-data.html?survey=${id}`, '_blank');
   }
 
-  // ===== ADD NEW QUESTION =====
-  function addNewQuestion() {
-    const container = document.getElementById('questions-container');
-    const newId = 'new_' + Date.now();
-    const html = buildQuestionEditor(null, true);
-    container.insertAdjacentHTML('beforeend', html);
-    setupTypeChangeListeners(container);
-    initDragAndDrop(); // Rebind drag events
+  function escapeHtml(text) {
+    return text ? String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
   }
 
-  // ===== MARK FOR DELETION =====
-  function markQuestionForDeletion(id) {
-    if (id.startsWith('new_')) {
-      // Remove immediately if new
-      document.querySelector(`.question-editor[data-id="${id}"]`).remove();
-      return;
-    }
-
-    // Mark in memory
-    const idx = questionEditors.findIndex(q => q.id === id);
-    if (idx >= 0) {
-      questionEditors[idx].deleted = true;
-    }
-    // Hide visually
-    const el = document.querySelector(`.question-editor[data-id="${id}"]`);
-    if (el) el.style.opacity = '0.5';
-  }
-
-  // ===== SAVE ENTIRE SURVEY =====
-  async function saveEntireSurvey() {
-    if (!currentSurvey) { alert('No survey loaded'); return; }
-    const newTitle = document.getElementById('survey-title').value?.trim();
-    if (!newTitle) { alert('Survey title is required'); return; }
-
-    try {
-      // Step 1: Update title
-      currentSurvey.set('title', newTitle);
-      await currentSurvey.save();
-
-      // Step 2: Collect all current editors
-      const allEditors = Array.from(document.querySelectorAll('#questions-container .question-editor'));
-      const updatedQuestions = [];
-
-      // Assign new order based on DOM position
-      allEditors.forEach((el, index) => {
-        const id = el.dataset.id;
-        const key = el.querySelector('.q-key').value?.trim();
-        const text = el.querySelector('.q-text').value?.trim();
-        const type = el.querySelector('.q-type').value;
-        let options = [];
-        if (['radio','checkbox','select','scale'].includes(type)) {
-          options = Array.from(el.querySelectorAll('.options-list input'))
-            .map(inp => inp.value.trim())
-            .filter(v => v);
-        }
-
-        if (!key || !text) {
-          throw new Error(`Question ${index + 1} is missing key or text.`);
-        }
-
-        updatedQuestions.push({ id, key, text, type, options, order: index });
-      });
-
-      // Step 3: Handle deletions
-      const idsInDOM = new Set(updatedQuestions.map(q => q.id));
-      const toDelete = questionEditors.filter(q => q.id && !q.id.startsWith('new_') && !idsInDOM.has(q.id));
-      // Also include those explicitly marked deleted
-      questionEditors.forEach(q => {
-        if (q.deleted && !q.id.startsWith('new_')) {
-          toDelete.push(q);
-        }
-      });
-
-      // Delete marked questions
-      if (toDelete.length > 0) {
-        const objsToDelete = toDelete.map(q => AV.Object.createWithoutData('Question', q.id));
-        await AV.Object.destroyAll(objsToDelete);
-      }
-
-      // Step 4: Save/update all questions
-      const promises = updatedQuestions.map(async (qData) => {
-        let obj;
-        if (qData.id.startsWith('new_')) {
-          const Question = AV.Object.extend('Question');
-          obj = new Question();
-          obj.set('questionnaire', currentSurvey);
-        } else {
-          obj = AV.Object.createWithoutData('Question', qData.id);
-        }
-        obj.set('key', qData.key);
-        obj.set('text', qData.text);
-        obj.set('type', qData.type);
-        obj.set('options', qData.options);
-        obj.set('order', qData.order);
-        await obj.save();
-      });
-
-      await Promise.all(promises);
-
-      alert('✅ Survey updated successfully!');
-      loadSurveys(); // Refresh sidebar
-    } catch (err) {
-      console.error('Save failed:', err);
-      alert('❌ Save failed: ' + (err.message || err.toString()));
-    }
-  }
-
-  // ===== CREATE NEW SURVEY =====
-  async function createNewSurvey() {
-    const title = prompt('Enter survey title:');
-    if (!title?.trim()) return;
-    try {
-      const Survey = AV.Object.extend('Questionnaire');
-      const survey = new Survey();
-      survey.set('title', title.trim());
-      const currentUser = AV.User.current();
-      survey.set('createdBy', currentUser);
-      await survey.save();
-      alert('✅ Survey created!');
-      loadSurveys();
-    } catch (err) {
-      alert('❌ Create failed: ' + (err.message || err));
-    }
-  }
-
-  // ===== OPEN DATA VIEWER =====
-  function openSurveyData(surveyId) {
-    const url = `https://wangzhrm.github.io/uestc/questionnaire-data.html?survey=${encodeURIComponent(surveyId)}`;
-    window.open(url, '_blank');
-  }
-
-  // ===== GLOBAL EXPOSURE =====
-  window.attemptLogin = attemptLogin;
-  window.loadSurveys = loadSurveys;
-  window.loadSurvey = loadSurvey;
-  window.createNewSurvey = createNewSurvey;
-  window.addNewQuestion = addNewQuestion;
-  window.addOptionToEditor = addOptionToEditor;
-  window.markQuestionForDeletion = markQuestionForDeletion;
-  window.saveEntireSurvey = saveEntireSurvey;
-  window.openSurveyData = openSurveyData;
-  window.deleteCurrentSurvey = deleteCurrentSurvey;
-
-  // ===== INIT =====
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('login-screen').style.display = 'block';
-    document.getElementById('admin-ui').style.display = 'none';
+    const user = AV.User.current();
+    if (user) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-ui').style.display = 'flex';
+      loadSurveys();
+    }
   });
 </script>
 
