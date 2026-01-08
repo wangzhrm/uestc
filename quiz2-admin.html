@@ -38,25 +38,16 @@
       border-radius: 6px;
       border: 1px solid #dee2e6;
     }
-    .option-label {
-      font-weight: bold;
-      margin-bottom: 6px;
-      font-size: 14px;
-      display: block;
-    }
-    .students-names {
-      font-size: 13px;
-      color: #495057;
-    }
+    .option-label { font-weight: bold; }
     canvas { margin-top: 20px; display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
     th { background-color: #f8f9fa; }
     tr.top3 { background-color: #fffde7; }
 
     #live-stats {
-      margin: 15px 0;
-      padding: 12px;
+      margin-bottom: 15px;
+      padding: 10px;
       background: #f0f8ff;
       border-radius: 6px;
       border: 1px solid #cce7ff;
@@ -68,7 +59,7 @@
 
 <div id="live-stats">
   <h3>👥 Live Answer Status</h3>
-  <p><strong>Current Question:</strong> <span id="current-q-display">Loading...</span></p>
+  <p><strong>Current Question:</strong> <span id="current-q-display">—</span></p>
   <p><strong>Students responded:</strong> <span id="response-count">0</span></p>
   <p><strong>Usernames:</strong> <span id="responded-users">—</span></p>
 </div>
@@ -77,12 +68,10 @@
   <h2>Teacher Control Panel</h2>
   <div id="quiz-display">Loading...</div>
 
-  <div>
-    <button onclick="startQuiz()">▶ Start Quiz</button>
-    <button onclick="showAnswer()">👁️ Show Answer & Stats</button>
-    <button onclick="nextQuestion()">⏭️ Next Question</button>
-    <button onclick="finishQuiz()">⏹️ Finish Quiz</button>
-  </div>
+  <button onclick="startQuiz()">▶ Start Quiz</button>
+  <button onclick="showAnswer()">👁️ Show Answer</button>
+  <button onclick="nextQuestion()">⏭️ Next Question</button>
+  <button onclick="finishQuiz()">⏹️ Finish Quiz</button>
 
   <canvas id="statsChart" width="700" height="350"></canvas>
   <div id="student-lists"></div>
@@ -90,170 +79,189 @@
 
 <div class="section">
   <h3>Import Questions from Excel</h3>
-  <p>Format: A = Question | B = Correct | C/D/E = Wrong</p>
-  <input type="file" id="excelFile" accept=".xlsx,.xls" />
+  <p>A = Question | B = Correct | C/D/E = Wrong</p>
+  <input type="file" id="excelFile" accept=".xlsx,.xls">
   <button onclick="importExcel()">Import to LeanCloud</button>
   <div id="import-status"></div>
 </div>
 
+<!-- ⚠️ DANGER ZONE -->
+<div class="section">
+  <h3>Danger Zone</h3>
+  <button onclick="clearAllData()" style="background:#dc3545;color:white;">
+    🗑️ Clear All Questions, Answers & Reset Quiz
+  </button>
+  <div id="clear-status"></div>
+</div>
+
 <script>
-  AV.init({
-    appId: "xYMCd0tsKLFbIFffaGAJ1i8b-gzGzoHsz",
-    appKey: "V047I9XiABOAH3zA0dw4ayo8",
-    serverURLs: "https://xymcd0tsklfbiffagaj1i8b.lc-cn-n1-shared.com"
-  });
+/* ================== INIT ================== */
+AV.init({
+  appId: "xYMCd0tsKLFbIFffaGAJ1i8b-gzGzoHsz",
+  appKey: "V047I9XiABOAH3zA0dw4ayo8",
+  serverURLs: "https://xymcd0tsklfbiffagaj1i8b.lc-cn-n1-shared.com"
+});
 
-  let chart = null;
-  const teacherShuffledCache = {};
+let chart = null;
+const teacherShuffledCache = {};
 
-  /* ==============================
-     SAFE EXCEL IMPORT (FIXED)
-     ============================== */
-  async function importExcel() {
-    const file = document.getElementById('excelFile').files[0];
-    if (!file) {
-      alert("Please select an Excel file.");
+/* =============== UTILITIES =============== */
+async function getNextOrder() {
+  const q = new AV.Query('Question');
+  q.descending('order');
+  q.limit(1);
+  const last = await q.first();
+  return last ? last.get('order') + 1 : 1;
+}
+
+/* =============== EXCEL IMPORT =============== */
+async function importExcel() {
+  const file = document.getElementById('excelFile').files[0];
+  if (!file) return alert("Select an Excel file.");
+
+  const status = document.getElementById('import-status');
+  status.innerText = "📥 Importing...";
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    let order = await getNextOrder();
+    const objects = [];
+
+    rows.forEach(row => {
+      if (!row || !row[0] || !row[1]) return;
+
+      const q = new AV.Object('Question');
+      q.set('text', String(row[0]).trim());
+      q.set('correct', String(row[1]).trim());
+      q.set('distractors',
+        [row[2], row[3], row[4]]
+          .filter(x => x)
+          .map(x => String(x).trim())
+      );
+      q.set('order', order++);
+      objects.push(q);
+    });
+
+    if (!objects.length) {
+      status.innerText = "⚠️ No valid questions.";
       return;
     }
 
-    const statusEl = document.getElementById('import-status');
-    statusEl.innerText = "📥 Importing... Please wait";
-
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-      let order = (await new AV.Query('Question').count()) + 1;
-      const objects = [];
-
-      rows.forEach((row, idx) => {
-        if (!row || !row[0] || !row[1]) return;
-
-        const questionText = String(row[0]).trim();
-        const correct = String(row[1]).trim();
-        if (!questionText || !correct) return;
-
-        const distractors = [row[2], row[3], row[4]]
-          .filter(x => x !== undefined && x !== null && String(x).trim() !== "")
-          .map(x => String(x).trim());
-
-        const q = new AV.Object('Question');
-        q.set('text', questionText);
-        q.set('correct', correct);
-        q.set('distractors', distractors);
-        q.set('order', order++);
-
-        objects.push(q);
-      });
-
-      if (objects.length === 0) {
-        statusEl.innerText = "⚠️ No valid questions found.";
-        return;
-      }
-
-      /* 🔥 BATCH SAVE (CRITICAL FIX) */
-      const batchSize = 50;
-      for (let i = 0; i < objects.length; i += batchSize) {
-        await AV.Object.saveAll(objects.slice(i, i + batchSize));
-      }
-
-      statusEl.innerText = `✅ Import successful! (${objects.length} questions)`;
-      loadQuizState();
-
-    } catch (err) {
-      console.error(err);
-      statusEl.innerHTML = `<span style="color:red;">❌ Import failed: ${err.message}</span>`;
-    }
-  }
-
-  /* ==============================
-     EVERYTHING BELOW IS UNCHANGED
-     ============================== */
-
-  async function fetchLiveStats() {
-    try {
-      const state = await new AV.Query('QuizState').first();
-      if (!state || state.get('status') !== 'question') {
-        document.getElementById('current-q-display').textContent = 'Not active';
-        document.getElementById('response-count').textContent = '0';
-        document.getElementById('responded-users').textContent = '—';
-        return;
-      }
-
-      const qIdx = state.get('currentQIndex');
-      document.getElementById('current-q-display').textContent = `Question #${qIdx + 1}`;
-
-      const answers = await new AV.Query('StudentAnswer')
-        .equalTo('qIndex', qIdx)
-        .select(['studentId'])
-        .find();
-
-      const users = [...new Set(answers.map(a => a.get('studentId')).filter(Boolean))];
-      document.getElementById('response-count').textContent = users.length;
-      document.getElementById('responded-users').textContent = users.join(', ') || '—';
-
-    } catch {
-      document.getElementById('responded-users').textContent = '⚠️ Error';
-    }
-  }
-
-  setInterval(fetchLiveStats, 3000);
-
-  function shuffleOptions(correct, distractors) {
-    return [correct, ...distractors].sort(() => Math.random() - 0.5);
-  }
-
-  async function loadQuizState() {
-    const state = await new AV.Query('QuizState').first();
-    if (!state) return;
-
-    const status = state.get('status');
-    const qIndex = state.get('currentQIndex');
-
-    if (status === 'waiting') {
-      document.getElementById('quiz-display').innerHTML = "<em>Quiz not started.</em>";
-      return;
+    for (let i = 0; i < objects.length; i += 50) {
+      await AV.Object.saveAll(objects.slice(i, i + 50));
     }
 
-    if (status === 'finished') {
-      const total = await new AV.Query('Question').count();
-      if (total > 0) await showFinalReport(total);
-      return;
-    }
-
-    const q = await new AV.Query('Question').equalTo('order', qIndex + 1).first();
-    if (!q) return;
-
-    const correct = q.get('correct');
-    const distractors = q.get('distractors') || [];
-
-    if (!teacherShuffledCache[qIndex]) {
-      teacherShuffledCache[qIndex] = shuffleOptions(correct, distractors);
-    }
-
-    const options = teacherShuffledCache[qIndex];
-    document.getElementById('quiz-display').innerHTML =
-      `<h3>${q.get('text')}</h3>` +
-      options.map((o, i) => `<div class="option">${['A','B','C','D'][i]}. ${o}</div>`).join('');
-  }
-
-  function startQuiz() { updateState('question', 0); }
-  function showAnswer() { updateState('revealed', 0); }
-  function nextQuestion() { updateState('question', 1); }
-  function finishQuiz() { updateState('finished', 0); }
-
-  async function updateState(status, delta) {
-    const s = await new AV.Query('QuizState').first();
-    if (!s) return;
-    s.set('status', status);
-    s.set('currentQIndex', Math.max(0, s.get('currentQIndex') + delta));
-    await s.save();
+    status.innerText = `✅ Imported ${objects.length} questions.`;
     loadQuizState();
+
+  } catch (err) {
+    console.error(err);
+    status.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
+  }
+}
+
+/* =============== DANGER ZONE =============== */
+async function clearAllData() {
+  if (!confirm("⚠️ This will DELETE all data.\nContinue?")) return;
+
+  const status = document.getElementById('clear-status');
+  status.innerText = "🧹 Clearing data...";
+
+  try {
+    for (const cls of ['Question', 'StudentAnswer']) {
+      let q;
+      do {
+        q = await new AV.Query(cls).limit(1000).find();
+        if (q.length) await AV.Object.destroyAll(q);
+      } while (q.length === 1000);
+    }
+
+    let state = await new AV.Query('QuizState').first();
+    if (!state) state = new AV.Object('QuizState');
+    state.set('status', 'waiting');
+    state.set('currentQIndex', 0);
+    await state.save();
+
+    Object.keys(teacherShuffledCache).forEach(k => delete teacherShuffledCache[k]);
+    if (chart) chart.destroy();
+
+    status.innerText = "✅ All data cleared.";
+    loadQuizState();
+
+  } catch (err) {
+    console.error(err);
+    status.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
+  }
+}
+
+/* =============== QUIZ CONTROL =============== */
+function startQuiz() { updateState('question', 0); }
+function showAnswer() { updateState('revealed', 0); }
+function nextQuestion() { updateState('question', 1); }
+function finishQuiz() { updateState('finished', 0); }
+
+async function updateState(status, delta) {
+  const s = await new AV.Query('QuizState').first();
+  if (!s) return;
+  s.set('status', status);
+  s.set('currentQIndex', Math.max(0, s.get('currentQIndex') + delta));
+  await s.save();
+  loadQuizState();
+}
+
+/* =============== LOAD STATE =============== */
+async function loadQuizState() {
+  const state = await new AV.Query('QuizState').first();
+  if (!state) return;
+
+  if (state.get('status') === 'waiting') {
+    document.getElementById('quiz-display').innerHTML = "<em>Quiz not started.</em>";
+    return;
   }
 
-  loadQuizState();
+  if (state.get('status') === 'finished') {
+    document.getElementById('quiz-display').innerHTML = "<h3>Quiz finished.</h3>";
+    return;
+  }
+
+  const idx = state.get('currentQIndex');
+  const q = await new AV.Query('Question').equalTo('order', idx + 1).first();
+  if (!q) return;
+
+  const options = teacherShuffledCache[idx] ||
+    (teacherShuffledCache[idx] = [q.get('correct'), ...(q.get('distractors') || [])]
+      .sort(() => Math.random() - 0.5));
+
+  document.getElementById('quiz-display').innerHTML =
+    `<h3>${q.get('text')}</h3>` +
+    options.map((o, i) =>
+      `<div class="option">${['A','B','C','D'][i]}. ${o}</div>`
+    ).join('');
+}
+
+/* =============== LIVE STATS =============== */
+async function fetchLiveStats() {
+  const state = await new AV.Query('QuizState').first();
+  if (!state || state.get('status') !== 'question') return;
+
+  const qIdx = state.get('currentQIndex');
+  document.getElementById('current-q-display').innerText = qIdx + 1;
+
+  const answers = await new AV.Query('StudentAnswer')
+    .equalTo('qIndex', qIdx)
+    .find();
+
+  const users = [...new Set(answers.map(a => a.get('studentId')))];
+  document.getElementById('response-count').innerText = users.length;
+  document.getElementById('responded-users').innerText = users.join(', ') || '—';
+}
+
+setInterval(fetchLiveStats, 3000);
+loadQuizState();
 </script>
 
 </body>
