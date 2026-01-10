@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AST Student - Secure Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <script>window.MathJax = { tex: { inlineMath: [['$', '$']] } };</script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root { --primary: #1890ff; --success: #52c41a; --danger: #ff4d4f; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #f9f9f9; color: #333; }
+        
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f0f2f5; z-index: 5000;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 320px; text-align: center; }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        
+        #app-wrapper { display: none; max-width: 900px; margin: auto; padding: 20px; flex-direction: column; }
+
+        .filter-panel { display: flex; gap: 15px; background: #fff; padding: 20px; border: 1px solid #eee; margin-bottom: 20px; border-radius: 8px; }
+        .filter-group { flex: 1; }
+        .filter-group strong { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
+        .filter-select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+        
+        .q-card { border: 1px solid #eee; padding: 25px; margin-bottom: 25px; border-radius: 12px; background: white; page-break-inside: avoid; }
+        .year-tag { color: var(--primary); font-weight: bold; margin-right: 8px; }
+        
+        /* SOLUTION STYLING */
+        .sol-box { 
+            margin-top: 20px; 
+            padding: 20px; 
+            background-color: #f6ffed; 
+            border: 1px solid #b7eb8f; 
+            border-radius: 8px;
+            display: none; /* Hidden by default */
+        }
+        
+        /* When 'show-sol' class is added to body */
+        .show-sol .sol-box { display: block !important; visibility: visible !important; }
+
+        .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+        .primary-btn { padding: 12px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .print-btn { background: #52c41a; }
+        
+        .toggle-label { background: #fff; padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+
+        /* PRINT OVERRIDES */
+        @media print {
+            #login-overlay, .filter-panel, .controls, .logout-btn, h1 { display: none !important; }
+            body { background: white; }
+            #app-wrapper { max-width: 100%; padding: 0; }
+            .q-card { border: none; border-bottom: 1px solid #eee; box-shadow: none; margin-bottom: 30px; }
+            
+            /* Logic for reserving space */
+            .sol-box { 
+                display: block !important; /* Forces block to exist in DOM for spacing */
+                visibility: hidden;      /* Hides content but keeps dimensions */
+                background: none !important;
+                border: 1px dashed #ccc !important; /* Visual guide for student workspace */
+            }
+            .show-sol .sol-box { 
+                visibility: visible !important; 
+                border: 1px solid #b7eb8f !important;
+                background-color: #f6ffed !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-overlay">
+        <div class="login-card">
+            <h2 style="color: var(--primary); margin-top:0;">AST Student Portal</h2>
+            <input type="text" id="userInput" placeholder="Username">
+            <input type="password" id="passInput" placeholder="Password">
+            <button onclick="attemptLogin()" class="primary-btn" id="loginBtn">Login</button>
+            <p id="loginMsg" style="color: var(--danger); margin-top: 15px; font-size: 13px;"></p>
+        </div>
+    </div>
+
+    <div id="app-wrapper">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h1>Question Bank</h1>
+            <button class="primary-btn logout-btn" style="background:#ff4d4f; width:auto;" onclick="location.reload()">Logout</button>
+        </div>
+
+        <div class="filter-panel" id="filterPanel">Loading filters...</div>
+        
+        <div class="controls">
+            <button onclick="loadQuestions()" class="primary-btn">Apply Filters</button>
+            <button onclick="window.print()" class="primary-btn print-btn">Print to PDF</button>
+            
+            <label class="toggle-label">
+                <input type="checkbox" onchange="document.body.classList.toggle('show-sol')"> 
+                <span>Include Solutions</span>
+            </label>
+        </div>
+
+        <div id="questionList"></div>
+    </div>
+
+<script>
+    AV.init({ 
+        appId: "XjQ3V5jxCqhiZfjZf0JFLNiN-gzGzoHsz", 
+        appKey: "LJwsKB85okDVlJODxvQTBdrX", 
+        serverURL: "https://xjq3v5jx.lc-cn-n1-shared.com" 
+    });
+
+    async function attemptLogin() {
+        const u = document.getElementById('userInput').value;
+        const p = document.getElementById('passInput').value;
+        try {
+            const query = new AV.Query('Student');
+            query.equalTo('username', u);
+            query.equalTo('password', p);
+            const result = await query.first();
+            if (result) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('app-wrapper').style.display = 'flex';
+                await loadFilters();
+                loadQuestions();
+            } else { alert("Login failed."); }
+        } catch (err) { alert(err.message); }
+    }
+
+    async function loadFilters() {
+        const results = await new AV.Query('Category').limit(1000).find();
+        const panel = document.getElementById('filterPanel');
+        panel.innerHTML = "";
+        const roots = results.filter(c => !c.get('parent'));
+        roots.forEach(root => {
+            const div = document.createElement('div');
+            div.className = 'filter-group';
+            div.innerHTML = `<strong>${root.get('name')}</strong>`;
+            const sel = document.createElement('select');
+            sel.className = "filter-select";
+            sel.innerHTML = `<option value="">All</option>`;
+            results.filter(c => c.get('parent')?.id === root.id).forEach(child => {
+                sel.innerHTML += `<option value="${child.id}">${child.get('name')}</option>`;
+            });
+            div.appendChild(sel);
+            panel.appendChild(div);
+        });
+    }
+
+    async function loadQuestions() {
+        const container = document.getElementById('questionList');
+        container.innerHTML = "<p>Loading...</p>";
+        const query = new AV.Query('MathQuestion');
+        query.include('categories');
+        query.limit(100);
+
+        const selectedIds = Array.from(document.querySelectorAll('.filter-select'))
+            .map(s => s.value).filter(v => v !== "");
+        if (selectedIds.length > 0) {
+            query.containsAll('categories', selectedIds.map(id => AV.Object.createWithoutData('Category', id)));
+        }
+
+        const results = await query.find();
+        container.innerHTML = "";
+        
+        results.forEach((q, i) => {
+            const catNames = (q.get('categories') || []).map(c => c.get('name') || "");
+            const isPractice = catNames.some(n => n.toLowerCase().includes('practice'));
+            const year = catNames.find(n => n.match(/^\d{4}$/));
+            const yearPrefix = (!isPractice && year) ? `<span class="year-tag">[${year}]</span>` : "";
+
+            const card = document.createElement('div');
+            card.className = "q-card";
+            card.innerHTML = `
+                <div>${yearPrefix}<strong>Question ${i+1}</strong></div>
+                <div style="margin-top:10px;">${q.get('latexQuestion')}</div>
+                <div class="sol-box">
+                    <strong>Solution:</strong><br>
+                    ${q.get('latexSolution')}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        MathJax.typesetPromise();
+    }
+</script>
+</body>
+</html>
