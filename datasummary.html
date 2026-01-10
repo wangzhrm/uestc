@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Survey Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { border-collapse: collapse; width: 300px; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; }
+        .list { margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h2>Survey Results</h2>
+    
+    <div class="list">
+        <h3>Total Students: <span id="totalCount">0</span></h3>
+        <p><strong>Names:</strong> <span id="nameList">Loading...</span></p>
+    </div>
+
+    <h3>Sleep before 11 PM</h3>
+    <table>
+        <tr>
+            <td></td>
+            <td><strong>Yes</strong></td>
+            <td><strong>No</strong></td>
+        </tr>
+        <tr>
+            <td><strong>Male</strong></td>
+            <td id="m_yes">0</td>
+            <td id="m_no">0</td>
+        </tr>
+        <tr>
+            <td><strong>Female</strong></td>
+            <td id="f_yes">0</td>
+            <td id="f_no">0</td>
+        </tr>
+    </table>
+
+    <script>
+        AV.init({
+            appId: "HRK0rrgCVXZzGOL5cXC3utHJ-gzGzoHsz",
+            appKey: "0Om1c2ihtwuyN3XGVVnhRui2",
+            serverURL: "https://hrk0rrgc.lc-cn-n1-shared.com"
+        });
+
+        async function fetchData() {
+            const query = new AV.Query('StudentData');
+            try {
+                const results = await query.find();
+                
+                let names = [];
+                let counts = {
+                    "Male_Yes": 0, "Male_No": 0,
+                    "Female_Yes": 0, "Female_No": 0
+                };
+
+                results.forEach(student => {
+                    const data = student.attributes;
+                    names.push(data.name);
+                    
+                    const key = `${data.gender}_${data.sleepBefore11}`;
+                    if (counts.hasOwnProperty(key)) {
+                        counts[key]++;
+                    }
+                });
+
+                // Update UI
+                document.getElementById('totalCount').innerText = results.length;
+                document.getElementById('nameList').innerText = names.join(", ");
+                document.getElementById('m_yes').innerText = counts.Male_Yes;
+                document.getElementById('m_no').innerText = counts.Male_No;
+                document.getElementById('f_yes').innerText = counts.Female_Yes;
+                document.getElementById('f_no').innerText = counts.Female_No;
+
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Survey</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+        .question { margin-bottom: 20px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <h2>Student Information Survey</h2>
+    <div class="question">
+        <label>Name:</label><br>
+        <input type="text" id="studentName" required>
+    </div>
+
+    <div class="question">
+        <p>1. What is your gender?</p>
+        <input type="radio" name="gender" value="Male" id="m"> <label for="m">A: Male</label><br>
+        <input type="radio" name="gender" value="Female" id="f"> <label for="f">B: Female</label>
+    </div>
+
+    <div class="question">
+        <p>2. Do you usually sleep before 11 PM?</p>
+        <input type="radio" name="sleep" value="Yes" id="y"> <label for="y">A: Yes</label><br>
+        <input type="radio" name="sleep" value="No" id="n"> <label for="n">B: No</label>
+    </div>
+
+    <button onclick="submitData()">Submit</button>
+
+    <script>
+        // Initialize LeanCloud
+        AV.init({
+            appId: "HRK0rrgCVXZzGOL5cXC3utHJ-gzGzoHsz",
+            appKey: "0Om1c2ihtwuyN3XGVVnhRui2",
+            serverURL: "https://hrk0rrgc.lc-cn-n1-shared.com"
+        });
+
+        async function submitData() {
+            const name = document.getElementById('studentName').value;
+            const gender = document.querySelector('input[name="gender"]:checked')?.value;
+            const sleep = document.querySelector('input[name="sleep"]:checked')?.value;
+
+            if (!name || !gender || !sleep) {
+                alert("Please fill in all fields!");
+                return;
+            }
+
+            const StudentData = AV.Object.extend('StudentData');
+            const survey = new StudentData();
+            
+            survey.set('name', name);
+            survey.set('gender', gender);
+            survey.set('sleepBefore11', sleep);
+
+            try {
+                await survey.save();
+                alert("Data submitted successfully!");
+                location.reload(); 
+            } catch (error) {
+                console.error(error);
+                alert("Error submitting data.");
+            }
+        }
+    </script>
+</body>
+</html>
