@@ -10,8 +10,6 @@
                 inlineMath: [['$', '$'], ['\\(', '\\)']],
                 displayMath: [['$$', '$$'], ['\\[', '\\]']]
             },
-            // FIX: Force MathJax to use the surrounding font (Arial) 
-            // instead of its default TeX font
             chtml: {
                 displayAlign: 'left',
                 fontURL: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2'
@@ -26,22 +24,22 @@
     <style>
         :root { --primary: #1890ff; --success: #52c41a; --danger: #ff4d4f; }
         
-        /* 1. Set global font to Arial */
         body { font-family: 'Arial', sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
         
-        /* 2. Force MathJax components to inherit Arial */
+        /* Force MathJax components to inherit Arial */
         .math-container mjx-container {
             font-family: 'Arial', sans-serif !important;
-            font-size: 105% !important; /* Arial math sometimes looks smaller, so we bump it slightly */
+            font-size: 105% !important; 
         }
 
-        /* 3. Style for question and solution text blocks */
+        /* FIX: white-space: pre-wrap ensures line breaks from the DB are respected */
         .q-body, .s-content {
             font-family: 'Arial', sans-serif !important;
-            line-height: 1.6;
+            line-height: 1.8;
+            white-space: pre-wrap; 
+            word-wrap: break-word;
         }
 
-        /* --- UI STYLING --- */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #f0f2f5; z-index: 5000;
@@ -147,7 +145,7 @@
             div.innerHTML = `<strong>${root.get('name')}</strong>`;
             const sel = document.createElement('select');
             sel.className = "filter-select";
-            sel.innerHTML = `<option value="">All</option>`;
+            sel.innerHTML = `<option value="">All ${root.get('name')}</option>`;
             results.filter(c => c.get('parent')?.id === root.id).forEach(child => {
                 sel.innerHTML += `<option value="${child.id}">${child.get('name')}</option>`;
             });
@@ -181,16 +179,22 @@
                 const year = catNames.find(n => n.match(/^\d{4}$/));
                 const yearPrefix = (!isPractice && year) ? `<span class="year-tag">[${year}]</span>` : "";
 
+                // FIX: Replace newline characters with <br> tags so HTML shows multiple rows
+                const rawQ = q.get('latexQuestion') || "";
+                const rawS = q.get('latexSolution') || "";
+                const formattedQuestion = rawQ.replace(/\n/g, '<br>');
+                const formattedSolution = rawS.replace(/\n/g, '<br>');
+
                 const card = document.createElement('div');
                 card.className = "q-card";
                 card.innerHTML = `
                     <div style="margin-bottom:15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px;">
                         ${yearPrefix} <strong>Question ${i+1}</strong>
                     </div>
-                    <div class="q-body">${q.get('latexQuestion')}</div>
+                    <div class="q-body">${formattedQuestion}</div>
                     <div class="sol-box">
                         <strong style="color:var(--success)">Solution</strong>
-                        <div class="s-content" style="margin-top:10px;">${q.get('latexSolution')}</div>
+                        <div class="s-content" style="margin-top:10px;">${formattedSolution}</div>
                     </div>
                 `;
                 container.appendChild(card);
