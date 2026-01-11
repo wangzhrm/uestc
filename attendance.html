@@ -12,39 +12,41 @@
         
         .container { max-width: 100%; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
-        /* Fixed Cycle Summary Card */
+        /* Auto-Summary Card */
         .auto-summary { 
             background: linear-gradient(135deg, #2193b0, #6dd5ed); 
             color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; 
         }
         .auto-summary h4 { margin: 0 0 5px 0; text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.5px; opacity: 0.9; }
         .summary-val { font-size: 1.6em; font-weight: bold; }
-        .summary-dates { font-size: 0.8em; opacity: 0.85; margin-top: 4px; }
+        .summary-dates { font-size: 0.75em; opacity: 0.85; margin-top: 4px; }
 
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .nav-btn { padding: 10px 18px; background: #eee; border: none; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; }
+        .nav-btn { padding: 8px 15px; background: #eee; border: none; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; }
         h2 { margin: 0; font-size: 1.1em; text-align: center; color: #2c3e50; flex: 1; }
 
+        /* Grid Setup */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .weekday-label { text-align: center; font-weight: bold; padding: 5px 0; color: #999; font-size: 0.7em; text-transform: uppercase; }
+        .weekday-label { text-align: center; font-weight: bold; padding: 5px 0; color: #999; font-size: 0.7em; }
         
         .day-cell { 
-            min-height: 65px; border: 1px solid var(--border); border-radius: 6px; 
-            padding: 5px; cursor: pointer; background: #fff; position: relative;
-            display: flex; flex-direction: column; align-items: center;
+            aspect-ratio: 1 / 1.2; border: 1px solid var(--border); border-radius: 6px; 
+            padding: 4px; cursor: pointer; background: #fff; position: relative;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .day-cell.empty { background: transparent; border: none; pointer-events: none; }
         .day-number { font-weight: bold; font-size: 1em; }
         
+        /* Present State - Clean "P" Label */
         .present { background-color: #90ee90 !important; border-color: #27ae60 !important; }
-        .status-p { font-size: 0.65em; color: #27ae60; font-weight: bold; margin-top: 5px; }
+        .status-p { font-size: 0.85em; color: #27ae60; font-weight: 900; margin-top: 2px; }
 
         .tool-section { margin-top: 25px; padding: 15px; background: #fafafa; border-radius: 10px; border: 1px solid #eee; }
         .input-row { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
         input[type="date"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
         button.calc-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         
-        #loading { color: var(--accent); text-align: center; font-size: 0.8em; margin-bottom: 5px; min-height: 1em; }
+        #loading { color: var(--accent); text-align: center; font-size: 0.8em; min-height: 1.2em; }
 
         @media (min-width: 600px) {
             .container { padding: 25px; max-width: 600px; }
@@ -57,8 +59,8 @@
 <div class="container">
     <div class="auto-summary">
         <h4>Cycle Attendance</h4>
-        <div class="summary-val" id="cycleCount">Counting...</div>
-        <div class="summary-dates" id="cycleDates">---</div>
+        <div class="summary-val" id="cycleCount">--</div>
+        <div class="summary-dates" id="cycleDates">Calculating...</div>
     </div>
 
     <header>
@@ -77,11 +79,11 @@
     </div>
 
     <div class="tool-section">
-        <h3>Custom Range Search</h3>
+        <h3>Custom Range</h3>
         <div class="input-row">
             <input type="date" id="startDate">
             <input type="date" id="endDate">
-            <button class="calc-btn" onclick="calculateRange()">Count Presents</button>
+            <button class="calc-btn" onclick="calculateRange()">Count</button>
         </div>
         <div id="countResult" style="margin-top:10px; font-weight:bold; color:var(--primary);"></div>
     </div>
@@ -97,21 +99,19 @@
     const Attendance = AV.Object.extend('Attendance');
     let currentViewDate = new Date();
 
-    // FIXED LOGIC FOR 16th (Month-2) to 15th (Month-1)
+    // 16th (Month-2) to 15th (Month-1) Logic
     async function loadSpecialCycle() {
         const today = new Date();
         const y = today.getFullYear();
-        const m = today.getMonth(); // Jan is 0
+        const m = today.getMonth(); 
 
-        // Start: 16th of the month before previous month
         const startDate = new Date(y, m - 2, 16);
-        // End: 15th of the previous month
         const endDate = new Date(y, m - 1, 15);
 
         const startStr = formatDate(startDate);
         const endStr = formatDate(endDate);
 
-        document.getElementById('cycleDates').innerText = `${startStr} to ${endStr}`;
+        document.getElementById('cycleDates').innerText = `Period: ${startStr} to ${endStr}`;
 
         try {
             const query = new AV.Query('Attendance');
@@ -156,9 +156,7 @@
             results.forEach(r => dataMap[r.get('date')] = { id: r.id, status: r.get('status') });
 
             for (let i = 0; i < firstDay; i++) {
-                const div = document.createElement('div');
-                div.className = 'day-cell empty';
-                grid.appendChild(div);
+                grid.appendChild(Object.assign(document.createElement('div'), {className: 'day-cell empty'}));
             }
 
             for (let d = 1; d <= daysInMonth; d++) {
@@ -170,7 +168,7 @@
                 const updateUI = (status) => {
                     cell.classList.toggle('present', status === 'present');
                     cell.innerHTML = `<span class="day-number">${d}</span>` + 
-                                     (status === 'present' ? '<span class="status-p">PRESENT</span>' : '');
+                                     (status === 'present' ? '<span class="status-p">P</span>' : '');
                 };
                 
                 updateUI(record.status);
@@ -187,8 +185,8 @@
                         const saved = await obj.save();
                         record.id = saved.id;
                         record.status = newStatus;
-                        loadSpecialCycle(); // Update top counter immediately
-                    } catch(e) { alert("Failed to save"); renderMonth(); }
+                        loadSpecialCycle(); 
+                    } catch(e) { renderMonth(); }
                 };
                 grid.appendChild(cell);
             }
@@ -208,7 +206,7 @@
         const query = new AV.Query('Attendance');
         query.greaterThanOrEqualTo('date', start).lessThanOrEqualTo('date', end).equalTo('status', 'present');
         const count = await query.count();
-        document.getElementById('countResult').innerText = `Total: ${count} Presents`;
+        document.getElementById('countResult').innerText = `Total: ${count}`;
     }
 
     renderMonth();
