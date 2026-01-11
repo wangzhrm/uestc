@@ -36,7 +36,7 @@
             position: fixed; left: 0; top: 0; width: 30px; height: 100%;
             background: #444; color: white; cursor: pointer; z-index: 1001;
             display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl;
-            font-size: 12px; letter-spacing: 2px; transition: left 0.3s ease;
+            font-size: 11px; letter-spacing: 2px; transition: left 0.3s ease;
         }
         #drawer.open + #toggle-bar { left: var(--sidebar-w); }
 
@@ -48,7 +48,6 @@
         textarea, .url-input { width: 100%; margin: 10px 0; border: 1px solid #d9d9d9; padding: 10px; border-radius: 4px; box-sizing: border-box; }
         textarea { height: 120px; font-family: monospace; }
         
-        /* Layout for Question Preview with Diagram */
         .preview-container { display: flex; gap: 15px; align-items: flex-start; min-height: 50px; padding: 15px; border: 1px dashed #ccc; border-radius: 4px; margin-bottom: 20px; }
         .preview-text { flex: 1; line-height: 1.6; white-space: pre-wrap; }
         .preview-diagram { width: 200px; border-left: 1px solid #eee; padding-left: 15px; display: none; }
@@ -59,9 +58,30 @@
         
         .tag { background: #e6f7ff; color: #1890ff; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 10px; border: 1px solid #91d5ff; }
         .q-list-item { padding: 12px; border: 1px solid #eee; margin-bottom: 10px; border-radius: 6px; font-size: 12px; }
-        button { cursor: pointer; border-radius: 4px; border: none; font-weight: bold; padding: 8px 12px; }
-        .primary-btn { background: var(--primary); color: white; width: 100%; }
-        .save-btn { background: var(--success); color: white; width: 100%; margin-top: 10px; position: sticky; bottom: 0; }
+        
+        button { cursor: pointer; border-radius: 4px; border: none; font-weight: 600; font-size: 13px; transition: opacity 0.2s; }
+        button:hover { opacity: 0.85; }
+        
+        .primary-btn { background: var(--primary); color: white; width: 100%; padding: 10px; }
+        .save-btn { background: var(--success); color: white; width: 100%; padding: 12px; margin-top: 10px; position: sticky; bottom: 0; font-size: 15px; }
+        
+        .btn-action-group { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
+        .btn-edit { background: var(--primary); color: white; }
+        .btn-remove { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+        .btn-remove:hover { background: var(--danger); color: white; }
+
+        /* Difficult Toggle Styles */
+        .header-row { display: flex; align-items: center; gap: 10px; }
+        .diff-indicator { 
+            width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ccc; 
+            cursor: pointer; display: inline-block; transition: all 0.2s;
+        }
+        .diff-indicator.active { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 5px rgba(255,77,79,0.5); }
+        
+        .filter-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+        .filter-btn { flex: 1; padding: 6px; font-size: 11px; background: #eee; color: #666; }
+        .filter-btn.active { background: #444; color: white; }
     </style>
 </head>
 <body>
@@ -80,7 +100,7 @@
         <h3>Categories</h3>
         <input type="text" id="newCatName" placeholder="New Category...">
         <select id="targetParent" style="width:100%; margin: 10px 0;"><option value="">New Root</option></select>
-        <button onclick="addCategory()" class="primary-btn">Add</button>
+        <button onclick="addCategory()" class="primary-btn">Add Category</button>
         <div id="categoryTree" style="overflow-y: auto; flex: 1; margin-top:10px;"></div>
     </div>
 
@@ -92,7 +112,11 @@
                 <h2 id="editor-title" style="margin-top:0;">Question Editor</h2>
                 <input type="hidden" id="editingId" value="">
                 
-                <strong>Question LaTeX</strong>
+                <div class="header-row">
+                    <strong>Question LaTeX</strong>
+                    <div id="diffToggle" class="diff-indicator" title="Mark as Difficult" onclick="this.classList.toggle('active')"></div>
+                    <span style="font-size: 12px; color: #999;">Mark as Difficult</span>
+                </div>
                 <textarea id="qInput" oninput="updatePreviews()"></textarea>
                 
                 <strong>Diagram Image URL (Optional)</strong>
@@ -115,11 +139,14 @@
             <h3>Categorization</h3>
             <div id="editorHierarchies"></div>
             <button class="save-btn" onclick="submitQuestion()">SAVE QUESTION</button>
-            <button id="cancelEdit" style="display:none; margin-top:5px; width:100%;" onclick="resetEditor(true)">Cancel Edit</button>
+            <button id="cancelEdit" style="display:none; margin-top:10px; width:100%; padding: 8px; background: #8c8c8c; color: white;" onclick="resetEditor(true)">Cancel Edit</button>
 
             <h3 style="margin-top:20px;">Manager</h3>
-            <input type="text" id="qSearch" placeholder="Search..." oninput="fetchQuestions()" class="url-input">
-            <div id="dynamicFilters"></div>
+            <div class="filter-bar">
+                <button id="filterAll" class="filter-btn active" onclick="setFilter(false)">All Questions</button>
+                <button id="filterDiff" class="filter-btn" onclick="setFilter(true)">Difficult Only</button>
+            </div>
+            <input type="text" id="qSearch" placeholder="Search questions..." oninput="fetchQuestions()" class="url-input">
             <div id="existingQuestionsList"></div>
         </div>
     </div>
@@ -130,6 +157,7 @@
     const Category = AV.Object.extend('Category');
     const MathQuestion = AV.Object.extend('MathQuestion');
     let categoryMap = {};
+    let showOnlyDifficult = false;
 
     async function attemptLogin() {
         const u = document.getElementById('userInput').value;
@@ -146,16 +174,21 @@
 
     function toggleDrawer() { document.getElementById('drawer').classList.toggle('open'); }
 
+    function setFilter(isDiff) {
+        showOnlyDifficult = isDiff;
+        document.getElementById('filterAll').classList.toggle('active', !isDiff);
+        document.getElementById('filterDiff').classList.toggle('active', isDiff);
+        fetchQuestions();
+    }
+
     function updatePreviews() {
         const qVal = document.getElementById('qInput').value;
         const sVal = document.getElementById('sInput').value;
         const url = document.getElementById('diagUrl').value.trim();
 
-        // Update Text
         document.getElementById('qText').innerHTML = qVal.replace(/\n/g, '<br>') || "Question Preview";
         document.getElementById('sText').innerHTML = sVal.replace(/\n/g, '<br>') || "Solution Preview";
 
-        // Update Diagram
         const diagDiv = document.getElementById('qDiag');
         if (url) {
             diagDiv.innerHTML = `<img src="${url}" alt="Diagram">`;
@@ -173,16 +206,17 @@
         let catIds = [];
         selects.forEach(s => catIds = catIds.concat(Array.from(s.selectedOptions).map(o => o.value)));
         
-        if (catIds.length === 0) return alert("Select a category");
+        if (catIds.length === 0) return alert("Select at least one category");
 
         const mq = qId ? AV.Object.createWithoutData('MathQuestion', qId) : new MathQuestion();
         mq.set('latexQuestion', document.getElementById('qInput').value);
         mq.set('latexSolution', document.getElementById('sInput').value);
         mq.set('diagramUrl', document.getElementById('diagUrl').value.trim());
+        mq.set('isDifficult', document.getElementById('diffToggle').classList.contains('active'));
         mq.set('categories', catIds.map(id => AV.Object.createWithoutData('Category', id)));
         
         await mq.save();
-        alert("Saved!"); resetEditor(false); fetchQuestions();
+        alert("Success!"); resetEditor(false); fetchQuestions();
     }
 
     async function editQuestion(id) {
@@ -193,6 +227,12 @@
         document.getElementById('diagUrl').value = q.get('diagramUrl') || "";
         document.getElementById('cancelEdit').style.display = "block";
         
+        if(q.get('isDifficult')) {
+            document.getElementById('diffToggle').classList.add('active');
+        } else {
+            document.getElementById('diffToggle').classList.remove('active');
+        }
+        
         const selectedIds = (q.get('categories') || []).map(c => c.id);
         document.querySelectorAll('.question-cat-select').forEach(sel => {
             Array.from(sel.options).forEach(opt => opt.selected = selectedIds.includes(opt.value));
@@ -200,11 +240,23 @@
         updatePreviews();
     }
 
+    async function deleteQuestion(id) {
+        if (confirm("Delete this question permanently?")) {
+            try {
+                const q = AV.Object.createWithoutData('MathQuestion', id);
+                await q.destroy();
+                if (document.getElementById('editingId').value === id) resetEditor(true);
+                fetchQuestions();
+            } catch (err) { alert("Delete failed: " + err.message); }
+        }
+    }
+
     function resetEditor(force) {
         document.getElementById('editingId').value = "";
         document.getElementById('qInput').value = "";
         document.getElementById('sInput').value = "";
         document.getElementById('diagUrl').value = "";
+        document.getElementById('diffToggle').classList.remove('active');
         document.getElementById('cancelEdit').style.display = "none";
         if(force) {
             document.querySelectorAll('.question-cat-select').forEach(s => s.selectedIndex = -1);
@@ -215,43 +267,58 @@
     async function fetchQuestions() {
         const search = document.getElementById('qSearch').value;
         const query = new AV.Query('MathQuestion');
-        query.limit(30); query.descending('createdAt'); query.include('categories');
+        query.limit(40); query.descending('createdAt'); query.include('categories');
+        
         if(search) query.contains('latexQuestion', search);
+        if(showOnlyDifficult) query.equalTo('isDifficult', true);
         
         const results = await query.find();
         const container = document.getElementById('existingQuestionsList');
         container.innerHTML = "";
         results.forEach(q => {
-            const tags = (q.get('categories') || []).map(c => `<span class="tag">${categoryMap[c.id] || ''}</span>`).join('');
+            const isDiff = q.get('isDifficult');
+            const tags = (q.get('categories') || []).map(c => `<span class="tag">${categoryMap[c.id] || '...'}</span>`).join('');
             const div = document.createElement('div');
             div.className = 'q-list-item';
-            div.innerHTML = `<div>${tags}</div><div style="color:#666; margin:5px 0;">${(q.get('latexQuestion') || '').substring(0,40)}...</div>
-                             <button onclick="editQuestion('${q.id}')">Edit</button>`;
+            div.style.borderLeft = isDiff ? "4px solid var(--danger)" : "1px solid #eee";
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;">
+                    <div>${tags}</div>
+                    ${isDiff ? '<span style="color:var(--danger); font-weight:bold; font-size:10px;">★ DIFF</span>' : ''}
+                </div>
+                <div style="color:#666; margin:5px 0; font-size:11px;">${(q.get('latexQuestion') || '').substring(0,60)}...</div>
+                <div class="btn-action-group">
+                    <button class="btn-sm btn-edit" onclick="editQuestion('${q.id}')">Edit</button>
+                    <button class="btn-sm btn-remove" onclick="deleteQuestion('${q.id}')">Remove</button>
+                </div>`;
             container.appendChild(div);
         });
     }
 
     async function renderApp() {
         const cats = await new AV.Query('Category').ascending('order').find();
-        const tree = document.getElementById('categoryTree');
         const editor = document.getElementById('editorHierarchies');
-        tree.innerHTML = ""; editor.innerHTML = "";
+        const targetParent = document.getElementById('targetParent');
+        editor.innerHTML = "";
+        targetParent.innerHTML = '<option value="">New Root</option>';
+        
         cats.forEach(c => categoryMap[c.id] = c.get('name'));
 
         const roots = cats.filter(c => !c.get('parent'));
         roots.forEach(root => {
             const children = cats.filter(c => c.get('parent')?.id === root.id);
             const box = document.createElement('div');
-            box.innerHTML = `<strong>${root.get('name')}</strong><br><select multiple class="question-cat-select" style="width:100%; height:80px;">
+            box.innerHTML = `<strong>${root.get('name')}</strong><br><select multiple class="question-cat-select" style="width:100%; height:85px; margin-top:5px; border-radius:4px; border:1px solid #ddd;">
                 ${children.map(ch => `<option value="${ch.id}">${ch.get('name')}</option>`).join('')}</select><br><br>`;
             editor.appendChild(box);
-            document.getElementById('targetParent').innerHTML += `<option value="${root.id}">${root.get('name')}</option>`;
+            targetParent.innerHTML += `<option value="${root.id}">${root.get('name')}</option>`;
         });
     }
 
     async function addCategory() {
         const n = document.getElementById('newCatName').value;
         const p = document.getElementById('targetParent').value;
+        if(!n) return alert("Enter category name");
         const c = new Category(); c.set('name', n);
         if(p) c.set('parent', AV.Object.createWithoutData('Category', p));
         await c.save(); location.reload();
