@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST Advanced Analytics & Charts</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #1890ff; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        h1 { text-align: center; color: var(--primary); margin-bottom: 25px; }
+
+        /* Filter Section */
+        .filter-panel { 
+            background: #fafafa; padding: 20px; border-radius: 8px; margin-bottom: 25px; 
+            border: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 8px; }
+        .filter-group label { font-weight: bold; font-size: 13px; color: #666; text-transform: uppercase; }
+        select { padding: 8px; border-radius: 4px; border: 1px solid #d9d9d9; min-width: 150px; }
+        .checkbox-group { display: flex; gap: 15px; align-items: center; height: 35px; }
+        .checkbox-item { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 14px; }
+
+        /* Stats Cards */
+        .stat-row { display: flex; gap: 20px; margin-bottom: 25px; }
+        .stat-card { 
+            flex: 1; text-align: center; padding: 15px; border-radius: 8px; 
+            background: white; border: 1px solid #e6f7ff; 
+        }
+        .stat-card h2 { margin: 0; color: var(--primary); font-size: 28px; }
+        .stat-card p { margin: 5px 0 0; color: #888; font-size: 12px; font-weight: 600; }
+
+        /* Charts Section */
+        .charts-row { display: flex; gap: 20px; margin-bottom: 35px; flex-wrap: wrap; }
+        .chart-container { 
+            flex: 1; min-width: 300px; background: #fff; padding: 20px; 
+            border-radius: 8px; border: 1px solid #f0f0f0; position: relative;
+        }
+        .chart-container h3 { text-align: center; font-size: 14px; color: #555; margin-bottom: 15px; }
+        canvas { max-height: 350px; }
+
+        /* Table Section */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: #fafafa; padding: 12px 15px; text-align: left; border-bottom: 2px solid #eee; color: #666; font-size: 13px; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        tr:hover { background: #fdfdfd; }
+        .badge { background: #f5f5f5; color: #888; padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 12px; border: 1px solid #ddd; }
+        .badge.active { background: #e6f7ff; color: var(--primary); border-color: #91d5ff; }
+        
+        .loading-overlay { text-align: center; padding: 50px; color: #999; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AST Chapter Analysis Dashboard</h1>
+
+    <div class="filter-panel">
+        <div class="filter-group">
+            <label>Year Filter</label>
+            <select id="yearSelect" onchange="applyFilters()">
+                <option value="ALL">All Years</option>
+                <option value="practice">Practice</option>
+                <option value="2016">2016</option>
+                <option value="2017">2017</option>
+                <option value="2018">2018</option>
+                <option value="2019">2019</option>
+                <option value="2020">2020</option>
+                <option value="2021">2021</option>
+                <option value="2022">2022</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Included Parts</label>
+            <div class="checkbox-group">
+                <label class="checkbox-item"><input type="checkbox" class="part-check" value="part a" checked onchange="applyFilters()"> Part A</label>
+                <label class="checkbox-item"><input type="checkbox" class="part-check" value="part b" checked onchange="applyFilters()"> Part B</label>
+                <label class="checkbox-item"><input type="checkbox" class="part-check" value="part c" checked onchange="applyFilters()"> Part C</label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="stat-row">
+        <div class="stat-card">
+            <h2 id="total-q">0</h2>
+            <p>Questions Count</p>
+        </div>
+        <div class="stat-card" style="border-color: #b7eb8f;">
+            <h2 id="total-m" style="color: #52c41a;">0</h2>
+            <p>Total Marks</p>
+        </div>
+    </div>
+
+    <div class="charts-row">
+        <div class="chart-container">
+            <h3>Question Distribution (%)</h3>
+            <canvas id="countChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>Marks Distribution (%)</h3>
+            <canvas id="marksChart"></canvas>
+        </div>
+    </div>
+
+    <div id="loading-text" class="loading-overlay">Syncing with database...</div>
+
+    <table id="stats-table" style="display:none;">
+        <thead>
+            <tr>
+                <th>Chapter</th>
+                <th style="text-align: center;">Questions</th>
+                <th style="text-align: right;">Marks</th>
+            </tr>
+        </thead>
+        <tbody id="stats-body"></tbody>
+    </table>
+</div>
+
+<script>
+    AV.init({ 
+        appId: "XjQ3V5jxCqhiZfjZf0JFLNiN-gzGzoHsz", 
+        appKey: "LJwsKB85okDVlJODxvQTBdrX", 
+        serverURL: "https://xjq3v5jx.lc-cn-n1-shared.com" 
+    });
+
+    let rawQuestions = [];
+    let catMap = {};
+    let chaptersBase = [];
+    let countChartInstance = null;
+    let marksChartInstance = null;
+
+    const chartColors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', 
+        '#FF9F40', '#C9CBCF', '#7BC225', '#B03060', '#5F9EA0',
+        '#D2691E', '#6495ED', '#DC143C', '#008B8B', '#B8860B', '#9400D3'
+    ];
+
+    async function initData() {
+        try {
+            const [allCats, allQuestions] = await Promise.all([
+                new AV.Query('Category').ascending('order').find(),
+                new AV.Query('MathQuestion').include('categories').limit(1000).find()
+            ]);
+
+            rawQuestions = allQuestions;
+
+            allCats.forEach(c => {
+                const name = c.get('name');
+                catMap[c.id] = name;
+                const lower = name.toLowerCase().trim();
+                const isSystem = lower === 'chapters' || lower === 'ast' || lower === 'part' || 
+                                 lower.includes('part ') || lower.includes('practice') || /^\d{4}$/.test(lower);
+
+                if (!isSystem && c.get('parent')) {
+                    chaptersBase.push({ id: c.id, name: name, order: c.get('order') || 999 });
+                }
+            });
+
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('stats-table').style.display = 'table';
+            applyFilters();
+
+        } catch (e) {
+            console.error(e);
+            document.getElementById('loading-text').innerText = "Load failed.";
+        }
+    }
+
+    function applyFilters() {
+        const selectedYear = document.getElementById('yearSelect').value.toLowerCase();
+        const selectedParts = Array.from(document.querySelectorAll('.part-check:checked')).map(cb => cb.value);
+        
+        const chapterData = chaptersBase.map(ch => ({ ...ch, count: 0, marks: 0 }));
+        let totalFilteredQ = 0;
+        let totalFilteredMarks = 0;
+
+        rawQuestions.forEach(q => {
+            const qCats = (q.get('categories') || []).map(ref => ({ id: ref.id, name: catMap[ref.id] ? catMap[ref.id].toLowerCase() : "" }));
+            const matchesYear = (selectedYear === 'all') || qCats.some(c => c.name.includes(selectedYear));
+            
+            let markValue = 0;
+            const activePart = qCats.find(c => selectedParts.includes(c.name));
+            if (activePart) {
+                if (activePart.name.includes('part a')) markValue = 15;
+                else if (activePart.name.includes('part b')) markValue = 20;
+                else if (activePart.name.includes('part c')) markValue = 30;
+            }
+
+            if (matchesYear && markValue > 0) {
+                let countedInHeader = false;
+                chapterData.forEach(ch => {
+                    if (qCats.some(qc => qc.id === ch.id)) {
+                        ch.count++;
+                        ch.marks += markValue;
+                        countedInHeader = true;
+                    }
+                });
+                if (countedInHeader) {
+                    totalFilteredQ++;
+                    totalFilteredMarks += markValue;
+                }
+            }
+        });
+
+        renderTable(chapterData, totalFilteredQ, totalFilteredMarks);
+        updateCharts(chapterData);
+    }
+
+    function renderTable(data, totalQ, totalM) {
+        const tbody = document.getElementById('stats-body');
+        tbody.innerHTML = "";
+        data.forEach(ch => {
+            const badgeClass = ch.marks > 0 ? "badge active" : "badge";
+            const row = `<tr>
+                <td><strong>${ch.name}</strong></td>
+                <td style="text-align: center;">${ch.count}</td>
+                <td style="text-align: right;"><span class="${badgeClass}">${ch.marks} pts</span></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+        document.getElementById('total-q').innerText = totalQ;
+        document.getElementById('total-m').innerText = totalM;
+    }
+
+    function updateCharts(data) {
+        // Filter out zero values for the charts to keep them clean
+        const activeData = data.filter(d => d.count > 0);
+        const labels = activeData.map(d => d.name);
+        const countValues = activeData.map(d => d.count);
+        const markValues = activeData.map(d => d.marks);
+
+        if (countChartInstance) countChartInstance.destroy();
+        if (marksChartInstance) marksChartInstance.destroy();
+
+        const ctx1 = document.getElementById('countChart').getContext('2d');
+        countChartInstance = new Chart(ctx1, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: countValues,
+                    backgroundColor: chartColors
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        const ctx2 = document.getElementById('marksChart').getContext('2d');
+        marksChartInstance = new Chart(ctx2, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: markValues,
+                    backgroundColor: chartColors
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    initData();
+</script>
+</body>
+</html>
