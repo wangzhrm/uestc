@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AST Secure Admin Dashboard</title>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                enableMenu: false
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, query, where, orderBy, getDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC_5NX6W0yZY8INI1gtRoMiBRZD28qJ7dE",
+            authDomain: "uestc-4720a.firebaseapp.com",
+            projectId: "uestc-4720a",
+            appId: "1:937055851089:web:0a0fcd9b547b9daa7c9e70"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let categoryMap = {};
+        let showOnlyDifficult = false;
+        let allCategories = []; 
+
+        window.attemptLogin = async () => {
+            const u = document.getElementById('userInput').value;
+            const p = document.getElementById('passInput').value;
+            try {
+                const q = query(collection(db, "Master"), where("username", "==", u), where("password", "==", p));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    document.getElementById('login-overlay').style.display = 'none';
+                    document.getElementById('app-wrapper').style.display = 'flex';
+                    await renderApp(); fetchQuestions();
+                } else { alert("Login failed"); }
+            } catch (err) { alert(err.message); }
+        };
+
+        window.toggleDrawer = () => { document.getElementById('drawer').classList.toggle('open'); };
+
+        window.setFilter = (isDiff) => {
+            showOnlyDifficult = isDiff;
+            document.getElementById('filterAll').classList.toggle('active', !isDiff);
+            document.getElementById('filterDiff').classList.toggle('active', isDiff);
+            fetchQuestions();
+        };
+
+        window.updatePreviews = () => {
+            const qVal = document.getElementById('qInput').value;
+            const sVal = document.getElementById('sInput').value;
+            const url = document.getElementById('diagUrl').value.trim();
+            
+            // Render text with line breaks
+            document.getElementById('qText').innerHTML = qVal.replace(/\n/g, '<br>') || "Question Preview";
+            document.getElementById('sText').innerHTML = sVal.replace(/\n/g, '<br>') || "Solution Preview";
+            
+            const diagDiv = document.getElementById('qDiag');
+            if (url) { diagDiv.innerHTML = `<img src="${url}">`; diagDiv.style.display = 'block'; }
+            else { diagDiv.style.display = 'none'; }
+            
+            // Trigger MathJax re-render
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise([document.getElementById('qText'), document.getElementById('sText')]);
+            }
+        };
+
+        window.submitQuestion = async () => {
+            const qId = document.getElementById('editingId').value;
+            const selects = document.querySelectorAll('.question-cat-select');
+            let catIds = [];
+            selects.forEach(s => catIds = catIds.concat(Array.from(s.selectedOptions).map(o => o.value)));
+            if (catIds.length === 0) return alert("Select at least one category");
+            
+            const data = {
+                latexQuestion: document.getElementById('qInput').value,
+                latexSolution: document.getElementById('sInput').value,
+                diagramUrl: document.getElementById('diagUrl').value.trim(),
+                isDifficult: document.getElementById('diffToggle').classList.contains('active'),
+                categories: catIds,
+                updatedAt: new Date()
+            };
+
+            try {
+                if (qId) await setDoc(doc(db, "MathQuestion", qId), data, { merge: true });
+                else await addDoc(collection(db, "MathQuestion"), { ...data, createdAt: new Date() });
+                alert("Success!"); resetEditor(false); fetchQuestions();
+            } catch (e) { alert(e.message); }
+        };
+
+        window.editQuestion = async (id) => {
+            const docSnap = await getDoc(doc(db, "MathQuestion", id));
+            if (docSnap.exists()) {
+                const q = docSnap.data();
+                document.getElementById('editingId').value = id;
+                document.getElementById('qInput').value = q.latexQuestion || "";
+                document.getElementById('sInput').value = q.latexSolution || "";
+                document.getElementById('diagUrl').value = q.diagramUrl || "";
+                document.getElementById('cancelEdit').style.display = "block";
+                if(q.isDifficult) document.getElementById('diffToggle').classList.add('active');
+                else document.getElementById('diffToggle').classList.remove('active');
+                
+                const selectedIds = q.categories || [];
+                document.querySelectorAll('.question-cat-select').forEach(sel => {
+                    Array.from(sel.options).forEach(opt => opt.selected = selectedIds.includes(opt.value));
+                });
+                updatePreviews();
+            }
+        };
+
+        window.deleteQuestion = async (id) => {
+            if (confirm("Delete permanently?")) { await deleteDoc(doc(db, "MathQuestion", id)); fetchQuestions(); }
+        };
+
+        window.resetEditor = (force) => {
+            document.getElementById('editingId').value = "";
+            document.getElementById('qInput').value = "";
+            document.getElementById('sInput').value = "";
+            document.getElementById('diagUrl').value = "";
+            document.getElementById('diffToggle').classList.remove('active');
+            document.getElementById('cancelEdit').style.display = "none";
+            if(force) document.querySelectorAll('.question-cat-select').forEach(s => s.selectedIndex = -1);
+            updatePreviews();
+        };
+
+        window.fetchQuestions = async () => {
+            const search = document.getElementById('qSearch').value;
+            const qRef = collection(db, "MathQuestion");
+            let snap = await getDocs(query(qRef, orderBy("createdAt", "desc")));
+            
+            const container = document.getElementById('existingQuestionsList');
+            container.innerHTML = "";
+            snap.forEach(d => {
+                const q = d.data();
+                if(showOnlyDifficult && !q.isDifficult) return;
+                if(search && !q.latexQuestion.includes(search)) return;
+
+                const tags = (q.categories || []).map(id => `<span class="tag">${categoryMap[id] || '...'}</span>`).join('');
+                const div = document.createElement('div');
+                div.className = 'q-list-item';
+                div.style.borderLeft = q.isDifficult ? "4px solid var(--danger)" : "1px solid #eee";
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 5px;"><div>${tags}</div></div>
+                    <div style="color:#666; margin:5px 0; font-size:11px;">${(q.latexQuestion || '').substring(0,60)}...</div>
+                    <div class="btn-action-group"><button class="btn-sm btn-edit" onclick="editQuestion('${d.id}')">Edit</button><button class="btn-sm btn-remove" onclick="deleteQuestion('${d.id}')">Remove</button></div>`;
+                container.appendChild(div);
+            });
+        };
+
+        window.moveOption = async (direction) => {
+            let selectedId = null;
+            document.querySelectorAll('.question-cat-select').forEach(sel => {
+                if (sel.value && sel.selectedOptions.length === 1) selectedId = sel.value;
+            });
+            if (!selectedId) return alert("Please click a single chapter name first");
+
+            const currentObj = allCategories.find(c => c.id === selectedId);
+            const parentId = currentObj.parent ? (typeof currentObj.parent === 'string' ? currentObj.parent : currentObj.parent.id) : null;
+            
+            const siblings = allCategories
+                .filter(c => {
+                    const p = c.parent ? (typeof c.parent === 'string' ? c.parent : c.parent.id) : null;
+                    return p === parentId;
+                })
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            const index = siblings.findIndex(s => s.id === selectedId);
+            const targetIndex = direction === 'up' ? index - 1 : index + 1;
+            if (targetIndex < 0 || targetIndex >= siblings.length) return;
+
+            const targetObj = siblings[targetIndex];
+            const batch = writeBatch(db);
+            batch.update(doc(db, "Category", currentObj.id), { order: targetObj.order });
+            batch.update(doc(db, "Category", targetObj.id), { order: currentObj.order });
+            
+            await batch.commit();
+            await renderApp();
+            
+            document.querySelectorAll('.question-cat-select option').forEach(opt => {
+                if (opt.value === selectedId) { opt.selected = true; opt.parentElement.focus(); }
+            });
+        };
+
+        async function renderApp() {
+            const snap = await getDocs(query(collection(db, "Category"), orderBy("order")));
+            allCategories = [];
+            categoryMap = {};
+            snap.forEach(d => {
+                const data = d.data();
+                allCategories.push({ id: d.id, ...data });
+                categoryMap[d.id] = data.name;
+            });
+
+            const editor = document.getElementById('editorHierarchies');
+            const targetParent = document.getElementById('targetParent');
+            editor.innerHTML = "";
+            targetParent.innerHTML = '<option value="">New Root</option>';
+            
+            const roots = allCategories.filter(c => !c.parent);
+            roots.forEach(root => {
+                const nameLower = root.name.toLowerCase();
+                const children = allCategories.filter(c => {
+                    const pId = c.parent?.id || c.parent; 
+                    return pId === root.id;
+                });
+                
+                let boxHeight = nameLower.includes('chapter') ? "285px" : "55px";
+                const box = document.createElement('div');
+                box.style.marginBottom = "15px";
+                box.innerHTML = `
+                    <div style="background: #fafafa; padding: 4px 10px; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0;"><strong style="font-size: 11px; color: #666;">${root.name}</strong></div>
+                    <select multiple class="question-cat-select" style="width:100%; height:${boxHeight}; border-radius: 0 0 4px 4px; border:1px solid #ddd; font-size: 13px;">
+                        ${children.map(ch => `<option value="${ch.id}">${ch.name}</option>`).join('')}
+                    </select>`;
+                editor.appendChild(box);
+                targetParent.innerHTML += `<option value="${root.id}">${root.name}</option>`;
+            });
+        }
+
+        window.addCategory = async () => {
+            const n = document.getElementById('newCatName').value;
+            const p = document.getElementById('targetParent').value;
+            if(!n) return alert("Name required");
+            
+            const siblingsCount = allCategories.filter(cat => {
+                const pId = cat.parent?.id || cat.parent;
+                return pId === p;
+            }).length;
+
+            const data = {
+                name: n,
+                order: siblingsCount + 1,
+                parent: p ? doc(db, "Category", p) : null
+            };
+
+            await addDoc(collection(db, "Category"), data);
+            document.getElementById('newCatName').value = "";
+            await renderApp();
+        };
+    </script>
+
+    <style>
+        :root { --primary: #1890ff; --success: #52c41a; --danger: #ff4d4f; --sidebar-w: 320px; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: #f0f2f5; overflow: hidden; }
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 5000; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        #app-wrapper { display: none; width: 100%; height: 100%; flex-direction: row; }
+        #drawer { position: fixed; left: calc(-1 * var(--sidebar-w)); top: 0; width: var(--sidebar-w); height: 100%; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 1000; transition: left 0.3s ease; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        #drawer.open { left: 0; }
+        #toggle-bar { position: fixed; left: 0; top: 0; width: 30px; height: 100%; background: #444; color: white; cursor: pointer; z-index: 1001; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 11px; letter-spacing: 2px; transition: left 0.3s ease; }
+        #drawer.open + #toggle-bar { left: var(--sidebar-w); }
+        .main-container { flex: 1; display: flex; margin-left: 30px; width: calc(100% - 30px); }
+        .editor-area { flex: 1; padding: 20px; overflow-y: auto; }
+        .right-sidebar { width: 420px; background: #fff; border-left: 1px solid #ddd; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        textarea, .url-input { width: 100%; margin: 10px 0; border: 1px solid #d9d9d9; padding: 10px; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 120px; font-family: monospace; }
+        .preview-container { display: flex; gap: 15px; align-items: flex-start; min-height: 50px; padding: 15px; border: 1px dashed #ccc; border-radius: 4px; margin-bottom: 20px; background: #fff; }
+        .preview-text { flex: 1; line-height: 1.6; white-space: pre-wrap; font-size: 14px; }
+        .preview-diagram { width: 200px; border-left: 1px solid #eee; padding-left: 15px; display: none; }
+        .preview-diagram img { max-width: 100%; height: auto; border-radius: 4px; }
+        .tag { background: #e6f7ff; color: #1890ff; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 10px; border: 1px solid #91d5ff; }
+        .q-list-item { padding: 12px; border: 1px solid #eee; margin-bottom: 10px; border-radius: 6px; font-size: 12px; }
+        button { cursor: pointer; border-radius: 4px; border: none; font-weight: 600; font-size: 13px; transition: opacity 0.2s; }
+        .primary-btn { background: var(--primary); color: white; width: 100%; padding: 10px; }
+        .save-btn { background: var(--success); color: white; width: 100%; padding: 12px; margin-top: 10px; position: sticky; bottom: 0; font-size: 15px; z-index: 10; }
+        .btn-action-group { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
+        .btn-edit { background: var(--primary); color: white; }
+        .btn-remove { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+        .diff-indicator { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #ccc; cursor: pointer; display: inline-block; transition: all 0.2s; }
+        .diff-indicator.active { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 5px rgba(255,77,79,0.5); }
+        .filter-btn { flex: 1; padding: 6px; font-size: 11px; background: #eee; color: #666; }
+        .filter-btn.active { background: #444; color: white; }
+        .reorder-btn { flex: 1; padding: 8px; background: #f0f0f0; border: 1px solid #ddd; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-card">
+        <h2>AST Secure Login</h2>
+        <input type="text" id="userInput" placeholder="Username">
+        <input type="password" id="passInput" placeholder="Password">
+        <button onclick="attemptLogin()" class="primary-btn">Unlock System</button>
+    </div>
+</div>
+
+<div id="app-wrapper">
+    <div id="drawer">
+        <h3>Categories</h3>
+        <input type="text" id="newCatName" placeholder="New Category...">
+        <select id="targetParent" style="width:100%; margin: 10px 0;"><option value="">New Root</option></select>
+        <button onclick="addCategory()" class="primary-btn">Add Category</button>
+        <div id="categoryTree" style="overflow-y: auto; flex: 1; margin-top:10px;"></div>
+    </div>
+
+    <div id="toggle-bar" onclick="toggleDrawer()">☰ CATEGORIES</div>
+
+    <div class="main-container">
+        <div class="editor-area">
+            <div class="card">
+                <h2 id="editor-title" style="margin-top:0;">Question Editor</h2>
+                <input type="hidden" id="editingId" value="">
+                <div class="header-row" style="display:flex; align-items:center; gap:10px;">
+                    <strong>Question LaTeX</strong>
+                    <div id="diffToggle" class="diff-indicator" title="Mark as Difficult" onclick="this.classList.toggle('active')"></div>
+                    <span style="font-size: 12px; color: #999;">Mark as Difficult</span>
+                </div>
+                <textarea id="qInput" oninput="updatePreviews()" placeholder="Type LaTeX here..."></textarea>
+                <strong>Diagram Image URL (Optional)</strong>
+                <input type="text" id="diagUrl" class="url-input" placeholder="https://..." oninput="updatePreviews()">
+                <div id="qP-box" class="preview-container">
+                    <div id="qText" class="preview-text">Question Preview</div>
+                    <div id="qDiag" class="preview-diagram"></div>
+                </div>
+                <strong>Solution LaTeX</strong>
+                <textarea id="sInput" oninput="updatePreviews()" placeholder="Type LaTeX here..."></textarea>
+                <div id="sP-box" class="preview-container">
+                    <div id="sText" class="preview-text">Solution Preview</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-sidebar">
+            <h3>Categorization</h3>
+            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                <button class="reorder-btn" onclick="moveOption('up')">▲ Move Selection Up</button>
+                <button class="reorder-btn" onclick="moveOption('down')">▼ Move Selection Down</button>
+            </div>
+            <div id="editorHierarchies"></div>
+            <button class="save-btn" onclick="submitQuestion()">SAVE QUESTION</button>
+            <button id="cancelEdit" style="display:none; margin-top:10px; width:100%; padding: 8px; background: #8c8c8c; color: white;" onclick="resetEditor(true)">Cancel Edit</button>
+            <h3 style="margin-top:20px;">Manager</h3>
+            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                <button id="filterAll" class="filter-btn active" onclick="setFilter(false)">All</button>
+                <button id="filterDiff" class="filter-btn" onclick="setFilter(true)">Difficult Only</button>
+            </div>
+            <input type="text" id="qSearch" placeholder="Search questions..." oninput="fetchQuestions()" class="url-input">
+            <div id="existingQuestionsList"></div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AST Student - Secure Portal</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC_5NX6W0yZY8INI1gtRoMiBRZD28qJ7dE",
+            authDomain: "uestc-4720a.firebaseapp.com",
+            projectId: "uestc-4720a",
+            appId: "1:937055851089:web:0a0fcd9b547b9daa7c9e70"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        let categoryLookup = {}; // Dictionary to store { "ID": "Name" } for the year tag
+
+        window.attemptLogin = async () => {
+            const u = document.getElementById('userInput').value;
+            const p = document.getElementById('passInput').value;
+            try {
+                const q = query(collection(db, "Student"), where("username", "==", u), where("password", "==", p));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    document.getElementById('login-overlay').style.display = 'none';
+                    document.getElementById('app-wrapper').style.display = 'flex';
+                    await loadFilters();
+                    await loadQuestions();
+                } else { 
+                    document.getElementById('loginMsg').innerText = "Invalid credentials.";
+                }
+            } catch (err) { alert(err.message); }
+        };
+
+        async function loadFilters() {
+            const snap = await getDocs(collection(db, "Category"));
+            const results = [];
+            categoryLookup = {}; 
+            
+            snap.forEach(d => {
+                const data = d.data();
+                results.push({ id: d.id, ...data });
+                categoryLookup[d.id] = data.name; // Map ID to Name for prefix logic
+            });
+            
+            const panel = document.getElementById('filterPanel');
+            panel.innerHTML = "";
+            // Sort by order and find roots (where parent is null)
+            const roots = results.filter(c => !c.parent).sort((a,b) => (a.order || 0) - (b.order || 0));
+            roots.forEach(root => {
+                const div = document.createElement('div');
+                div.className = 'filter-group';
+                div.innerHTML = `<strong>${root.name}</strong>`;
+                const sel = document.createElement('select');
+                sel.className = "filter-select";
+                sel.innerHTML = `<option value="">All ${root.name}</option>`;
+                
+                results.filter(c => c.parent?.id === root.id)
+                       .sort((a,b) => (a.order || 0) - (b.order || 0))
+                       .forEach(child => {
+                    sel.innerHTML += `<option value="${child.id}">${child.name}</option>`;
+                });
+                div.appendChild(sel);
+                panel.appendChild(div);
+            });
+        }
+
+        window.loadQuestions = async () => {
+            const container = document.getElementById('questionList');
+            container.innerHTML = "<p style='text-align:center;'>Fetching questions...</p>";
+            
+            const selectedIds = Array.from(document.querySelectorAll('.filter-select'))
+                .map(s => s.value).filter(v => v !== "");
+            
+            try {
+                const snap = await getDocs(collection(db, "MathQuestion"));
+                container.innerHTML = snap.empty ? "<p style='text-align:center;'>No questions found.</p>" : "";
+                let i = 0;
+                
+                snap.forEach(docSnap => {
+                    const qData = docSnap.data();
+                    const qCatIds = qData.categories || [];
+
+                    // Filter logic: Check if all selected filters are present in this question
+                    if (selectedIds.length > 0 && !selectedIds.every(id => qCatIds.includes(id))) return;
+
+                    // RESTORED YEAR LOGIC: Translates IDs back to names using lookup
+                    const catNames = qCatIds.map(id => categoryLookup[id] || "");
+                    const isPractice = catNames.some(n => n.toLowerCase().includes('practice'));
+                    const yearName = catNames.find(n => n.match(/^\d{4}$/));
+                    const yearPrefix = (!isPractice && yearName) ? `<span class="year-tag">[${yearName}]</span>` : "";
+
+                    const card = document.createElement('div');
+                    card.className = "q-card";
+                    card.innerHTML = `
+                        <div style="margin-bottom:15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px;">
+                            ${yearPrefix} <strong>Question ${++i}</strong>
+                        </div>
+                        <div class="q-content-wrapper">
+                            <div class="q-text-part"><div class="q-body">${(qData.latexQuestion || "").replace(/\n/g, '<br>')}</div></div>
+                            ${qData.diagramUrl ? `<div class="q-image-part"><img src="${qData.diagramUrl}"></div>` : ""}
+                        </div>
+                        <div class="sol-box">
+                            <strong style="color:var(--success)">Solution</strong>
+                            <div class="s-content" style="margin-top:10px;">${(qData.latexSolution || "").replace(/\n/g, '<br>')}</div>
+                        </div>`;
+                    container.appendChild(card);
+                });
+                if (window.MathJax) MathJax.typesetPromise([container]);
+            } catch (err) { container.innerHTML = "Error: " + err.message; }
+        };
+    </script>
+    <script>window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$']] } };</script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root { --primary: #1890ff; --success: #52c41a; --danger: #ff4d4f; }
+        body { font-family: 'Arial', sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
+        .q-body, .s-content { white-space: pre-wrap; word-wrap: break-word; line-height: 1.8; }
+        .q-content-wrapper { display: flex; gap: 20px; flex-wrap: wrap; }
+        .q-text-part { flex: 1; min-width: 280px; }
+        .q-image-part { width: 220px; }
+        .q-image-part img { max-width: 100%; border-radius: 4px; border: 1px solid #eee; }
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 5000; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 320px; text-align: center; }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        #app-wrapper { display: none; max-width: 900px; margin: auto; padding: 20px; flex-direction: column; }
+        .filter-panel { display: flex; gap: 15px; background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #eee; }
+        .filter-select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; }
+        .q-card { border: 1px solid #eee; padding: 30px; margin-bottom: 25px; border-radius: 12px; background: white; }
+        .year-tag { color: var(--primary); font-weight: bold; margin-right: 8px; }
+        .sol-box { margin-top: 20px; padding: 20px; background-color: #f6ffed; border: 1px solid #b7eb8f; border-radius: 8px; display: none; }
+        .show-sol .sol-box { display: block !important; }
+        .primary-btn { padding: 12px 24px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="login-overlay"><div class="login-card"><h2>AST Student Portal</h2><input type="text" id="userInput" placeholder="Username"><input type="password" id="passInput" placeholder="Password"><button onclick="attemptLogin()" class="primary-btn" style="width:100%">Login</button><p id="loginMsg" style="color:var(--danger)"></p></div></div>
+    <div id="app-wrapper">
+        <div style="display:flex; justify-content: space-between; align-items: center;"><h1>Question Bank</h1><button class="primary-btn" style="background:#ff4d4f;" onclick="location.reload()">Logout</button></div>
+        <div class="filter-panel" id="filterPanel"></div>
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <button onclick="loadQuestions()" class="primary-btn">Apply Filters</button>
+            <button onclick="window.print()" class="primary-btn" style="background:var(--success)">Print to PDF</button>
+            <label style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px; cursor:pointer;"><input type="checkbox" onchange="document.body.classList.toggle('show-sol')"> Solutions</label>
+        </div>
+        <div id="questionList"></div>
+    </div>
+</body>
+</html>
