@@ -1,105 +1,394 @@
-<style>
-    /* ... existing styles ... */
-    #sidebar-toggle {
-        position: fixed; right: 0; top: 0; bottom: 0; width: 30px;
-        background: #333; color: white; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        writing-mode: vertical-rl; text-orientation: mixed; font-size: 0.8rem;
-        z-index: 1001; transition: 0.3s;
-    }
-    #sidebar-toggle:hover { background: var(--primary); }
-    
-    #student-manager {
-        position: fixed; right: -400px; top: 0; bottom: 0; width: 400px;
-        background: white; box-shadow: -5px 0 15px rgba(0,0,0,0.1);
-        z-index: 1000; transition: 0.3s; padding: 20px; overflow-y: auto;
-    }
-    #student-manager.open { right: 30px; }
-    .mgr-section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-    .mgr-card { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; }
-    select, input { width: 100%; margin-bottom: 5px; padding: 5px; }
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal | UESTC H189</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --glass: rgba(255, 255, 255, 0.9); }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; }
+        #sidebar-toggle { position: fixed; right: 0; top: 0; bottom: 0; width: 35px; background: #333; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; z-index: 1001; font-weight: bold; }
+        #student-manager { position: fixed; right: -65%; top: 0; bottom: 0; width: 60%; background: #fff; box-shadow: -10px 0 30px rgba(0,0,0,0.15); z-index: 1000; transition: 0.4s ease; padding: 25px; overflow-y: auto; border-left: 5px solid var(--primary); }
+        #student-manager.open { right: 35px; }
+        header { background: #1a1a1a; color: white; padding: 20px; text-align: center; border-bottom: 4px solid var(--primary); }
+        .container { max-width: 1100px; margin: 20px auto; padding: 0 50px 0 20px; }
+        .calendar-section { background: var(--glass); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; margin-bottom: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.05); border: 1px solid #ddd; display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; }
+        .month-box { flex: 1; min-width: 300px; max-width: 380px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .cal-day { aspect-ratio: 1/1; background: white; border-radius: 8px; border: 1px solid #eee; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.9rem; position: relative; cursor: pointer; }
+        .today { background: var(--primary) !important; color: white !important; font-weight: bold; }
+        .has-deadline { border: 2px solid #ff5252; }
+        .dot { width: 5px; height: 5px; background: #ff5252; border-radius: 50%; margin-top: 2px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); }
+        .card img { width: 100%; height: 160px; object-fit: cover; cursor: pointer; }
+        .tab-block { margin: 15px 0; border-radius: 10px; background: white; border: 1px solid #ddd; overflow: hidden; }
+        .tab-header { display: flex; align-items: center; padding: 12px 15px; cursor: grab; gap: 10px; }
+        .tab-header:active { cursor: grabbing; }
+        .type-lecture { background: #e3f2fd; color: #003399; border-left: 8px solid #003399; }
+        .type-assessment { background: var(--asmt-yellow); color: #333; border-left: 8px solid #fbc02d; }
+        .urgent { background: var(--asmt-urgent) !important; border-left-color: #d32f2f !important; }
+        .item-row { display: flex; align-items: center; background: #fff; padding: 10px; margin: 5px 0; border-radius: 6px; border: 1px solid #eee; gap: 10px; cursor: grab; }
+        .btn-action { padding: 6px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 0.75rem; background: #fdfdfd; font-weight: bold; }
+        .btn-save { background: #2e7d32; color: white; border: none; }
+        .hidden { display: none; }
+        .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; }
+        .group-card { background: white; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .group-header { background: #1a1a1a; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .zone { padding: 10px; border-bottom: 1px solid #eee; }
+        .tag-container { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; padding: 10px; background: #fafafa; border-radius: 8px; border: 1px dashed #ddd; }
+        .mini-tag { background: white; border: 1px solid #ccc; padding: 4px 10px; border-radius: 6px; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: grab; }
+        .deadline-popup { position: fixed; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none; transform: translate(-50%, -130%); }
+    </style>
+</head>
+<body>
 
 <div id="sidebar-toggle" onclick="toggleSidebar()">STUDENT MANAGER ◀</div>
-<div id="student-manager">
-    <button onclick="toggleSidebar()">Close ✖</button>
-    <h2 style="color:var(--primary)">Student Manager</h2>
-    
-    <div class="mgr-section">
-        <h3>1. Users</h3>
-        <input id="new-user-n" placeholder="Username">
-        <input id="new-user-p" placeholder="Password">
-        <button class="btn-action" onclick="mgrAddUser()">Create User</button>
-        <div id="mgr-user-list"></div>
-    </div>
 
-    <div class="mgr-section">
-        <h3>2. Groups</h3>
-        <input id="new-group-n" placeholder="Group Name (e.g. Class A)">
-        <button class="btn-action" onclick="mgrAddGroup()">Create Group</button>
-        <div id="mgr-group-list"></div>
+<div id="student-manager">
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2 style="margin:0; color:var(--primary)">Group Management</h2>
+        <button onclick="toggleSidebar()" class="btn-action">Close ✖</button>
+    </div>
+    <div style="background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid #ddd; margin-bottom:20px;">
+        <span style="font-size:11px; font-weight:bold; color:#999;">STUDENT LIBRARY</span>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <input id="u-name" placeholder="Name" style="flex:1; padding:8px;">
+            <input id="u-pass" placeholder="Password" style="flex:1; padding:8px;">
+            <button onclick="addUser()" class="btn-action btn-save">Add</button>
+        </div>
+        <div style="margin-top:15px; padding-top:10px; border-top:1px solid #eee;">
+            <span style="font-size:11px; color:#666;">BULK UPLOAD (Excel)</span>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                <input type="file" id="excel-file" accept=".xlsx, .xls" style="font-size:11px;">
+                <button onclick="handleExcelUpload()" class="btn-action">Upload</button>
+            </div>
+        </div>
+        <div id="lib-students" class="tag-container" style="margin-top:15px;"></div>
+    </div>
+    <div style="background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid #ddd; margin-bottom:20px;">
+        <span style="font-size:11px; font-weight:bold; color:#999;">UNIT LIBRARY</span>
+        <div id="lib-units" class="tag-container"></div>
+    </div>
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin:0">Groups</h3>
+        <button onclick="addNewGroup()" class="btn-action btn-save">+ New Group</button>
+    </div>
+    <div id="mgr-groups" class="group-grid"></div>
+</div>
+
+<header><h1>UESTC H189 Admin Portal</h1></header>
+
+<div class="container">
+    <div id="unit-view">
+        <div class="calendar-section" id="calendar-area"></div>
+        <div id="unit-grid" class="grid"></div>
+    </div>
+    <div id="detail-view" class="hidden">
+        <button onclick="showOverview()" class="btn-action" style="margin-bottom:20px;">← Back to Overview</button>
+        <div id="editor-content"></div>
     </div>
 </div>
 
 <script>
-    // ... Previous logic ...
+    const _url = 'https://btwdbphheotbqrmbswgk.supabase.co';
+    const _key = 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k';
+    const client = supabase.createClient(_url, _key);
+    let currentUnitId = null;
 
-    function toggleSidebar() {
-        document.getElementById('student-manager').classList.toggle('open');
+    async function init() {
+        const { data: units } = await client.from('units').select('*').order('created_at', { ascending: true });
+        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
+        
+        document.getElementById('unit-grid').innerHTML = (units || []).map(u => `
+            <div class="card">
+                <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
+                <div style="padding:15px; text-align:center;"><strong>${u.name}</strong></div>
+            </div>
+        `).join('') + `<div onclick="createNewUnit()" style="border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; min-height:200px; border-radius:12px; color:#999;">+ Add Unit</div>`;
+
+        renderCalendars(deadlines || []);
+        loadMgr();
     }
 
-    async function mgrAddUser() {
-        const u = document.getElementById('new-user-n').value;
-        const p = document.getElementById('new-user-p').value;
-        await client.from('users').insert([{ username: u, password: p }]);
-        loadMgrData();
+    function showOverview() {
+        currentUnitId = null;
+        document.getElementById('unit-view').classList.remove('hidden');
+        document.getElementById('detail-view').classList.add('hidden');
+        init();
     }
 
-    async function mgrAddGroup() {
-        const n = document.getElementById('new-group-n').value;
-        await client.from('groups').insert([{ name: n }]);
-        loadMgrData();
+    async function createNewUnit() {
+        const name = prompt("Enter Unit Name:");
+        if (!name) return;
+        const img = prompt("Header Image URL:", "https://via.placeholder.com/400x200");
+        await client.from('units').insert([{ name, header_image_url: img }]);
+        showOverview();
     }
 
-    async function loadMgrData() {
-        const { data: users } = await client.from('users').select('*');
-        const { data: groups } = await client.from('groups').select('*');
+    async function openEditor(id) {
+        currentUnitId = id;
+        document.getElementById('unit-view').classList.add('hidden');
+        document.getElementById('detail-view').classList.remove('hidden');
+        document.getElementById('editor-content').innerHTML = "Loading...";
+        await refreshEditor();
+    }
+
+    async function refreshEditor() {
+        if(!currentUnitId) return;
+        try {
+            const { data: unit } = await client.from('units').select('*').eq('id', currentUnitId).single();
+            const { data: tabs } = await client.from('lectures')
+                .select('*, resources(*)')
+                .eq('unit_id', currentUnitId)
+                .order('sort_order', { ascending: true });
+            const { data: genRes } = await client.from('resources').select('*').eq('unit_id', currentUnitId).is('lecture_id', null);
+
+            const sortedGen = (genRes || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+            document.getElementById('editor-content').innerHTML = `
+                <h2>Editing: ${unit.name}</h2>
+                <div style="margin-bottom:20px;">
+                    <strong>General Resources</strong> <button class="btn-action" onclick="showResInput('gen-list', 'null')">+ Add</button>
+                    <div id="gen-list" class="res-sort-zone">${sortedGen.map(r => renderResourceRow(r)).join('')}</div>
+                </div>
+                <hr>
+                <h3>Tabs / Folders (Drag to Reorder)</h3>
+                <button class="btn-action btn-save" style="margin-bottom:15px;" onclick="addDraftTab()">+ Add New Tab</button>
+                <div id="tabs-container" class="tab-sort-zone">
+                    ${tabs.map(t => {
+                        const sortedTabRes = (t.resources || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                        return renderTabFolder(t, sortedTabRes);
+                    }).join('')}
+                </div>
+            `;
+            setupResourceSort();
+            setupTabSort();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function renderResourceRow(r) {
+        const hiddenStatus = r.is_hidden ? 'Show' : 'Hide';
+        const opacity = r.is_hidden ? '0.4' : '1';
+        const icon = r.is_hidden ? '👁️‍🗨️' : '👁️';
+
+        return `<div class="item-row" data-id="${r.id}" id="res-row-${r.id}" style="opacity: ${opacity}">
+            <span style="color:#999; margin-right:8px;">☰</span>
+            <span style="flex-grow:1">${r.name} ${r.is_hidden ? '<small>(Hidden)</small>' : ''}</span>
+            <button class="btn-action" onclick="toggleVisibility('${r.id}', ${r.is_hidden})">${icon} ${hiddenStatus}</button>
+            <button class="btn-action" onclick="startEditRes('${r.id}', '${r.name}', '${r.url}')">Edit</button>
+            <button class="btn-action" onclick="deleteRes('${r.id}')" style="color:red">Remove</button>
+        </div>`;
+    }
+
+    async function toggleVisibility(id, currentHiddenStatus) {
+        await client.from('resources').update({ is_hidden: !currentHiddenStatus }).eq('id', id);
+        refreshEditor();
+    }
+
+    function startEditRes(id, n, u) {
+        const r = document.getElementById(`res-row-${id}`);
+        r.innerHTML = `<input id="rn-${id}" value="${n}" style="flex:1"> <input id="ru-${id}" value="${u}" style="flex:1"> 
+        <button class="btn-save" onclick="saveResEdit('${id}')">Save</button>
+        <button class="btn-action" onclick="refreshEditor()">Cancel</button>`;
+    }
+
+    async function saveResEdit(id) {
+        const name = document.getElementById(`rn-${id}`).value;
+        const url = document.getElementById(`ru-${id}`).value;
+        await client.from('resources').update({ name, url }).eq('id', id);
+        refreshEditor();
+    }
+
+    function renderTabFolder(t, sortedResources) {
+        const isAsmt = t.type === 'assessment';
+        let urgentClass = "";
+        if(isAsmt && t.deadline) {
+            const diff = (new Date(t.deadline) - new Date()) / 86400000;
+            if(diff <= 7 && diff >= -1) urgentClass = "urgent";
+        }
+        return `<div class="tab-block" id="tab-${t.id}">
+            <div class="tab-header ${isAsmt ? 'type-assessment' : 'type-lecture'} ${urgentClass}" onclick="toggleTab('${t.id}')">
+                <span style="flex-grow:1"><strong>${t.name}</strong> ${(isAsmt && t.deadline) ? ' (Due: '+t.deadline+')' : ''}</span>
+                <div onclick="event.stopPropagation()" style="display:flex; gap:5px; align-items:center;">
+                    ${isAsmt ? `<input type="date" value="${t.deadline||''}" onchange="updateDeadline('${t.id}', this.value)">` : ''}
+                    <button class="btn-action" onclick="startEditTab('${t.id}', '${t.name}', '${t.type}')">Edit</button>
+                    <button class="btn-action" onclick="deleteTab('${t.id}')" style="color:red">×</button>
+                </div>
+            </div>
+            <div id="content-${t.id}" class="hidden" style="padding:15px; border-top:1px solid #eee;">
+                <div id="res-list-${t.id}" class="res-sort-zone">${(sortedResources||[]).map(r => renderResourceRow(r)).join('')}</div>
+                <button class="btn-action" style="margin-top:10px" onclick="showResInput('res-list-${t.id}', '${t.id}')">+ Add Resource</button>
+            </div>
+        </div>`;
+    }
+
+    // --- Core Logic ---
+    function setupTabSort() {
+        const el = document.getElementById('tabs-container');
+        Sortable.create(el, {
+            animation: 150, handle: '.tab-header',
+            onEnd: async () => {
+                const blocks = Array.from(el.querySelectorAll('.tab-block'));
+                for (let i = 0; i < blocks.length; i++) {
+                    await client.from('lectures').update({ sort_order: i }).eq('id', blocks[i].id.replace('tab-', ''));
+                }
+            }
+        });
+    }
+
+    function setupResourceSort() {
+        document.querySelectorAll('.res-sort-zone').forEach(el => {
+            Sortable.create(el, {
+                animation: 150,
+                onEnd: async () => {
+                    const rows = Array.from(el.querySelectorAll('.item-row'));
+                    for (let i = 0; i < rows.length; i++) {
+                        await client.from('resources').update({ sort_order: i }).eq('id', rows[i].dataset.id);
+                    }
+                }
+            });
+        });
+    }
+
+    async function saveR(lecId) {
+        const n = document.getElementById('r-n').value, u = document.getElementById('r-u').value;
+        const lecture_id = (lecId === 'null' || !lecId) ? null : lecId;
+        await client.from('resources').insert([{ name: n, url: u, unit_id: currentUnitId, lecture_id, is_hidden: false }]);
+        refreshEditor();
+    }
+
+    async function addDraftTab() { await client.from('lectures').insert([{ name: "New Tab", type: "lecture", unit_id: currentUnitId }]); refreshEditor(); }
+    async function updateDeadline(id, val) { await client.from('lectures').update({ deadline: val }).eq('id', id); refreshEditor(); }
+    async function deleteTab(id) { if(confirm("Delete?")) { await client.from('lectures').delete().eq('id', id); refreshEditor(); } }
+    async function deleteRes(id) { if(confirm("Delete?")) { await client.from('resources').delete().eq('id', id); refreshEditor(); } }
+    function toggleTab(id) { document.getElementById(`content-${id}`).classList.toggle('hidden'); }
+    function showResInput(listId, lecId) {
+        const div = document.createElement('div'); div.className = 'item-row';
+        div.innerHTML = `<input id="r-n" placeholder="Name"> <input id="r-u" placeholder="URL"> <button class="btn-save" onclick="saveR('${lecId}')">OK</button>`;
+        document.getElementById(listId).appendChild(div);
+    }
+
+    function startEditTab(id, n, t) {
+        const block = document.getElementById(`tab-${id}`);
+        const h = block.querySelector(`.tab-header`);
+        h.onclick = null; h.style.cursor = 'default';
+        h.innerHTML = `<input id="en-${id}" value="${n}"> <select id="et-${id}">
+            <option value="lecture" ${t==='lecture'?'selected':''}>Lecture</option>
+            <option value="assessment" ${t==='assessment'?'selected':''}>Assessment</option>
+        </select><button onclick="saveTabEdit('${id}')">Save</button>`;
+    }
+    async function saveTabEdit(id) {
+        const name = document.getElementById(`en-${id}`).value, type = document.getElementById(`et-${id}`).value;
+        await client.from('lectures').update({ name, type }).eq('id', id); refreshEditor();
+    }
+
+    // --- Management Logic ---
+    function renderCalendars(deadlines) {
+        const area = document.getElementById('calendar-area'); area.innerHTML = '';
+        const now = new Date();
+        for(let i=0; i<2; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            area.appendChild(createMonth(date, deadlines));
+        }
+    }
+    function createMonth(date, deadlines) {
+        const box = document.createElement('div'); box.className = 'month-box';
+        box.innerHTML = `<h4 style="text-align:center;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid"></div>`;
+        const grid = box.querySelector('.cal-grid');
+        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="font-size:0.7rem; font-weight:bold; color:#888; text-align:center;">${d}</div>`);
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        const daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
+        for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
+        for(let d=1; d<=daysInMonth; d++) {
+            const dObj = new Date(date.getFullYear(), date.getMonth(), d);
+            grid.appendChild(createDayEl(dObj, deadlines));
+        }
+        return box;
+    }
+    function createDayEl(date, deadlines) {
+        const dStr = date.toISOString().split('T')[0];
+        const matches = deadlines.filter(dl => dl.deadline === dStr);
+        const isToday = dStr === new Date().toISOString().split('T')[0];
+        const el = document.createElement('div');
+        el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''}`;
+        el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
+        if (matches.length) {
+            el.onclick = (e) => {
+                const tip = document.createElement('div'); tip.className = 'deadline-popup';
+                tip.innerText = matches.map(m => `[${m.units?.name}] ${m.name}`).join('\n');
+                document.body.appendChild(tip);
+                tip.style.left = `${e.pageX}px`; tip.style.top = `${e.pageY}px`;
+                setTimeout(() => tip.remove(), 3000);
+            };
+        }
+        return el;
+    }
+
+    function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
+    async function loadMgr() {
+        const { data: users } = await client.from('student_accounts').select('*').order('username');
         const { data: units } = await client.from('units').select('id, name');
-
-        // User List with Group Selector
-        document.getElementById('mgr-user-list').innerHTML = users.map(u => `
-            <div class="mgr-card">
-                <strong>${u.username}</strong>
-                <select onchange="assignUserGroup('${u.id}', this.value)">
-                    <option>Add to group...</option>
-                    ${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}
-                </select>
-            </div>
-        `).join('');
-
-        // Group List with Unit Selector
-        document.getElementById('mgr-group-list').innerHTML = groups.map(g => `
-            <div class="mgr-card" style="border-left: 4px solid var(--primary)">
-                <strong>${g.name}</strong>
-                <select onchange="assignUnitGroup('${g.id}', this.value)">
-                    <option>Add Unit Access...</option>
-                    ${units.map(un => `<option value="${un.id}">${un.name}</option>`).join('')}
-                </select>
-                <button onclick="deleteGroup('${g.id}')" style="color:red; background:none; border:none; cursor:pointer; font-size:0.7rem;">Delete Group</button>
-            </div>
-        `).join('');
+        const { data: groups } = await client.from('groups').select('*').order('created_at', {ascending: false});
+        const { data: uLinks } = await client.from('user_group_membership').select('*, student_accounts(username)');
+        const { data: gLinks } = await client.from('unit_group_access').select('*, units(name)');
+        
+        document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
+        document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
+        document.getElementById('mgr-groups').innerHTML = (groups || []).map(g => {
+            const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
+            const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
+            return `<div class="group-card"><div class="group-header"><span>${g.name}</span> <button onclick="deleteGroup('${g.id}')">×</button></div>
+                <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${ul.units?.name} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
+                <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${ul.student_accounts?.username} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
+            </div>`;
+        }).join('');
+        setupDrag();
+    }
+    function setupDrag() {
+        Sortable.create(document.getElementById('lib-students'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
+        Sortable.create(document.getElementById('lib-units'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
+        document.querySelectorAll('.drop-zone').forEach(el => {
+            const zType = el.closest('.zone').dataset.zoneType;
+            const gid = el.closest('.zone').dataset.groupId;
+            Sortable.create(el, { group: 'shared', onAdd: async (evt) => {
+                const id = evt.item.dataset.id;
+                if (evt.item.dataset.type !== zType) { evt.item.remove(); return; }
+                if (zType === 'student') await client.from('user_group_membership').upsert({ group_id: gid, user_id: id });
+                else await client.from('unit_group_access').upsert({ group_id: gid, unit_id: id });
+                loadMgr();
+            }});
+        });
     }
 
-    async function assignUserGroup(uid, gid) {
-        await client.from('user_group_membership').upsert({ user_id: uid, group_id: gid });
-        alert("User assigned to group!");
+    async function addNewGroup() { await client.from('groups').insert([{ name: "New Group" }]); loadMgr(); }
+    async function deleteGroup(id) { if(confirm("Delete?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
+    async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
+    async function deleteUser(id) { await client.from('student_accounts').delete().eq('id', id); loadMgr(); }
+    async function removeUserLink(gid, uid) { await client.from('user_group_membership').delete().eq('group_id', gid).eq('user_id', uid); loadMgr(); }
+    async function removeUnitLink(gid, uid) { await client.from('unit_group_access').delete().eq('group_id', gid).eq('unit_id', uid); loadMgr(); }
+    async function handleExcelUpload() {
+        const fileInput = document.getElementById('excel-file');
+        if (!fileInput.files.length) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+            const students = rows.filter(r => r[0] && r[1]).map(r => ({ username: String(r[0]), password: String(r[1]) }));
+            await client.from('student_accounts').upsert(students, { onConflict: 'username' });
+            loadMgr();
+        };
+        reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    async function assignUnitGroup(gid, unitId) {
-        await client.from('unit_group_access').upsert({ group_id: gid, unit_id: unitId });
-        alert("Unit access added to group!");
-    }
-
-    // Call loadMgrData inside your initial init()
-    loadInitialData().then(() => loadMgrData());
+    init();
 </script>
+</body>
+</html>
