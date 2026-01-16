@@ -3,67 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UESTC H189 Student Portal</title>
+    <title>Student Portal | UESTC H189</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #003399; --bg: #f0f2f5; --glass: rgba(255, 255, 255, 0.9); }
-        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; color: #333; }
-        header { background: var(--primary); color: white; padding: 20px; text-align: center; }
-        .container { max-width: 1100px; margin: 0 auto; padding: 15px; }
+        :root { --primary: #003399; --bg: #f4f4f9; --glass: rgba(255, 255, 255, 0.95); }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 0; color: #333; }
+        
+        /* Login Screen */
+        #login-overlay { position: fixed; inset: 0; background: #1a1a1a; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .login-card { background: white; padding: 30px; border-radius: 16px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .login-card input { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .login-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        #login-err { color: #d32f2f; font-size: 0.85rem; margin-top: 15px; min-height: 1.2em; }
 
-        /* Calendar Wrapper */
-        .calendar-section { 
-            background: var(--glass); backdrop-filter: blur(10px);
-            border-radius: 16px; padding: 20px; margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.05); border: 1px solid rgba(255,255,255,0.3);
-            display: flex; gap: 30px; justify-content: center; flex-wrap: wrap;
+        header { background: #1a1a1a; color: white; padding: 15px; text-align: center; border-bottom: 4px solid var(--primary); position: sticky; top: 0; z-index: 100; }
+        h1 { margin: 0; font-size: 1.2rem; }
+
+        .container { width: 94%; max-width: 1000px; margin: 15px auto; }
+
+        /* Calendar */
+        .calendar-section { background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow-x: auto; display: flex; gap: 20px; }
+        .month-box { min-width: 260px; flex: 1; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+        .cal-day { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; border-radius: 4px; background: #f8f9fa; position: relative; }
+        .has-deadline { border: 2px solid #ff5252; background: #fff1f1; font-weight: bold; }
+        .today { background: var(--primary); color: white; }
+
+        /* Fixed Grid for Better Visibility */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+        @media (max-width: 500px) { 
+            .grid { grid-template-columns: 1fr; } /* Single column for maximum clarity on small phones */
         }
 
-        .month-box { flex: 1; min-width: 300px; max-width: 380px; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .cal-day { 
-            aspect-ratio: 1/1; background: white; border-radius: 8px; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 0.9rem; border: 1px solid #eee; position: relative; transition: 0.2s; cursor: pointer;
-        }
-        .today { background: var(--primary) !important; color: white !important; font-weight: bold; border-color: var(--primary); }
-        .has-deadline { border: 2px solid #ff5252; }
-        .dot { width: 5px; height: 5px; background: #ff5252; border-radius: 50%; margin-top: 2px; }
-
-        /* Tooltip */
-        .deadline-popup {
-            position: fixed; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px;
-            border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none;
-            transform: translate(-50%, -130%); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-
-        /* Responsive Mobile View (7-Day Strip) */
-        @media (max-width: 600px) {
-            .calendar-section { padding: 10px; gap: 10px; }
-            .month-box { max-width: 100%; min-width: 100%; }
-            .month-title { display: none; }
-            .cal-header-row { display: none; } /* Hide S M T W T F S headers on mobile */
-            .cal-grid { 
-                grid-template-columns: repeat(7, 1fr); /* Force single row */
-                display: flex; overflow-x: auto; gap: 8px; padding-bottom: 5px;
-            }
-            .cal-day { min-width: 50px; aspect-ratio: 1/1; flex-shrink: 0; }
-            .cal-day:not(.mobile-visible) { display: none; } /* Script handles this */
-        }
-
-        /* Cards */
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); cursor: pointer; }
         .card img { width: 100%; height: 160px; object-fit: cover; }
+        .card-info { padding: 15px; text-align: center; font-weight: 600; font-size: 1rem; color: var(--primary); }
+
+        /* Detail View */
+        .back-btn { background: #eee; border: none; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
+        .tab-block { background: white; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
+        .tab-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; }
+        .type-lecture { background: #e3f2fd; }
+        .type-assessment { background: #fff9c4; }
+        .content-area { padding: 10px; border-top: 1px solid #eee; display: none; background: #fafafa; }
+        .res-link { display: block; padding: 15px; background: white; border: 1px solid #eee; margin-bottom: 8px; text-decoration: none; color: #333; border-radius: 8px; font-size: 0.95rem; }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-<header><h1>UESTC H189</h1></header>
+<div id="login-overlay">
+    <div class="login-card">
+        <h2 style="color:var(--primary); margin:0 0 20px 0;">Student Access</h2>
+        <input type="text" id="username" placeholder="Username" autocomplete="off">
+        <input type="password" id="password" placeholder="Password" autocomplete="off">
+        <button class="login-btn" id="login-btn" onclick="handleLogin()">Login</button>
+        <p id="login-err"></p>
+    </div>
+</div>
+
+<header><h1>UESTC H189 Portal</h1></header>
 
 <div class="container">
-    <div class="calendar-section" id="calendar-area"></div>
-    <div id="unit-grid" class="grid"></div>
+    <div id="portal-view">
+        <div class="calendar-section" id="calendar-area"></div>
+        <h3 style="margin-left: 5px;">My Learning Units</h3>
+        <div id="unit-grid" class="grid"></div>
+    </div>
+
+    <div id="detail-view" class="hidden">
+        <button class="back-btn" onclick="showOverview()">← Back to Units</button>
+        <h2 id="view-unit-name" style="padding-left:10px; border-left:5px solid var(--primary); color:var(--primary);"></h2>
+        <div id="general-resources"></div>
+        <div id="tabs-container" style="margin-top:20px;"></div>
+    </div>
 </div>
 
 <script>
@@ -71,85 +85,169 @@
     const _key = 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k';
     const client = supabase.createClient(_url, _key);
 
-    async function init() {
-        const { data: units } = await client.from('units').select('*');
-        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
+    let allowedUnitIds = [];
 
+    async function handleLogin() {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
+        const btn = document.getElementById('login-btn');
+        const err = document.getElementById('login-err');
+
+        if (!u || !p) { err.innerText = "Enter username and password"; return; }
+
+        btn.innerText = "Verifying...";
+        btn.disabled = true;
+        err.innerText = "";
+
+        try {
+            // STEP 1: Check Account
+            const { data: user, error: userErr } = await client
+                .from('student_accounts')
+                .select('id')
+                .eq('username', u)
+                .eq('password', p)
+                .maybeSingle();
+
+            if (userErr) throw new Error("Database error. Check RLS policies.");
+            if (!user) throw new Error("Invalid username or password");
+
+            // STEP 2: Get Groups for this student
+            const { data: memberships } = await client
+                .from('user_group_membership')
+                .select('group_id')
+                .eq('user_id', user.id);
+
+            const groupIds = memberships ? memberships.map(m => m.group_id) : [];
+
+            if (groupIds.length === 0) {
+                throw new Error("No groups assigned to your account.");
+            }
+
+            // STEP 3: Get Units for those groups
+            const { data: access } = await client
+                .from('unit_group_access')
+                .select('unit_id')
+                .in('group_id', groupIds);
+
+            allowedUnitIds = access ? [...new Set(access.map(a => a.unit_id))] : [];
+
+            // SUCCESS
+            document.getElementById('login-overlay').classList.add('hidden');
+            initPortal();
+
+        } catch (e) {
+            err.innerText = e.message;
+            console.error(e);
+        } finally {
+            btn.innerText = "Login";
+            btn.disabled = false;
+        }
+    }
+
+    async function initPortal() {
+        if (allowedUnitIds.length === 0) {
+            document.getElementById('unit-grid').innerHTML = "<p>No units found for your account.</p>";
+            return;
+        }
+
+        const { data: units } = await client.from('units').select('*').in('id', allowedUnitIds).order('name');
+        const { data: deadlines } = await client.from('lectures')
+            .select('deadline, name, units(name)')
+            .in('unit_id', allowedUnitIds)
+            .not('deadline', 'is', null);
+
+        renderUnits(units || []);
+        renderCalendars(deadlines || []);
+    }
+
+    function renderUnits(units) {
         document.getElementById('unit-grid').innerHTML = units.map(u => `
-            <div class="card"><img src="${u.header_image_url || ''}"><div style="padding:15px; text-align:center; font-weight:600;">${u.name}</div></div>
+            <div class="card" onclick="openUnit('${u.id}', '${u.name}')">
+                <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}">
+                <div class="card-info">${u.name}</div>
+            </div>
         `).join('');
+    }
 
-        renderCalendars(deadlines);
+    async function openUnit(unitId, unitName) {
+        window.scrollTo(0,0);
+        document.getElementById('portal-view').classList.add('hidden');
+        document.getElementById('detail-view').classList.remove('hidden');
+        document.getElementById('view-unit-name').innerText = unitName;
+
+        const { data: genRes } = await client.from('resources')
+            .select('*').eq('unit_id', unitId).is('lecture_id', null).eq('is_hidden', false).order('sort_order');
+
+        const { data: tabs } = await client.from('lectures')
+            .select('*, resources(*)')
+            .eq('unit_id', unitId)
+            .order('sort_order');
+
+        // Filter out hidden resources and sort them
+        const processedTabs = (tabs || []).map(t => ({
+            ...t,
+            resources: (t.resources || []).filter(r => !r.is_hidden).sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0))
+        }));
+
+        renderDetails(genRes || [], processedTabs);
+    }
+
+    function renderDetails(genRes, tabs) {
+        const genContainer = document.getElementById('general-resources');
+        genContainer.innerHTML = genRes.length ? '<h4 style="margin:15px 5px">Unit Resources</h4>' + genRes.map(r => `
+            <a href="${r.url}" class="res-link" target="_blank">📄 ${r.name}</a>
+        `).join('') : '';
+
+        const tabsContainer = document.getElementById('tabs-container');
+        tabsContainer.innerHTML = tabs.map(t => `
+            <div class="tab-block">
+                <div class="tab-header ${t.type === 'assessment' ? 'type-assessment' : 'type-lecture'}" 
+                     onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block'">
+                    <span>${t.name} ${t.deadline ? `<br><small style="color:#d32f2f">Due: ${t.deadline}</small>` : ''}</span>
+                    <span>▼</span>
+                </div>
+                <div class="content-area">
+                    ${t.resources.map(r => `<a href="${r.url}" class="res-link" target="_blank">🔗 ${r.name}</a>`).join('') || '<p style="color:#888; padding:10px;">No items released.</p>'}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function showOverview() {
+        document.getElementById('portal-view').classList.remove('hidden');
+        document.getElementById('detail-view').classList.add('hidden');
     }
 
     function renderCalendars(deadlines) {
         const area = document.getElementById('calendar-area');
+        area.innerHTML = '';
         const now = new Date();
-        const isMobile = window.innerWidth <= 600;
-
-        if (isMobile) {
-            // Render 7-day strip
-            const strip = document.createElement('div');
-            strip.className = 'cal-grid';
-            for(let i=0; i<7; i++) {
-                const day = new Date();
-                day.setDate(now.getDate() + i);
-                strip.appendChild(createDayEl(day, deadlines, true));
-            }
-            area.appendChild(strip);
-        } else {
-            // Render 2-month view
-            for(let i=0; i<2; i++) {
-                const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-                area.appendChild(createMonth(date, deadlines));
-            }
+        for(let i=0; i<2; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+            area.appendChild(createMonth(date, deadlines));
         }
     }
 
     function createMonth(date, deadlines) {
-        const box = document.createElement('div');
-        box.className = 'month-box';
-        box.innerHTML = `<h4 style="text-align:center; margin-bottom:10px;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid" id="grid-${date.getMonth()}"></div>`;
+        const box = document.createElement('div'); box.className = 'month-box';
+        box.innerHTML = `<h4 style="text-align:center; margin-bottom:10px;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid"></div>`;
         const grid = box.querySelector('.cal-grid');
-        
-        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="text-align:center; font-size:0.7rem; font-weight:bold; color:#888;">${d}</div>`);
-        
+        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="font-size:0.7rem; color:#999; font-weight:bold;">${d}</div>`);
         const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
         const daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
-
         for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
         for(let d=1; d<=daysInMonth; d++) {
-            const dayObj = new Date(date.getFullYear(), date.getMonth(), d);
-            grid.appendChild(createDayEl(dayObj, deadlines));
+            const dStr = new Date(date.getFullYear(), date.getMonth(), d).toISOString().split('T')[0];
+            const matches = deadlines.filter(dl => dl.deadline === dStr);
+            const isToday = dStr === new Date().toISOString().split('T')[0];
+            const el = document.createElement('div');
+            el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''}`;
+            el.innerHTML = d;
+            if(matches.length) el.onclick = () => alert(matches.map(m => `[${m.units?.name || 'Unit'}] ${m.name}`).join('\n'));
+            grid.appendChild(el);
         }
         return box;
     }
-
-    function createDayEl(date, deadlines, isMobile = false) {
-        const dStr = date.toISOString().split('T')[0];
-        const matches = deadlines.filter(dl => dl.deadline === dStr);
-        const isToday = dStr === new Date().toISOString().split('T')[0];
-        
-        const el = document.createElement('div');
-        el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''} ${isMobile ? 'mobile-visible' : ''}`;
-        el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
-        
-        if (matches.length) {
-            el.onclick = (e) => {
-                const tip = document.createElement('div');
-                tip.className = 'deadline-popup';
-                tip.innerText = matches.map(m => `[${m.units.name}] ${m.name}`).join('\n');
-                document.body.appendChild(tip);
-                tip.style.left = `${e.pageX}px`;
-                tip.style.top = `${e.pageY}px`;
-                setTimeout(() => tip.remove(), 3000);
-            };
-        }
-        return el;
-    }
-
-    window.onresize = () => { document.getElementById('calendar-area').innerHTML = ''; init(); };
-    init();
 </script>
 </body>
 </html>
