@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UESTC H189 Student Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #003399; --bg: #f0f2f5; --glass: rgba(255, 255, 255, 0.9); }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; color: #333; }
+        header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 15px; }
+
+        /* Calendar Wrapper */
+        .calendar-section { 
+            background: var(--glass); backdrop-filter: blur(10px);
+            border-radius: 16px; padding: 20px; margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.05); border: 1px solid rgba(255,255,255,0.3);
+            display: flex; gap: 30px; justify-content: center; flex-wrap: wrap;
+        }
+
+        .month-box { flex: 1; min-width: 300px; max-width: 380px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .cal-day { 
+            aspect-ratio: 1/1; background: white; border-radius: 8px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 0.9rem; border: 1px solid #eee; position: relative; transition: 0.2s; cursor: pointer;
+        }
+        .today { background: var(--primary) !important; color: white !important; font-weight: bold; border-color: var(--primary); }
+        .has-deadline { border: 2px solid #ff5252; }
+        .dot { width: 5px; height: 5px; background: #ff5252; border-radius: 50%; margin-top: 2px; }
+
+        /* Tooltip */
+        .deadline-popup {
+            position: fixed; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px;
+            border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none;
+            transform: translate(-50%, -130%); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Responsive Mobile View (7-Day Strip) */
+        @media (max-width: 600px) {
+            .calendar-section { padding: 10px; gap: 10px; }
+            .month-box { max-width: 100%; min-width: 100%; }
+            .month-title { display: none; }
+            .cal-header-row { display: none; } /* Hide S M T W T F S headers on mobile */
+            .cal-grid { 
+                grid-template-columns: repeat(7, 1fr); /* Force single row */
+                display: flex; overflow-x: auto; gap: 8px; padding-bottom: 5px;
+            }
+            .cal-day { min-width: 50px; aspect-ratio: 1/1; flex-shrink: 0; }
+            .cal-day:not(.mobile-visible) { display: none; } /* Script handles this */
+        }
+
+        /* Cards */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .card img { width: 100%; height: 160px; object-fit: cover; }
+    </style>
+</head>
+<body>
+
+<header><h1>UESTC H189</h1></header>
+
+<div class="container">
+    <div class="calendar-section" id="calendar-area"></div>
+    <div id="unit-grid" class="grid"></div>
+</div>
+
+<script>
+    const _url = 'https://btwdbphheotbqrmbswgk.supabase.co';
+    const _key = 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k';
+    const client = supabase.createClient(_url, _key);
+
+    async function init() {
+        const { data: units } = await client.from('units').select('*');
+        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
+
+        document.getElementById('unit-grid').innerHTML = units.map(u => `
+            <div class="card"><img src="${u.header_image_url || ''}"><div style="padding:15px; text-align:center; font-weight:600;">${u.name}</div></div>
+        `).join('');
+
+        renderCalendars(deadlines);
+    }
+
+    function renderCalendars(deadlines) {
+        const area = document.getElementById('calendar-area');
+        const now = new Date();
+        const isMobile = window.innerWidth <= 600;
+
+        if (isMobile) {
+            // Render 7-day strip
+            const strip = document.createElement('div');
+            strip.className = 'cal-grid';
+            for(let i=0; i<7; i++) {
+                const day = new Date();
+                day.setDate(now.getDate() + i);
+                strip.appendChild(createDayEl(day, deadlines, true));
+            }
+            area.appendChild(strip);
+        } else {
+            // Render 2-month view
+            for(let i=0; i<2; i++) {
+                const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                area.appendChild(createMonth(date, deadlines));
+            }
+        }
+    }
+
+    function createMonth(date, deadlines) {
+        const box = document.createElement('div');
+        box.className = 'month-box';
+        box.innerHTML = `<h4 style="text-align:center; margin-bottom:10px;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid" id="grid-${date.getMonth()}"></div>`;
+        const grid = box.querySelector('.cal-grid');
+        
+        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="text-align:center; font-size:0.7rem; font-weight:bold; color:#888;">${d}</div>`);
+        
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        const daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
+
+        for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
+        for(let d=1; d<=daysInMonth; d++) {
+            const dayObj = new Date(date.getFullYear(), date.getMonth(), d);
+            grid.appendChild(createDayEl(dayObj, deadlines));
+        }
+        return box;
+    }
+
+    function createDayEl(date, deadlines, isMobile = false) {
+        const dStr = date.toISOString().split('T')[0];
+        const matches = deadlines.filter(dl => dl.deadline === dStr);
+        const isToday = dStr === new Date().toISOString().split('T')[0];
+        
+        const el = document.createElement('div');
+        el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''} ${isMobile ? 'mobile-visible' : ''}`;
+        el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
+        
+        if (matches.length) {
+            el.onclick = (e) => {
+                const tip = document.createElement('div');
+                tip.className = 'deadline-popup';
+                tip.innerText = matches.map(m => `[${m.units.name}] ${m.name}`).join('\n');
+                document.body.appendChild(tip);
+                tip.style.left = `${e.pageX}px`;
+                tip.style.top = `${e.pageY}px`;
+                setTimeout(() => tip.remove(), 3000);
+            };
+        }
+        return el;
+    }
+
+    window.onresize = () => { document.getElementById('calendar-area').innerHTML = ''; init(); };
+    init();
+</script>
+</body>
+</html>

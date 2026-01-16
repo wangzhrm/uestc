@@ -1,0 +1,105 @@
+<style>
+    /* ... existing styles ... */
+    #sidebar-toggle {
+        position: fixed; right: 0; top: 0; bottom: 0; width: 30px;
+        background: #333; color: white; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        writing-mode: vertical-rl; text-orientation: mixed; font-size: 0.8rem;
+        z-index: 1001; transition: 0.3s;
+    }
+    #sidebar-toggle:hover { background: var(--primary); }
+    
+    #student-manager {
+        position: fixed; right: -400px; top: 0; bottom: 0; width: 400px;
+        background: white; box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+        z-index: 1000; transition: 0.3s; padding: 20px; overflow-y: auto;
+    }
+    #student-manager.open { right: 30px; }
+    .mgr-section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+    .mgr-card { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; }
+    select, input { width: 100%; margin-bottom: 5px; padding: 5px; }
+</style>
+
+<div id="sidebar-toggle" onclick="toggleSidebar()">STUDENT MANAGER ◀</div>
+<div id="student-manager">
+    <button onclick="toggleSidebar()">Close ✖</button>
+    <h2 style="color:var(--primary)">Student Manager</h2>
+    
+    <div class="mgr-section">
+        <h3>1. Users</h3>
+        <input id="new-user-n" placeholder="Username">
+        <input id="new-user-p" placeholder="Password">
+        <button class="btn-action" onclick="mgrAddUser()">Create User</button>
+        <div id="mgr-user-list"></div>
+    </div>
+
+    <div class="mgr-section">
+        <h3>2. Groups</h3>
+        <input id="new-group-n" placeholder="Group Name (e.g. Class A)">
+        <button class="btn-action" onclick="mgrAddGroup()">Create Group</button>
+        <div id="mgr-group-list"></div>
+    </div>
+</div>
+
+<script>
+    // ... Previous logic ...
+
+    function toggleSidebar() {
+        document.getElementById('student-manager').classList.toggle('open');
+    }
+
+    async function mgrAddUser() {
+        const u = document.getElementById('new-user-n').value;
+        const p = document.getElementById('new-user-p').value;
+        await client.from('users').insert([{ username: u, password: p }]);
+        loadMgrData();
+    }
+
+    async function mgrAddGroup() {
+        const n = document.getElementById('new-group-n').value;
+        await client.from('groups').insert([{ name: n }]);
+        loadMgrData();
+    }
+
+    async function loadMgrData() {
+        const { data: users } = await client.from('users').select('*');
+        const { data: groups } = await client.from('groups').select('*');
+        const { data: units } = await client.from('units').select('id, name');
+
+        // User List with Group Selector
+        document.getElementById('mgr-user-list').innerHTML = users.map(u => `
+            <div class="mgr-card">
+                <strong>${u.username}</strong>
+                <select onchange="assignUserGroup('${u.id}', this.value)">
+                    <option>Add to group...</option>
+                    ${groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+
+        // Group List with Unit Selector
+        document.getElementById('mgr-group-list').innerHTML = groups.map(g => `
+            <div class="mgr-card" style="border-left: 4px solid var(--primary)">
+                <strong>${g.name}</strong>
+                <select onchange="assignUnitGroup('${g.id}', this.value)">
+                    <option>Add Unit Access...</option>
+                    ${units.map(un => `<option value="${un.id}">${un.name}</option>`).join('')}
+                </select>
+                <button onclick="deleteGroup('${g.id}')" style="color:red; background:none; border:none; cursor:pointer; font-size:0.7rem;">Delete Group</button>
+            </div>
+        `).join('');
+    }
+
+    async function assignUserGroup(uid, gid) {
+        await client.from('user_group_membership').upsert({ user_id: uid, group_id: gid });
+        alert("User assigned to group!");
+    }
+
+    async function assignUnitGroup(gid, unitId) {
+        await client.from('unit_group_access').upsert({ group_id: gid, unit_id: unitId });
+        alert("Unit access added to group!");
+    }
+
+    // Call loadMgrData inside your initial init()
+    loadInitialData().then(() => loadMgrData());
+</script>
