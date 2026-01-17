@@ -16,7 +16,7 @@
         header { background: #1a1a1a; color: white; padding: 20px; text-align: center; border-bottom: 4px solid var(--primary); }
         .container { max-width: 1100px; margin: 20px auto; padding: 0 50px 0 20px; }
         
-        /* Calendar UI Updates */
+        /* Calendar UI */
         .calendar-nav { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 15px; }
         .nav-btn { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; }
         .nav-btn:hover { opacity: 0.9; }
@@ -120,12 +120,20 @@
         const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
         
         cachedDeadlines = deadlines || [];
-        document.getElementById('unit-grid').innerHTML = (units || []).map(u => `
-            <div class="card">
+        const grid = document.getElementById('unit-grid');
+        
+        grid.innerHTML = (units || []).map(u => `
+            <div class="card" id="unit-card-${u.id}">
                 <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
-                <div style="padding:15px; text-align:center;"><strong>${u.name}</strong></div>
+                <div style="padding:15px; text-align:center;">
+                    <strong style="display:block; margin-bottom:10px;">${u.name}</strong>
+                    <button class="btn-action" onclick="editUnitInline('${u.id}', '${u.name}', '${u.header_image_url}')">Edit Info</button>
+                </div>
             </div>
-        `).join('') + `<div onclick="createNewUnit()" style="border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; min-height:200px; border-radius:12px; color:#999;">+ Add Unit</div>`;
+        `).join('') + `
+            <div id="add-unit-placeholder" onclick="createNewUnit()" style="border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; min-height:200px; border-radius:12px; color:#999;">
+                + Add Unit
+            </div>`;
 
         renderCalendars();
         loadMgr();
@@ -163,17 +171,13 @@
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const dStr = `${year}-${month}-${day}`;
-        
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        
         const matches = deadlines.filter(dl => dl.deadline === dStr);
         const isToday = dStr === todayStr;
-        
         const el = document.createElement('div');
         el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''}`;
         el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
-        
         if (matches.length) {
             el.onclick = (e) => {
                 const tip = document.createElement('div'); tip.className = 'deadline-popup';
@@ -186,21 +190,65 @@
         return el;
     }
 
-    // --- Original UI & Logic Preserved Below ---
+    // --- UNIT EDITING FUNCTIONS ---
+
+    function editUnitInline(id, oldName, oldImg) {
+        const card = document.getElementById(`unit-card-${id}`);
+        card.innerHTML = `
+            <div style="padding:20px; display:flex; flex-direction:column; gap:10px;">
+                <label style="font-size:11px; font-weight:bold; color:#666;">UNIT NAME</label>
+                <input type="text" id="edit-name-${id}" value="${oldName}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <label style="font-size:11px; font-weight:bold; color:#666;">IMAGE URL</label>
+                <input type="text" id="edit-img-${id}" value="${oldImg}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; gap:5px; margin-top:10px;">
+                    <button class="btn-action btn-save" style="flex:1" onclick="saveUnitEdit('${id}')">Save</button>
+                    <button class="btn-action" style="flex:1" onclick="init()">Cancel</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async function saveUnitEdit(id) {
+        const name = document.getElementById(`edit-name-${id}`).value;
+        const header_image_url = document.getElementById(`edit-img-${id}`).value;
+        if(!name) return;
+        await client.from('units').update({ name, header_image_url }).eq('id', id);
+        init();
+    }
+
+    function createNewUnit() {
+        const placeholder = document.getElementById('add-unit-placeholder');
+        placeholder.onclick = null;
+        placeholder.style.border = "1px solid #ddd";
+        placeholder.style.background = "white";
+        placeholder.innerHTML = `
+            <div style="padding:20px; width:100%; display:flex; flex-direction:column; gap:10px; cursor:default;" onclick="event.stopPropagation()">
+                <strong style="color:var(--primary)">New Unit</strong>
+                <input type="text" id="new-unit-name" placeholder="Unit Name" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <input type="text" id="new-unit-img" placeholder="Header Image URL" value="https://via.placeholder.com/400x200" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-action btn-save" style="flex:1" onclick="saveNewUnit()">Create</button>
+                    <button class="btn-action" style="flex:1" onclick="init()">Cancel</button>
+                </div>
+            </div>
+        `;
+    }
+
+    async function saveNewUnit() {
+        const name = document.getElementById('new-unit-name').value;
+        const img = document.getElementById('new-unit-img').value;
+        if (!name) return alert("Please enter a name");
+        await client.from('units').insert([{ name, header_image_url: img }]);
+        init();
+    }
+
+    // --- OTHER UI LOGIC ---
 
     function showOverview() {
         currentUnitId = null;
         document.getElementById('unit-view').classList.remove('hidden');
         document.getElementById('detail-view').classList.add('hidden');
         init();
-    }
-
-    async function createNewUnit() {
-        const name = prompt("Enter Unit Name:");
-        if (!name) return;
-        const img = prompt("Header Image URL:", "https://via.placeholder.com/400x200");
-        await client.from('units').insert([{ name, header_image_url: img }]);
-        showOverview();
     }
 
     async function openEditor(id) {
@@ -220,7 +268,6 @@
                 .eq('unit_id', currentUnitId)
                 .order('sort_order', { ascending: true });
             const { data: genRes } = await client.from('resources').select('*').eq('unit_id', currentUnitId).is('lecture_id', null);
-
             const sortedGen = (genRes || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
             document.getElementById('editor-content').innerHTML = `
@@ -301,6 +348,7 @@
 
     function setupTabSort() {
         const el = document.getElementById('tabs-container');
+        if(!el) return;
         Sortable.create(el, {
             animation: 150, handle: '.tab-header',
             onEnd: async () => {
