@@ -15,6 +15,13 @@
         #student-manager.open { right: 35px; }
         header { background: #1a1a1a; color: white; padding: 20px; text-align: center; border-bottom: 4px solid var(--primary); }
         .container { max-width: 1100px; margin: 20px auto; padding: 0 50px 0 20px; }
+        
+        /* Calendar UI Updates */
+        .calendar-nav { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .nav-btn { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; }
+        .nav-btn:hover { opacity: 0.9; }
+        .today-btn { background: #666; }
+        
         .calendar-section { background: var(--glass); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; margin-bottom: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.05); border: 1px solid #ddd; display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; }
         .month-box { flex: 1; min-width: 300px; max-width: 380px; }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
@@ -22,6 +29,7 @@
         .today { background: var(--primary) !important; color: white !important; font-weight: bold; }
         .has-deadline { border: 2px solid #ff5252; }
         .dot { width: 5px; height: 5px; background: #ff5252; border-radius: 50%; margin-top: 2px; }
+        
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: 0.3s; }
         .card:hover { transform: translateY(-5px); }
@@ -85,6 +93,11 @@
 
 <div class="container">
     <div id="unit-view">
+        <div class="calendar-nav">
+            <button class="nav-btn" onclick="changeMonth(-1)">◀ Previous</button>
+            <button class="nav-btn today-btn" onclick="resetMonth()">Today</button>
+            <button class="nav-btn" onclick="changeMonth(1)">Next ▶</button>
+        </div>
         <div class="calendar-section" id="calendar-area"></div>
         <div id="unit-grid" class="grid"></div>
     </div>
@@ -99,11 +112,14 @@
     const _key = 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k';
     const client = supabase.createClient(_url, _key);
     let currentUnitId = null;
+    let calendarOffset = 0;
+    let cachedDeadlines = [];
 
     async function init() {
         const { data: units } = await client.from('units').select('*').order('created_at', { ascending: true });
         const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
         
+        cachedDeadlines = deadlines || [];
         document.getElementById('unit-grid').innerHTML = (units || []).map(u => `
             <div class="card">
                 <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
@@ -111,9 +127,66 @@
             </div>
         `).join('') + `<div onclick="createNewUnit()" style="border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; min-height:200px; border-radius:12px; color:#999;">+ Add Unit</div>`;
 
-        renderCalendars(deadlines || []);
+        renderCalendars();
         loadMgr();
     }
+
+    function changeMonth(step) { calendarOffset += step; renderCalendars(); }
+    function resetMonth() { calendarOffset = 0; renderCalendars(); }
+
+    function renderCalendars() {
+        const area = document.getElementById('calendar-area'); area.innerHTML = '';
+        const now = new Date();
+        for(let i=0; i<2; i++) {
+            const date = new Date(now.getFullYear(), now.getMonth() + calendarOffset + i, 1);
+            area.appendChild(createMonth(date, cachedDeadlines));
+        }
+    }
+
+    function createMonth(date, deadlines) {
+        const box = document.createElement('div'); box.className = 'month-box';
+        box.innerHTML = `<h4 style="text-align:center;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid"></div>`;
+        const grid = box.querySelector('.cal-grid');
+        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="font-size:0.7rem; font-weight:bold; color:#888; text-align:center;">${d}</div>`);
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        const daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
+        for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
+        for(let d=1; d<=daysInMonth; d++) {
+            const dObj = new Date(date.getFullYear(), date.getMonth(), d);
+            grid.appendChild(createDayEl(dObj, deadlines));
+        }
+        return box;
+    }
+
+    function createDayEl(date, deadlines) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dStr = `${year}-${month}-${day}`;
+        
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        const matches = deadlines.filter(dl => dl.deadline === dStr);
+        const isToday = dStr === todayStr;
+        
+        const el = document.createElement('div');
+        el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''}`;
+        el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
+        
+        if (matches.length) {
+            el.onclick = (e) => {
+                const tip = document.createElement('div'); tip.className = 'deadline-popup';
+                tip.innerText = matches.map(m => `[${m.units?.name}] ${m.name}`).join('\n');
+                document.body.appendChild(tip);
+                tip.style.left = `${e.pageX}px`; tip.style.top = `${e.pageY}px`;
+                setTimeout(() => tip.remove(), 3000);
+            };
+        }
+        return el;
+    }
+
+    // --- Original UI & Logic Preserved Below ---
 
     function showOverview() {
         currentUnitId = null;
@@ -168,16 +241,13 @@
             `;
             setupResourceSort();
             setupTabSort();
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     function renderResourceRow(r) {
         const hiddenStatus = r.is_hidden ? 'Show' : 'Hide';
         const opacity = r.is_hidden ? '0.4' : '1';
         const icon = r.is_hidden ? '👁️‍🗨️' : '👁️';
-
         return `<div class="item-row" data-id="${r.id}" id="res-row-${r.id}" style="opacity: ${opacity}">
             <span style="color:#999; margin-right:8px;">☰</span>
             <span style="flex-grow:1">${r.name} ${r.is_hidden ? '<small>(Hidden)</small>' : ''}</span>
@@ -229,7 +299,6 @@
         </div>`;
     }
 
-    // --- Core Logic ---
     function setupTabSort() {
         const el = document.getElementById('tabs-container');
         Sortable.create(el, {
@@ -287,48 +356,6 @@
     async function saveTabEdit(id) {
         const name = document.getElementById(`en-${id}`).value, type = document.getElementById(`et-${id}`).value;
         await client.from('lectures').update({ name, type }).eq('id', id); refreshEditor();
-    }
-
-    // --- Management Logic ---
-    function renderCalendars(deadlines) {
-        const area = document.getElementById('calendar-area'); area.innerHTML = '';
-        const now = new Date();
-        for(let i=0; i<2; i++) {
-            const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-            area.appendChild(createMonth(date, deadlines));
-        }
-    }
-    function createMonth(date, deadlines) {
-        const box = document.createElement('div'); box.className = 'month-box';
-        box.innerHTML = `<h4 style="text-align:center;">${date.toLocaleString('default', { month: 'long', year: 'numeric' })}</h4><div class="cal-grid"></div>`;
-        const grid = box.querySelector('.cal-grid');
-        ['S','M','T','W','T','F','S'].forEach(d => grid.innerHTML += `<div style="font-size:0.7rem; font-weight:bold; color:#888; text-align:center;">${d}</div>`);
-        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-        const daysInMonth = new Date(date.getFullYear(), date.getMonth()+1, 0).getDate();
-        for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement('div'));
-        for(let d=1; d<=daysInMonth; d++) {
-            const dObj = new Date(date.getFullYear(), date.getMonth(), d);
-            grid.appendChild(createDayEl(dObj, deadlines));
-        }
-        return box;
-    }
-    function createDayEl(date, deadlines) {
-        const dStr = date.toISOString().split('T')[0];
-        const matches = deadlines.filter(dl => dl.deadline === dStr);
-        const isToday = dStr === new Date().toISOString().split('T')[0];
-        const el = document.createElement('div');
-        el.className = `cal-day ${matches.length ? 'has-deadline' : ''} ${isToday ? 'today' : ''}`;
-        el.innerHTML = `<span>${date.getDate()}</span>${matches.length ? '<div class="dot"></div>' : ''}`;
-        if (matches.length) {
-            el.onclick = (e) => {
-                const tip = document.createElement('div'); tip.className = 'deadline-popup';
-                tip.innerText = matches.map(m => `[${m.units?.name}] ${m.name}`).join('\n');
-                document.body.appendChild(tip);
-                tip.style.left = `${e.pageX}px`; tip.style.top = `${e.pageY}px`;
-                setTimeout(() => tip.remove(), 3000);
-            };
-        }
-        return el;
     }
 
     function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
