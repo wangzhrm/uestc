@@ -10,13 +10,19 @@
     <style>
         :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --glass: rgba(255, 255, 255, 0.9); }
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; }
+        
+        /* LOGIN STYLES */
+        #login-overlay { position: fixed; inset: 0; background: #1a1a1a; z-index: 10000; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 320px; text-align: center; }
+        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .login-card button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
         #sidebar-toggle { position: fixed; right: 0; top: 0; bottom: 0; width: 35px; background: #333; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; z-index: 1001; font-weight: bold; }
         #student-manager { position: fixed; right: -65%; top: 0; bottom: 0; width: 60%; background: #fff; box-shadow: -10px 0 30px rgba(0,0,0,0.15); z-index: 1000; transition: 0.4s ease; padding: 25px; overflow-y: auto; border-left: 5px solid var(--primary); }
         #student-manager.open { right: 35px; }
         header { background: #1a1a1a; color: white; padding: 20px; text-align: center; border-bottom: 4px solid var(--primary); }
         .container { max-width: 1100px; margin: 20px auto; padding: 0 50px 0 20px; }
         
-        /* Calendar UI */
         .calendar-nav { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 15px; }
         .nav-btn { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem; }
         .nav-btn:hover { opacity: 0.9; }
@@ -43,6 +49,7 @@
         .item-row { display: flex; align-items: center; background: #fff; padding: 10px; margin: 5px 0; border-radius: 6px; border: 1px solid #eee; gap: 10px; cursor: grab; }
         .btn-action { padding: 6px 12px; border-radius: 4px; cursor: pointer; border: 1px solid #ccc; font-size: 0.75rem; background: #fdfdfd; font-weight: bold; }
         .btn-save { background: #2e7d32; color: white; border: none; }
+        .btn-danger { background: #d32f2f; color: white; border: none; }
         .hidden { display: none; }
         .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; }
         .group-card { background: white; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
@@ -54,6 +61,16 @@
     </style>
 </head>
 <body>
+
+<div id="login-overlay">
+    <div class="login-card">
+        <h2 style="color:var(--primary); margin-top:0;">Admin Access</h2>
+        <input type="text" id="login-user" placeholder="Username">
+        <input type="password" id="login-pass" placeholder="Password">
+        <button onclick="handleLogin()">Login</button>
+        <p id="login-error" style="color:red; font-size:12px; margin-top:10px; display:none;">Invalid credentials</p>
+    </div>
+</div>
 
 <div id="sidebar-toggle" onclick="toggleSidebar()">STUDENT MANAGER ◀</div>
 
@@ -114,6 +131,27 @@
     let currentUnitId = null;
     let calendarOffset = 0;
     let cachedDeadlines = [];
+
+    // LOGIN LOGIC
+    function handleLogin() {
+        const user = document.getElementById('login-user').value;
+        const pass = document.getElementById('login-pass').value;
+        if (user === "wangzhrm" && pass === "wang123") {
+            sessionStorage.setItem('isAdmin', 'true');
+            document.getElementById('login-overlay').style.display = 'none';
+            init();
+        } else {
+            document.getElementById('login-error').style.display = 'block';
+        }
+    }
+
+    // Check login state on load
+    window.onload = () => {
+        if (sessionStorage.getItem('isAdmin') === 'true') {
+            document.getElementById('login-overlay').style.display = 'none';
+            init();
+        }
+    }
 
     async function init() {
         const { data: units } = await client.from('units').select('*').order('created_at', { ascending: true });
@@ -190,8 +228,6 @@
         return el;
     }
 
-    // --- UNIT EDITING FUNCTIONS ---
-
     function editUnitInline(id, oldName, oldImg) {
         const card = document.getElementById(`unit-card-${id}`);
         card.innerHTML = `
@@ -202,6 +238,7 @@
                 <input type="text" id="edit-img-${id}" value="${oldImg}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
                 <div style="display:flex; gap:5px; margin-top:10px;">
                     <button class="btn-action btn-save" style="flex:1" onclick="saveUnitEdit('${id}')">Save</button>
+                    <button class="btn-action btn-danger" style="flex:1" onclick="deleteUnit('${id}')">Delete</button>
                     <button class="btn-action" style="flex:1" onclick="init()">Cancel</button>
                 </div>
             </div>
@@ -214,6 +251,13 @@
         if(!name) return;
         await client.from('units').update({ name, header_image_url }).eq('id', id);
         init();
+    }
+
+    async function deleteUnit(id) {
+        if(confirm("Are you sure? This will delete the unit and all its content!")) {
+            await client.from('units').delete().eq('id', id);
+            init();
+        }
     }
 
     function createNewUnit() {
@@ -241,8 +285,6 @@
         await client.from('units').insert([{ name, header_image_url: img }]);
         init();
     }
-
-    // --- OTHER UI LOGIC ---
 
     function showOverview() {
         currentUnitId = null;
@@ -407,6 +449,7 @@
     }
 
     function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
+    
     async function loadMgr() {
         const { data: users } = await client.from('student_accounts').select('*').order('username');
         const { data: units } = await client.from('units').select('id, name');
@@ -416,16 +459,26 @@
         
         document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
         document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
-        document.getElementById('mgr-groups').innerHTML = (groups || []).map(g => {
+        
+        const grid = document.getElementById('mgr-groups');
+        grid.innerHTML = (groups || []).map(g => {
             const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
             const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
-            return `<div class="group-card"><div class="group-header"><span>${g.name}</span> <button onclick="deleteGroup('${g.id}')">×</button></div>
+            return `<div class="group-card" id="g-card-${g.id}">
+                <div class="group-header" id="g-header-${g.id}">
+                    <span style="font-weight:bold;">${g.name}</span>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <button class="btn-action" style="padding:2px 5px; font-size:10px;" onclick="editGroupName('${g.id}', '${g.name.replace(/'/g, "\\'")}')">Edit</button>
+                        <button onclick="deleteGroup('${g.id}')" style="background:transparent; border:none; color:white; cursor:pointer;">×</button>
+                    </div>
+                </div>
                 <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${ul.units?.name} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
                 <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${ul.student_accounts?.username} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
             </div>`;
         }).join('');
         setupDrag();
     }
+
     function setupDrag() {
         Sortable.create(document.getElementById('lib-students'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         Sortable.create(document.getElementById('lib-units'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
@@ -442,12 +495,52 @@
         });
     }
 
-    async function addNewGroup() { await client.from('groups').insert([{ name: "New Group" }]); loadMgr(); }
-    async function deleteGroup(id) { if(confirm("Delete?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
+    function addNewGroup() {
+        const grid = document.getElementById('mgr-groups');
+        const tempId = 'temp-' + Date.now();
+        const tempCard = document.createElement('div');
+        tempCard.className = 'group-card';
+        tempCard.id = tempId;
+        tempCard.innerHTML = `
+            <div class="group-header" style="background:#2e7d32;">
+                <input id="new-g-input" placeholder="Enter Group Name..." style="width:70%; padding:4px; font-size:12px; border-radius:4px; border:none;">
+                <button class="btn-save" style="padding:4px 8px; font-size:11px; background:white; color:#2e7d32; border:none; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="confirmNewGroup('${tempId}')">OK</button>
+            </div>
+            <div style="padding:20px; text-align:center; color:#999; font-size:12px;">Complete name to enable drag & drop</div>
+        `;
+        grid.prepend(tempCard);
+        document.getElementById('new-g-input').focus();
+    }
+
+    async function confirmNewGroup(tempId) {
+        const nameInput = document.getElementById('new-g-input');
+        const name = nameInput.value.trim() || "Untitled Group";
+        const { error } = await client.from('groups').insert([{ name: name }]);
+        if (error) { console.error(error); alert("Error creating group"); }
+        loadMgr();
+    }
+
+    function editGroupName(id, oldName) {
+        const header = document.getElementById(`g-header-${id}`);
+        header.innerHTML = `
+            <input id="edit-g-input-${id}" value="${oldName}" style="width:70%; padding:2px; font-size:12px; border-radius:4px; border:none;">
+            <button class="btn-save" style="padding:2px 5px; font-size:10px" onclick="saveGroupName('${id}')">Save</button>
+        `;
+        document.getElementById(`edit-g-input-${id}`).focus();
+    }
+
+    async function saveGroupName(id) {
+        const newName = document.getElementById(`edit-g-input-${id}`).value.trim();
+        if (newName) { await client.from('groups').update({ name: newName }).eq('id', id); }
+        loadMgr();
+    }
+
+    async function deleteGroup(id) { if(confirm("Delete Group?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
     async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     async function deleteUser(id) { await client.from('student_accounts').delete().eq('id', id); loadMgr(); }
     async function removeUserLink(gid, uid) { await client.from('user_group_membership').delete().eq('group_id', gid).eq('user_id', uid); loadMgr(); }
     async function removeUnitLink(gid, uid) { await client.from('unit_group_access').delete().eq('group_id', gid).eq('unit_id', uid); loadMgr(); }
+    
     async function handleExcelUpload() {
         const fileInput = document.getElementById('excel-file');
         if (!fileInput.files.length) return;
@@ -462,8 +555,6 @@
         };
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
-
-    init();
 </script>
 </body>
 </html>
