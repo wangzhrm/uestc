@@ -16,8 +16,20 @@
         .login-btn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         #login-err { color: #d32f2f; font-size: 0.85rem; margin-top: 15px; min-height: 1.2em; }
 
-        header { background: #1a1a1a; color: white; padding: 15px; text-align: center; border-bottom: 4px solid var(--primary); position: sticky; top: 0; z-index: 100; }
+        header { 
+            background: #1a1a1a; 
+            color: white; 
+            padding: 15px 25px; 
+            border-bottom: 4px solid var(--primary); 
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
         h1 { margin: 0; font-size: 1.2rem; }
+        #user-display { font-size: 0.9rem; font-weight: 500; opacity: 0.9; }
 
         .container { width: 94%; max-width: 1000px; margin: 15px auto; }
 
@@ -81,7 +93,10 @@
     </div>
 </div>
 
-<header><h1>UESTC H189 Portal</h1></header>
+<header>
+    <h1>UESTC H189 Portal</h1>
+    <div id="user-display"></div>
+</header>
 
 <div class="container">
     <div id="portal-view">
@@ -128,12 +143,15 @@
 
         try {
             const { data: user, error: userErr } = await client.from('student_accounts')
-                .select('id').eq('username', u).eq('password', p).maybeSingle();
+                .select('id, username').eq('username', u).eq('password', p).maybeSingle();
 
             if (userErr) throw new Error("Connection Error");
             if (!user) throw new Error("Invalid credentials");
 
             currentUser = user;
+            
+            // Set the username in the header
+            document.getElementById('user-display').innerText = `Hello, ${user.username}`;
 
             const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
             completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
@@ -241,7 +259,6 @@
             const isAssessment = t.type === 'assessment';
             let statusClass = isAssessment ? 'type-assessment' : 'type-lecture';
 
-            // Fixed logic for Red Background: On, Before, or within 7 days of deadline
             if (isAssessment && !isDone && t.deadline) {
                 const deadlineDate = new Date(t.deadline);
                 deadlineDate.setHours(0, 0, 0, 0);
