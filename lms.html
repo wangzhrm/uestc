@@ -47,7 +47,6 @@
         .back-btn { background: #eee; border: none; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
         .tab-block { background: white; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
         
-        /* Updated Tab Header for Button Alignment */
         .tab-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; gap: 10px; }
         .type-lecture { background: #e3f2fd; }
         .type-assessment { background: #fff9c4; }
@@ -136,7 +135,6 @@
 
             currentUser = user;
 
-            // Fetch completions
             const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
             completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
 
@@ -193,7 +191,6 @@
             const dObj = new Date(date.getFullYear(), date.getMonth(), d);
             const dStr = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
             
-            // Filter: Only red if deadline exists AND not completed
             const matches = deadlines.filter(dl => dl.deadline === dStr && !completedLectures.has(dl.id));
             const isToday = dStr === new Date().toISOString().split('T')[0];
             
@@ -236,10 +233,24 @@
         genContainer.innerHTML = genRes.length ? '<h4 style="margin:15px 5px">Unit Resources</h4>' + genRes.map(r => `<a href="${r.url}" class="res-link" target="_blank">📄 ${r.name}</a>`).join('') : '';
         const tabsContainer = document.getElementById('tabs-container');
         
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
         tabsContainer.innerHTML = tabs.map(t => {
             const isDone = completedLectures.has(t.id);
             const isAssessment = t.type === 'assessment';
-            const statusClass = isAssessment ? 'type-assessment' : 'type-lecture';
+            let statusClass = isAssessment ? 'type-assessment' : 'type-lecture';
+
+            // Fixed logic for Red Background: On, Before, or within 7 days of deadline
+            if (isAssessment && !isDone && t.deadline) {
+                const deadlineDate = new Date(t.deadline);
+                deadlineDate.setHours(0, 0, 0, 0);
+                const diffDays = (deadlineDate - now) / 86400000;
+
+                if (diffDays <= 7) {
+                    statusClass = 'has-deadline'; 
+                }
+            }
 
             return `
             <div class="tab-block">
@@ -271,11 +282,8 @@
                 await client.from('student_progress').upsert({ user_id: currentUser.id, lecture_id: lectureId, is_completed: true });
                 completedLectures.add(lectureId);
             }
-            
-            // Refresh view
             const uId = document.getElementById('view-unit-name').dataset.unitId;
             const uName = document.getElementById('view-unit-name').innerText;
-            
             await initPortal();
             await openUnit(uId, uName);
         } catch (e) { alert("Error updating status"); }
