@@ -21,7 +21,7 @@
 
         .container { width: 94%; max-width: 1000px; margin: 15px auto; }
 
-        /* Calendar Navigation & Section */
+        /* Calendar */
         .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px; }
         .nav-group { display: flex; gap: 8px; align-items: center; }
         .nav-btn { background: var(--primary); color: white; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
@@ -46,9 +46,24 @@
         /* Detail View */
         .back-btn { background: #eee; border: none; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
         .tab-block { background: white; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; }
-        .tab-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; }
+        
+        /* Updated Tab Header for Button Alignment */
+        .tab-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; gap: 10px; }
         .type-lecture { background: #e3f2fd; }
         .type-assessment { background: #fff9c4; }
+        
+        .header-btn { 
+            margin-left: auto; 
+            padding: 6px 12px; 
+            border: none; 
+            border-radius: 6px; 
+            color: white; 
+            font-size: 0.75rem; 
+            cursor: pointer; 
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
         .content-area { padding: 10px; border-top: 1px solid #eee; display: none; background: #fafafa; }
         .res-link { display: block; padding: 15px; background: white; border: 1px solid #eee; margin-bottom: 8px; text-decoration: none; color: #333; border-radius: 8px; font-size: 0.95rem; }
         
@@ -100,6 +115,8 @@
     let allowedUnitIds = [];
     let currentOffset = 0;
     let globalDeadlines = [];
+    let currentUser = null;
+    let completedLectures = new Set();
 
     async function handleLogin() {
         const u = document.getElementById('username').value.trim();
@@ -117,6 +134,12 @@
             if (userErr) throw new Error("Connection Error");
             if (!user) throw new Error("Invalid credentials");
 
+            currentUser = user;
+
+            // Fetch completions
+            const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
+            completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
+
             const { data: memberships } = await client.from('user_group_membership').select('group_id').eq('user_id', user.id);
             const groupIds = memberships ? memberships.map(m => m.group_id) : [];
 
@@ -132,7 +155,7 @@
     async function initPortal() {
         const { data: units } = await client.from('units').select('*').in('id', allowedUnitIds).order('name');
         const { data: deadlines } = await client.from('lectures')
-            .select('deadline, name, units(name)')
+            .select('id, deadline, name, units(name)')
             .in('unit_id', allowedUnitIds)
             .not('deadline', 'is', null);
 
@@ -168,9 +191,10 @@
         
         for(let d=1; d<=daysInMonth; d++) {
             const dObj = new Date(date.getFullYear(), date.getMonth(), d);
-            // Local date string comparison
             const dStr = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
-            const matches = deadlines.filter(dl => dl.deadline === dStr);
+            
+            // Filter: Only red if deadline exists AND not completed
+            const matches = deadlines.filter(dl => dl.deadline === dStr && !completedLectures.has(dl.id));
             const isToday = dStr === new Date().toISOString().split('T')[0];
             
             const el = document.createElement('div');
@@ -196,6 +220,7 @@
         document.getElementById('portal-view').classList.add('hidden');
         document.getElementById('detail-view').classList.remove('hidden');
         document.getElementById('view-unit-name').innerText = unitName;
+        document.getElementById('view-unit-name').dataset.unitId = unitId;
 
         const { data: genRes } = await client.from('resources').select('*').eq('unit_id', unitId).is('lecture_id', null).eq('is_hidden', false).order('sort_order');
         const { data: tabs } = await client.from('lectures').select('*, resources(*)').eq('unit_id', unitId).order('sort_order');
@@ -210,15 +235,50 @@
         const genContainer = document.getElementById('general-resources');
         genContainer.innerHTML = genRes.length ? '<h4 style="margin:15px 5px">Unit Resources</h4>' + genRes.map(r => `<a href="${r.url}" class="res-link" target="_blank">📄 ${r.name}</a>`).join('') : '';
         const tabsContainer = document.getElementById('tabs-container');
-        tabsContainer.innerHTML = tabs.map(t => `
+        
+        tabsContainer.innerHTML = tabs.map(t => {
+            const isDone = completedLectures.has(t.id);
+            const isAssessment = t.type === 'assessment';
+            const statusClass = isAssessment ? 'type-assessment' : 'type-lecture';
+
+            return `
             <div class="tab-block">
-                <div class="tab-header ${t.type === 'assessment' ? 'type-assessment' : 'type-lecture'}" onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block'">
-                    <span>${t.name} ${t.deadline ? `<br><small style="color:#d32f2f">Due: ${t.deadline}</small>` : ''}</span><span>▼</span>
+                <div class="tab-header ${statusClass}" onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block'">
+                    <span>${isDone ? '✅ ' : ''}${t.name} ${t.deadline ? `<br><small style="color:#d32f2f">Due: ${t.deadline}</small>` : ''}</span>
+                    
+                    ${isAssessment ? `
+                        <button class="header-btn" style="background:${isDone ? '#666' : '#2e7d32'}" 
+                            onclick="event.stopPropagation(); toggleComplete('${t.id}')">
+                            ${isDone ? 'Unmark' : 'Mark Done'}
+                        </button>
+                    ` : ''}
+                    
+                    <span style="margin-left: ${isAssessment ? '10px' : 'auto'}">▼</span>
                 </div>
                 <div class="content-area">
                     ${t.resources.map(r => `<a href="${r.url}" class="res-link" target="_blank">🔗 ${r.name}</a>`).join('') || '<p style="color:#888; padding:10px;">No items released.</p>'}
                 </div>
-            </div>`).join('');
+            </div>`}).join('');
+    }
+
+    async function toggleComplete(lectureId) {
+        const isDone = completedLectures.has(lectureId);
+        try {
+            if (isDone) {
+                await client.from('student_progress').delete().eq('user_id', currentUser.id).eq('lecture_id', lectureId);
+                completedLectures.delete(lectureId);
+            } else {
+                await client.from('student_progress').upsert({ user_id: currentUser.id, lecture_id: lectureId, is_completed: true });
+                completedLectures.add(lectureId);
+            }
+            
+            // Refresh view
+            const uId = document.getElementById('view-unit-name').dataset.unitId;
+            const uName = document.getElementById('view-unit-name').innerText;
+            
+            await initPortal();
+            await openUnit(uId, uName);
+        } catch (e) { alert("Error updating status"); }
     }
 
     function showOverview() { document.getElementById('portal-view').classList.remove('hidden'); document.getElementById('detail-view').classList.add('hidden'); }
