@@ -6,25 +6,18 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; }
         .hidden { display: none !important; }
-        
-        /* Login Styles */
         #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
         .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
         .btn-primary { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-
-        /* Essay Workspace Styles */
         #workspace { display: flex; height: 100vh; }
         #left-panel { width: 55%; padding: 25px; overflow-y: auto; background: #fff; border-right: 1px solid #ddd; }
         #right-panel { width: 45%; padding: 40px; overflow-y: auto; background: #fdfdfd; }
-        
         section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
         h3 { color: #2c3e50; font-size: 1.1rem; margin-bottom: 5px; }
         p.hint { color: #d9534f; font-size: 0.8rem; margin: 0 0 10px 0; }
-        
         #preview-area { line-height: 1.8; font-size: 1.15rem; color: #333; white-space: pre-wrap; user-select: none; }
         textarea { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: inherit; }
-        
         .sticky-header { position: sticky; top: 0; background: white; padding: 10px 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; }
         .word-count { background: #e9ecef; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; }
     </style>
@@ -46,8 +39,7 @@
                 <h2>Essay Builder</h2>
                 <button onclick="handleLogout()" style="background:none; border:none; color:red; cursor:pointer;">Logout</button>
             </div>
-            
-            <p class="hint">* Manual typing only. Copy-paste is disabled.</p>
+            <p class="hint">* Manual typing only. Copy-paste is disabled. (Min: 250 words)</p>
 
             <section>
                 <h3>1. Introduction</h3>
@@ -135,7 +127,6 @@
                 ['b2-ts', 'b2-l1', 'b2-e1', 'b2-l2', 'b2-e2', 'b2-sum'],
                 ['conc-thesis', 'conc-summary']
             ];
-            
             let fullText = "";
             let totalWords = 0;
 
@@ -150,23 +141,26 @@
                 });
                 if (paragraphText) fullText += paragraphText + "\n\n";
             });
-
             document.getElementById('preview-area').innerText = fullText.trim();
             document.getElementById('count').innerText = totalWords;
         }
 
         async function submitEssay() {
+            const currentCount = parseInt(document.getElementById('count').innerText);
+            if (currentCount < 250) {
+                alert("Your essay must be at least 250 words to submit. You need " + (250 - currentCount) + " more words.");
+                return;
+            }
             const Essay = AV.Object.extend('StudentEssay');
             const essay = new Essay();
             essay.set('username', AV.User.current().getUsername());
             essay.set('content', document.getElementById('preview-area').innerText);
-            essay.set('wordCount', parseInt(document.getElementById('count').innerText));
+            essay.set('wordCount', currentCount);
             try {
                 await essay.save();
                 alert("Essay submitted successfully!");
             } catch (e) { alert("Error: " + e.message); }
         }
-
         checkLogin();
     </script>
 </body>
