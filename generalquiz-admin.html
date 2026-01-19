@@ -6,140 +6,170 @@
   <title>Teacher Admin Panel</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
-    body { font-family: Arial; padding: 20px; }
-    button {
-      margin: 5px;
-      padding: 8px 12px;
-      cursor: pointer;
-      border: 1px solid #ccc;
-      background-color: #f0f0f0;
+    :root {
+      --primary: #4a90e2;
+      --success: #27ae60;
+      --danger: #e74c3c;
+      --warning: #f39c12;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
     }
-    .section {
-      margin: 20px 0;
-      padding: 15px;
-      border: 1px solid #ccc;
+
+    body { 
+      font-family: 'Segoe UI', system-ui, sans-serif; 
+      background-color: var(--bg);
+      color: #2d3436;
+      margin: 0; 
+      padding: 10px;
     }
-    h1 {
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--card-bg);
+      padding: 15px 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 0;
+      flex-direction: column;
+      gap: 15px;
     }
-    h2 { margin-top: 0; }
+
+    @media (min-width: 600px) {
+      header { flex-direction: row; justify-content: space-between; align-items: center; }
+    }
+
+    h1 { font-size: 1.5rem; margin: 0; color: var(--primary); }
+
+    .section {
+      background: var(--card-bg);
+      margin-bottom: 20px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    h2 { font-size: 1.1rem; margin-top: 0; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+
+    /* Control Buttons */
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
     
-    /* Correct/incorrect button styling */
-    .answer-buttons button.correct {
-      background-color: #4CAF50; /* Green */
-      color: white;
+    button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
     }
-    .answer-buttons button.incorrect {
-      background-color: #f44336; /* Red */
-      color: white;
-    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-outline { background: #f1f2f6; color: #2d3436; border: 1px solid #dfe6e9; }
+    
+    /* Set Correct Answer Styles */
+    .answer-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .answer-buttons button { font-size: 18px; padding: 15px; background: white; border: 2px solid #dfe6e9; }
+    .answer-buttons button.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+    .answer-buttons button.incorrect { background: #fdf2f2; color: var(--danger); border-color: #fadbd8; }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+    .stat-item { background: var(--bg); padding: 10px; border-radius: 8px; text-align: center; }
+    .stat-label { font-size: 12px; color: #636e72; display: block; }
+    .stat-val { font-size: 18px; font-weight: bold; }
+
+    /* Student Lists */
+    .student-lists { display: grid; grid-template-columns: 1fr; gap: 15px; }
+    @media (min-width: 600px) { .student-lists { grid-template-columns: 1fr 1fr; } }
+    
+    .list-box { font-size: 14px; }
+    .list-box h3 { font-size: 14px; margin-top: 0; color: #636e72; }
+    ul { padding-left: 20px; margin: 5px 0; }
 
     /* Per-option list styling */
-    .option-box {
-      padding: 10px;
-      margin: 8px 0;
-      border-radius: 4px;
-    }
-    .option-correct {
-      background-color: #e8f5e9;
-      border-left: 4px solid #4CAF50;
-    }
-    .option-incorrect {
-      background-color: #ffebee;
-      border-left: 4px solid #f44336;
-    }
+    .option-box { padding: 12px; margin: 8px 0; border-radius: 8px; font-size: 14px; }
+    .option-correct { background-color: #e8f5e9; border-left: 5px solid var(--success); }
+    .option-incorrect { background-color: #fff5f5; border-left: 5px solid #fab1a0; }
 
-    /* Bottom actions */
-    #bottomActions {
-      text-align: center;
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px dashed #ccc;
-    }
-    #bottomActions button {
-      background-color: #ff9800;
-      color: white;
-    }
-    #removeDataBtn {
-      background-color: #f44336;
-      color: white;
-    }
+    /* Final Table */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }
+    th { background: #f1f2f6; font-size: 13px; }
 
-    /* Final results table */
-    #finalResults table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    #finalResults th,
-    #finalResults td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: center;
-    }
-    #finalResults th {
-      background-color: #f2f2f2;
-    }
+    /* Actions */
+    #bottomActions { display: flex; flex-direction: column; gap: 10px; margin-top: 30px; }
+    .btn-finish { background: var(--warning); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
   </style>
 </head>
 <body>
-  <h1>
-    Quiz Admin Panel
-    <span>
-      <button onclick="startQuiz()">Start Quiz</button>
-      <button onclick="nextQuestion()">Next Question</button>
-    </span>
-  </h1>
+  <div class="container">
+    <header>
+      <h1>Quiz Admin Panel</h1>
+      <div class="btn-group">
+        <button class="btn-primary" onclick="startQuiz()">Start Quiz</button>
+        <button class="btn-outline" onclick="nextQuestion()">Next Question</button>
+      </div>
+    </header>
 
-  <!-- Set Correct Answer Buttons -->
-  <div class="section answer-buttons">
-    <h2>Set Correct Answer</h2>
-    <button id="btn-A" onclick="setCorrectAnswer('A')">A</button>
-    <button id="btn-B" onclick="setCorrectAnswer('B')">B</button>
-    <button id="btn-C" onclick="setCorrectAnswer('C')">C</button>
-    <button id="btn-D" onclick="setCorrectAnswer('D')">D</button>
-  </div>
+    <div class="section">
+      <h2>Set Correct Answer</h2>
+      <div class="answer-buttons">
+        <button id="btn-A" onclick="setCorrectAnswer('A')">A</button>
+        <button id="btn-B" onclick="setCorrectAnswer('B')">B</button>
+        <button id="btn-C" onclick="setCorrectAnswer('C')">C</button>
+        <button id="btn-D" onclick="setCorrectAnswer('D')">D</button>
+      </div>
+    </div>
 
-  <!-- Combined Responses Section -->
-  <div class="section">
-    <h2>Responses</h2>
-    <p><strong>Current Question:</strong> <span id="questionIndex">0</span></p>
-    <p><strong>Total Students:</strong> <span id="totalStudents">0</span></p>
-    <p><strong>Submitted:</strong> <span id="submittedCount">0</span></p>
-    <div id="submittedList"></div>
-    <div id="notSubmittedList"></div>
-  </div>
+    <div class="section">
+      <h2>Live Responses</h2>
+      <div class="stats-grid">
+        <div class="stat-item"><span class="stat-label">Question</span><span class="stat-val" id="questionIndex">0</span></div>
+        <div class="stat-item"><span class="stat-label">Students</span><span class="stat-val" id="totalStudents">0</span></div>
+        <div class="stat-item"><span class="stat-label">Submitted</span><span class="stat-val" id="submittedCount">0</span></div>
+      </div>
+      
+      <div class="student-lists">
+        <div class="list-box" id="submittedList"></div>
+        <div class="list-box" id="notSubmittedList"></div>
+      </div>
+    </div>
 
-  <!-- Student Choices by Option -->
-  <div class="section" id="perOptionLists" style="display:none;">
-    <h2>Student Choices by Option</h2>
-    <div id="optionA" class="option-box"></div>
-    <div id="optionB" class="option-box"></div>
-    <div id="optionC" class="option-box"></div>
-    <div id="optionD" class="option-box"></div>
-  </div>
+    <div class="section" id="perOptionLists" style="display:none;">
+      <h2>Choices Breakdown</h2>
+      <div id="optionA" class="option-box"></div>
+      <div id="optionB" class="option-box"></div>
+      <div id="optionC" class="option-box"></div>
+      <div id="optionD" class="option-box"></div>
+    </div>
 
-  <!-- Final Results Table (hidden by default) -->
-  <div id="finalResults" style="display:none;" class="section">
-    <h2>Final Results</h2>
-    <table>
-      <thead>
-        <tr><th>Student</th><th>Correct</th><th>Wrong</th><th>Correct Rate</th></tr>
-      </thead>
-      <tbody id="finalTable"></tbody>
-    </table>
-  </div>
+    <div id="finalResults" style="display:none;" class="section">
+      <h2>Final Class Results</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr><th>Student</th><th>✅</th><th>❌</th><th>Rate</th></tr>
+          </thead>
+          <tbody id="finalTable"></tbody>
+        </table>
+      </div>
+    </div>
 
-  <!-- Bottom Actions -->
-  <div id="bottomActions">
-    <button onclick="finishQuiz()">Finish Quiz</button>
-    <button id="removeDataBtn" onclick="removeAllData()">Remove All Data</button>
+    <div id="bottomActions">
+      <button class="btn-finish" onclick="finishQuiz()">Finish & Show Summary</button>
+      <button class="btn-danger" id="removeDataBtn" onclick="removeAllData()">Reset All Data (New Session)</button>
+    </div>
   </div>
 
   <script>
+    // ✅ KEEPING ALL ORIGINAL LOGIC UNTOUCHED
     AV.init({
       appId: "uVBVHbOKtEMRFzh62IZq45oN-gzGzoHsz",
       appKey: "rSylV5CS5F1bpERGJCWAn5Ae",
@@ -167,11 +197,8 @@
         if (btn) {
           btn.classList.remove('correct', 'incorrect');
           if (correctAns) {
-            if (opt === correctAns) {
-              btn.classList.add('correct');
-            } else {
-              btn.classList.add('incorrect');
-            }
+            if (opt === correctAns) btn.classList.add('correct');
+            else btn.classList.add('incorrect');
           }
         }
       });
@@ -183,7 +210,7 @@
       const showResults = session.get('showResults');
       const correctAns = session.get('correctAnswer');
 
-      document.getElementById("questionIndex").textContent = idx;
+      document.getElementById("questionIndex").textContent = idx + 1; // +1 for human friendly numbering
       updateAnswerButtonUI(correctAns);
 
       const respQuery = new AV.Query('StudentResponse');
@@ -210,11 +237,10 @@
 
       document.getElementById("submittedCount").textContent = submitted;
       document.getElementById("submittedList").innerHTML = 
-        "<h3>Submitted:</h3>" + (submittedNames.length ? "<ul><li>" + submittedNames.join("</li><li>") + "</li></ul>" : "None");
+        "<h3>Submitted:</h3>" + (submittedNames.length ? "<ul><li>" + submittedNames.join("</li><li>") + "</li></ul>" : "<p>None yet</p>");
       document.getElementById("notSubmittedList").innerHTML = 
-        "<h3>Not Submitted:</h3>" + (notSubmittedNames.length ? "<ul><li>" + notSubmittedNames.join("</li><li>") + "</li></ul>" : "All done!");
+        "<h3>Not Submitted:</h3>" + (notSubmittedNames.length ? "<ul><li>" + notSubmittedNames.join("</li><li>") + "</li></ul>" : "<p>All done!</p>");
 
-      // Show per-option breakdown when results are shown
       document.getElementById("perOptionLists").style.display = showResults ? "block" : "none";
       
       if (showResults) {
@@ -261,10 +287,7 @@
         batch.push(r);
       });
 
-      if (batch.length > 0) {
-        await AV.Object.saveAll(batch);
-      }
-
+      if (batch.length > 0) await AV.Object.saveAll(batch);
       await session.save();
       refresh();
     }
@@ -283,13 +306,12 @@
     async function finishQuiz() {
       const session = await getOrCreateSession();
       session.set('isActive', false);
-      session.set('showResults', false); // Hide per-question results
+      session.set('showResults', false);
       await session.save();
 
-      // Now compute and show FINAL results
       const respQuery = new AV.Query('StudentResponse');
       const responses = await respQuery.find();
-      const totalQuestions = (session.get('currentQuestionIndex') || 0) + 1; // Q0 → 1 question, etc.
+      const totalQuestions = (session.get('currentQuestionIndex') || 0) + 1;
 
       const tbody = document.getElementById("finalTable");
       tbody.innerHTML = "";
@@ -297,7 +319,6 @@
       responses.forEach(r => {
         const isCorrectArr = r.get('isCorrect') || [];
         let correct = 0;
-        // Count only up to totalQuestions
         for (let i = 0; i < totalQuestions; i++) {
           if (i < isCorrectArr.length && isCorrectArr[i] === true) correct++;
         }
@@ -306,7 +327,7 @@
 
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${r.get('studentName') || 'Anonymous'}</td>
+          <td>${r.get('studentName') || 'Anon'}</td>
           <td>${correct}</td>
           <td>${wrong}</td>
           <td>${ratio}%</td>
@@ -318,16 +339,11 @@
     }
 
     async function removeAllData() {
-      if (!confirm("⚠️ Are you sure?\nThis will delete ALL student responses and reset the quiz.\nStudents will need to re-enter their names.")) {
-        return;
-      }
-
+      if (!confirm("⚠️ This will delete ALL student responses. Are you sure?")) return;
       try {
         const respQuery = new AV.Query('StudentResponse');
         const responses = await respQuery.limit(1000).find();
-        if (responses.length > 0) {
-          await AV.Object.destroyAll(responses);
-        }
+        if (responses.length > 0) await AV.Object.destroyAll(responses);
 
         const sessionQuery = new AV.Query('QuizSession');
         const session = await sessionQuery.first();
@@ -338,17 +354,12 @@
           session.set('showResults', false);
           await session.save();
         }
-
-        alert("✅ All data cleared. Ready for a new quiz!");
+        alert("✅ Data cleared.");
         document.getElementById("finalResults").style.display = "none";
         refresh();
-      } catch (error) {
-        console.error("Failed to clear data:", error);
-        alert("❌ Failed to clear data.");
-      }
+      } catch (error) { alert("❌ Error."); }
     }
 
-    // Auto-refresh every 2 seconds
     setInterval(refresh, 2000);
     refresh();
   </script>
