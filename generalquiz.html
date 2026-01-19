@@ -6,63 +6,139 @@
   <title>Student Quiz</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
+    :root {
+      --primary-color: #4a90e2;
+      --success-color: #27ae60;
+      --error-color: #e74c3c;
+      --bg-color: #f4f7f9;
+      --card-bg: #ffffff;
+      --text-main: #2d3436;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-      background: #f9f9f9;
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
+
+    .container {
+      width: 90%;
+      max-width: 400px;
+      background: var(--card-bg);
+      padding: 30px 25px;
+      border-radius: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+    }
+
+    #nameForm input {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 15px;
+      border: 1px solid #dfe6e9;
+      border-radius: 10px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    /* Single Row Button Styling */
     button {
-      margin: 10px;
-      padding: 15px 25px;
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 12px;
       font-size: 18px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
     }
-    #nameForm {
-      display: block;
+
+    #nameForm button {
+      background-color: var(--primary-color);
+      color: white;
+      margin-top: 10px;
     }
+
+    /* One option per row layout */
     #answerButtons {
-      display: none;
-    }
-    #status {
-      margin: 20px;
-      font-size: 20px;
-      color: #333;
-    }
-    #resultMessage {
+      display: flex;
+      flex-direction: column;
       margin-top: 20px;
-      font-weight: bold;
-      font-size: 18px;
     }
+
+    #answerButtons button {
+      background-color: white;
+      border: 2px solid #edf2f7;
+      color: var(--text-main);
+      text-align: center;
+    }
+
+    #answerButtons button:active {
+      transform: scale(0.98);
+      background-color: #f1f5f9;
+      border-color: var(--primary-color);
+    }
+
+    #status {
+      margin: 15px 0;
+      font-size: 16px;
+      line-height: 1.4;
+      color: #636e72;
+    }
+
+    #resultMessage {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+
+    .correct { color: var(--success-color); background: #e8f5e9; }
+    .incorrect { color: var(--error-color); background: #ffebee; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <h1>📝 In-Class Quiz</h1>
-  <div id="nameForm">
-    <p>Enter your full name:</p>
-    <input type="text" id="studentName" placeholder="e.g., Alice Chen" autocomplete="off" />
-    <br /><br />
-    <button onclick="submitName()">Submit Name</button>
+
+  <div class="container">
+    <h1>📝 In-Class Quiz</h1>
+
+    <div id="nameForm">
+      <p>Enter your name to begin:</p>
+      <input type="text" id="studentName" placeholder="Your Full Name" autocomplete="off" />
+      <button onclick="submitName()">Enter Room</button>
+    </div>
+
+    <div id="status" class="hidden">Connecting to quiz...</div>
+
+    <div id="answerButtons" class="hidden">
+      <button onclick="submitAnswer('A')">Option A</button>
+      <button onclick="submitAnswer('B')">Option B</button>
+      <button onclick="submitAnswer('C')">Option C</button>
+      <button onclick="submitAnswer('D')">Option D</button>
+    </div>
+
+    <div id="resultMessage"></div>
   </div>
-
-  <div id="status">Please wait for the teacher to start the quiz...</div>
-
-  <div id="answerButtons">
-    <button onclick="submitAnswer('A')">A</button>
-    <button onclick="submitAnswer('B')">B</button>
-    <button onclick="submitAnswer('C')">C</button>
-    <button onclick="submitAnswer('D')">D</button>
-  </div>
-
-  <div id="resultMessage"></div>
 
   <script>
-    // ✅ CORRECT CONFIGURATION FOR LEANCLOUD CHINA (North China)
+    // ✅ KEEP YOUR EXISTING LEANCLOUD CONFIGURATION
     AV.init({
       appId: "uVBVHbOKtEMRFzh62IZq45oN-gzGzoHsz",
       appKey: "rSylV5CS5F1bpERGJCWAn5Ae",
       serverURL: "https://uvbvhboktemrfzh62izq45on.lc-cn-n1-shared.com"
-      // ⚠️ If you get ERR_NAME_NOT_RESOLVED, change "n1" to "e1" above
     });
 
     let studentName = "";
@@ -72,13 +148,12 @@
 
     async function submitName() {
       const name = document.getElementById("studentName").value.trim();
-      if (!name) {
-        alert("Please enter your name.");
-        return;
-      }
+      if (!name) { alert("Please enter your name."); return; }
       studentName = name;
-      document.getElementById("nameForm").style.display = "none";
-      document.getElementById("status").textContent = "✅ Name submitted. Waiting for quiz to start...";
+      document.getElementById("nameForm").classList.add("hidden");
+      const statusDiv = document.getElementById("status");
+      statusDiv.classList.remove("hidden");
+      statusDiv.innerHTML = "✅ Welcome <b>" + studentName + "</b>!<br>Waiting for the first question...";
       await registerStudent();
       pollQuizStatus();
     }
@@ -88,7 +163,6 @@
         const query = new AV.Query('StudentResponse');
         query.equalTo('studentName', studentName);
         const results = await query.find();
-
         if (results.length === 0) {
           const StudentResponse = AV.Object.extend('StudentResponse');
           const obj = new StudentResponse();
@@ -97,20 +171,15 @@
           obj.set('isCorrect', []);
           await obj.save();
         }
-      } catch (err) {
-        console.error("❌ Register error:", err);
-        console.error("Error code:", err.code, "Message:", err.message);
-        alert("Failed to register. Please check console (F12) and try again.");
-      }
+      } catch (err) { console.error("Error:", err); }
     }
 
     async function pollQuizStatus() {
       try {
         const query = new AV.Query('QuizSession');
         const session = await query.first();
-
         if (!session) {
-          document.getElementById("status").textContent = "⏳ Waiting for teacher to initialize quiz...";
+          document.getElementById("status").textContent = "⏳ Waiting for teacher...";
           setTimeout(pollQuizStatus, 2000);
           return;
         }
@@ -122,9 +191,10 @@
 
         if (isActive && idx !== currentQuestionIndex) {
           currentQuestionIndex = idx;
-          document.getElementById("status").textContent = "❓ Select your answer for Question " + (idx + 1) + ":";
-          document.getElementById("answerButtons").style.display = "block";
+          document.getElementById("status").innerHTML = "❓ <b>Question " + (idx + 1) + "</b><br>Choose your answer:";
+          document.getElementById("answerButtons").classList.remove("hidden");
           document.getElementById("resultMessage").textContent = "";
+          document.getElementById("resultMessage").className = "";
         }
 
         if (showResults && correctAnswer !== undefined) {
@@ -136,18 +206,15 @@
             const myAnswer = answers[idx];
             if (myAnswer !== undefined && myAnswer !== null) {
               const isRight = (myAnswer === correctAnswer);
-              document.getElementById("resultMessage").textContent = 
-                isRight ? "✅ Correct!" : `❌ Incorrect. Correct answer: ${correctAnswer}`;
-              document.getElementById("answerButtons").style.display = "none";
+              const msgDiv = document.getElementById("resultMessage");
+              msgDiv.textContent = isRight ? "✅ Correct!" : `❌ Incorrect. Correct: ${correctAnswer}`;
+              msgDiv.className = isRight ? "correct" : "incorrect";
+              document.getElementById("answerButtons").classList.add("hidden");
             }
           }
         }
-
         setTimeout(pollQuizStatus, 2000);
-      } catch (err) {
-        console.error("Poll error:", err);
-        setTimeout(pollQuizStatus, 3000);
-      }
+      } catch (err) { setTimeout(pollQuizStatus, 3000); }
     }
 
     async function submitAnswer(choice) {
@@ -155,31 +222,17 @@
         const query = new AV.Query('StudentResponse');
         query.equalTo('studentName', studentName);
         const obj = await query.first();
-        if (!obj) {
-          alert("Student record not found. Please refresh the page.");
-          return;
-        }
+        if (!obj) return;
 
         let answers = obj.get('answers') || [];
-        let isCorrectArr = obj.get('isCorrect') || [];
-
-        // Ensure array is long enough
-        while (answers.length <= currentQuestionIndex) {
-          answers.push(null);
-          isCorrectArr.push(null);
-        }
-
+        while (answers.length <= currentQuestionIndex) { answers.push(null); }
         answers[currentQuestionIndex] = choice;
         obj.set('answers', answers);
-        // Note: isCorrect is computed later by admin; we don't set it here
         await obj.save();
 
-        document.getElementById("answerButtons").style.display = "none";
-        document.getElementById("status").textContent = "📤 Answer submitted. Waiting for results...";
-      } catch (err) {
-        console.error("Submit answer error:", err);
-        alert("Failed to submit answer. Please try again.");
-      }
+        document.getElementById("answerButtons").classList.add("hidden");
+        document.getElementById("status").textContent = "📤 Answer sent! Waiting for teacher to show results...";
+      } catch (err) { alert("Failed to submit."); }
     }
   </script>
 </body>
