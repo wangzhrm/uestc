@@ -18,862 +18,308 @@
             --correct-answer: #1e88e5;
         }
         
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         
-        body {
-            background-color: #f5f7fb;
-            color: var(--dark);
-            line-height: 1.6;
-            padding: 20px;
-        }
+        body { background-color: #f5f7fb; color: var(--dark); line-height: 1.6; padding: 20px; }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .container { max-width: 1400px; margin: 0 auto; }
         
         header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
+            text-align: center; margin-bottom: 30px; padding: 20px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            color: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
+
+        /* Two Column Layout */
+        .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+
+        @media (max-width: 1024px) { .main-layout { grid-template-columns: 1fr; } }
         
-        h1 {
-            font-size: 2.2rem;
-            margin-bottom: 10px;
-        }
+        .card { background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 25px; }
         
-        .subtitle {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
+        .card-title { font-size: 1.2rem; margin-bottom: 15px; color: var(--primary); padding-bottom: 8px; border-bottom: 2px solid var(--light-gray); }
         
-        .card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            padding: 25px;
-            margin-bottom: 25px;
-        }
+        .form-group { margin-bottom: 15px; }
         
-        .card-title {
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            color: var(--primary);
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--light-gray);
-        }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; }
         
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--dark);
-        }
-        
-        input, textarea, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-        }
-        
+        input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; }
+
         .btn {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: all 0.3s;
-            text-decoration: none;
-            text-align: center;
+            display: inline-block; background: var(--primary); color: white; padding: 10px 20px;
+            border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s; text-align: center;
         }
         
-        .btn:hover {
-            background: var(--secondary);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--primary);
-            color: var(--primary);
-        }
-        
-        .btn-outline:hover {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 0.9rem;
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        
-        .question-list-container {
-            margin-top: 10px;
-        }
+        .btn:hover { background: var(--secondary); transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
 
-        .question-count {
-            margin-top: 8px;
-            font-size: 0.95rem;
-            color: var(--gray);
-            font-style: italic;
-        }
+        /* Compact Question List */
+        .question-list { max-height: 450px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+        
+        .question-item { padding: 10px; border-bottom: 1px solid var(--light-gray); display: flex; align-items: flex-start; gap: 12px; }
 
-        .question-list {
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px;
-            margin-top: 10px;
-        }
+        .question-checkbox { width: 16px; height: 16px; margin-top: 4px; cursor: pointer; flex-shrink: 0; }
         
-        .question-item {
-            padding: 12px;
-            border-bottom: 1px solid var(--light-gray);
-            display: flex;
-            align-items: flex-start;
-        }
+        .question-main-content { flex: 1; min-width: 0; }
+
+        .question-text-row { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+
+        .options-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .opt-mini { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: var(--light-gray); color: var(--gray); max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .opt-mini.is-correct { background: rgba(67, 97, 238, 0.12); color: var(--primary); font-weight: bold; border: 1px solid rgba(67, 97, 238, 0.2); }
         
-        .question-item:last-child {
-            border-bottom: none;
-        }
-        
-        .question-checkbox {
-            margin-right: 12px;
-            margin-top: 4px;
-            flex-shrink: 0;
-            width: 20px;
-        }
-        
-        .question-text {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .question-type {
-            font-size: 0.85rem;
-            color: var(--gray);
-            margin-top: 4px;
-        }
+        /* Sticky Preview Column */
+        .preview-column { position: sticky; top: 20px; }
         
         .preview-container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            margin-top: 20px;
-            min-height: 300px;
+            background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            min-height: 70vh; max-height: 85vh; overflow-y: auto;
         }
         
-        .preview-header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid var(--light-gray);
-        }
+        .preview-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid var(--light-gray); }
         
-        .preview-title {
-            font-size: 1.8rem;
-            margin-bottom: 10px;
-        }
+        .question-preview { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px dashed var(--light-gray); }
+
+        .answer-space { border-bottom: 1px solid var(--border); margin-top: 10px; }
         
-        .preview-subtitle {
-            color: var(--gray);
-            font-style: italic;
-        }
-        
-        .question-preview {
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px dashed var(--light-gray);
-        }
-        
-        .question-number {
-            font-weight: bold;
-            margin-right: 8px;
-        }
-        
-        .options {
-            margin-top: 10px;
-            padding-left: 20px;
-        }
-        
-        .option {
-            margin-bottom: 8px;
-            padding: 5px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .option:hover {
-            background-color: var(--light-gray);
-        }
-        
-        .correct-answer {
-            background-color: rgba(30, 136, 229, 0.1) !important;
-            border-left: 3px solid var(--correct-answer);
-        }
-        
-        .answer-space {
-            height: 80px;
-            border-bottom: 1px solid var(--border);
-            margin-top: 10px;
-            position: relative;
-        }
-        
-        .answer-label {
-            position: absolute;
-            bottom: 5px;
-            right: 10px;
-            color: var(--gray);
-            font-size: 0.85rem;
-        }
-        
-        .export-section {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .reassign-section {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-        
-        @media (max-width: 768px) {
-            .btn-group {
-                flex-direction: column;
-            }
-            
-            .export-section {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .preview-container {
-                padding: 15px;
-            }
-        }
+        .export-section { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Question Paper Generator</h1>
-            <p class="subtitle">Create professional exam papers from Excel files</p>
+            <p class="subtitle">Build randomized exams with instant preview</p>
         </header>
         
-        <div class="card">
-            <h2 class="card-title">Paper Settings</h2>
-            <div class="form-group">
-                <label for="paperTitle">Test Paper Title</label>
-                <input type="text" id="paperTitle" placeholder="Enter the title of your question paper">
-            </div>
-            
-            <div class="form-group">
-                <label for="paperSubtitle">Subtitle (Optional)</label>
-                <input type="text" id="paperSubtitle" placeholder="e.g., Class X Science Test">
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2 class="card-title">Upload Excel File</h2>
-            <div class="form-group">
-                <label for="excelFile">Select Excel File (.xlsx)</label>
-                <input type="file" id="excelFile" accept=".xlsx, .xls">
-            </div>
-            
-            <div class="form-group">
-                <label>Select Questions to Include:</label>
-                <div class="question-count" id="questionCount">Loading...</div>
-                <div class="question-list-container">
+        <div class="main-layout">
+            <div class="input-column">
+                <div class="card">
+                    <h2 class="card-title">1. Paper Details</h2>
+                    <div class="form-group"><label>Title</label><input type="text" id="paperTitle" value="Final Examination"></div>
+                    <div class="form-group"><label>Subtitle</label><input type="text" id="paperSubtitle" value="Subject: Mathematics"></div>
+                </div>
+                
+                <div class="card">
+                    <h2 class="card-title">2. Import from Excel</h2>
+                    <div class="form-group"><input type="file" id="excelFile" accept=".xlsx, .xls"></div>
                     <div class="question-list" id="questionList">
-                        <p>No questions loaded yet. Please upload an Excel file.</p>
+                        <p style="padding:20px; color:var(--gray); text-align:center; font-size:0.9rem;">Upload a file to see questions.</p>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2 class="card-title">Add Custom Questions</h2>
-            <div class="form-group">
-                <label for="customQuestion">Question Text</label>
-                <textarea id="customQuestion" rows="3" placeholder="Enter your custom question here..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="questionType">Question Type</label>
-                <select id="questionType">
-                    <option value="multiple-choice">Multiple Choice</option>
-                    <option value="written">Written Answer</option>
-                </select>
-            </div>
-            
-            <div id="mcOptions" style="display: block;">
-                <div class="form-group">
-                    <label for="correctAnswer">Correct Answer</label>
-                    <input type="text" id="correctAnswer" placeholder="Enter the correct answer">
-                </div>
                 
-                <div class="form-group">
-                    <label for="distractor1">Distractor 1</label>
-                    <input type="text" id="distractor1" placeholder="Enter first wrong option">
-                </div>
-                
-                <div class="form-group">
-                    <label for="distractor2">Distractor 2</label>
-                    <input type="text" id="distractor2" placeholder="Enter second wrong option">
-                </div>
-                
-                <div class="form-group">
-                    <label for="distractor3">Distractor 3</label>
-                    <input type="text" id="distractor3" placeholder="Enter third wrong option">
-                </div>
-            </div>
-            
-            <div id="writtenOptions" style="display: none;">
-                <div class="form-group">
-                    <label for="linesCount">Number of Lines for Answer</label>
-                    <select id="linesCount">
-                        <option value="4">4 lines</option>
-                        <option value="6">6 lines</option>
-                        <option value="8">8 lines</option>
-                        <option value="10">10 lines</option>
-                        <option value="12">12 lines</option>
-                    </select>
+                <div class="card">
+                    <h2 class="card-title">3. Add Custom Question</h2>
+                    <div class="form-group"><textarea id="customQuestion" rows="2" placeholder="Enter question..."></textarea></div>
+                    <div class="form-group">
+                        <select id="questionType">
+                            <option value="multiple-choice">Multiple Choice</option>
+                            <option value="written">Written Answer</option>
+                        </select>
+                    </div>
+                    <div id="mcOptions">
+                        <div class="form-group"><input type="text" id="correctAnswer" placeholder="Correct Answer"></div>
+                        <div class="form-group"><input type="text" id="distractor1" placeholder="Wrong Option 1"></div>
+                        <div class="form-group"><input type="text" id="distractor2" placeholder="Wrong Option 2"></div>
+                        <div class="form-group"><input type="text" id="distractor3" placeholder="Wrong Option 3"></div>
+                    </div>
+                    <div id="writtenOptions" style="display: none;">
+                        <label>Space for answer (Lines)</label>
+                        <select id="linesCount"><option value="4">4 Lines</option><option value="8">8 Lines</option></select>
+                    </div>
+                    <button class="btn" style="width: 100%;" id="addCustomQuestion">Add Question</button>
                 </div>
             </div>
-            
-            <button class="btn" id="addCustomQuestion">Add Custom Question</button>
-        </div>
-        
-        <div class="card">
-            <h2 class="card-title">Preview & Export</h2>
-            <div class="preview-container" id="previewContainer">
-                <div class="preview-header">
-                    <h2 class="preview-title">Sample Question Paper</h2>
-                    <p class="preview-subtitle">Preview will appear here after adding questions</p>
+
+            <div class="preview-column">
+                <div class="preview-container" id="previewContainer"></div>
+                <div class="export-section">
+                    <button class="btn" id="exportWithoutAnswers">Export Paper</button>
+                    <button class="btn btn-outline" id="exportWithAnswers">Export with Key</button>
                 </div>
-                <p>After adding questions, your preview will appear here. You can then export with or without answers.</p>
-            </div>
-            
-            <div class="export-section">
-                <button class="btn" id="exportWithoutAnswers">Export Without Answers</button>
-                <button class="btn btn-outline" id="exportWithAnswers">Export With Answers</button>
             </div>
         </div>
     </div>
 
     <script>
         let excelQuestions = [];
-        let customQuestions = [];
-        let selectedExcelQuestions = [];
+        let selectedQuestions = []; // Stores objects with randomized option order
         
         const excelFileInput = document.getElementById('excelFile');
         const questionList = document.getElementById('questionList');
-        const questionCountEl = document.getElementById('questionCount');
+        const previewContainer = document.getElementById('previewContainer');
         const paperTitleInput = document.getElementById('paperTitle');
         const paperSubtitleInput = document.getElementById('paperSubtitle');
-        const questionTypeSelect = document.getElementById('questionType');
-        const mcOptionsDiv = document.getElementById('mcOptions');
-        const writtenOptionsDiv = document.getElementById('writtenOptions');
-        const addCustomBtn = document.getElementById('addCustomQuestion');
-        const previewContainer = document.getElementById('previewContainer');
-        const exportWithoutBtn = document.getElementById('exportWithoutAnswers');
-        const exportWithBtn = document.getElementById('exportWithAnswers');
-        
+
         document.addEventListener('DOMContentLoaded', () => {
             excelFileInput.addEventListener('change', handleExcelUpload);
-            questionTypeSelect.addEventListener('change', toggleQuestionType);
-            addCustomBtn.addEventListener('click', addCustomQuestion);
-            exportWithoutBtn.addEventListener('click', () => exportPaper(false));
-            exportWithBtn.addEventListener('click', () => exportPaper(true));
-            
-            paperTitleInput.value = "Mid-Term Examination";
-            paperSubtitleInput.value = "Class X - Science";
+            document.getElementById('questionType').addEventListener('change', (e) => {
+                document.getElementById('mcOptions').style.display = e.target.value === 'multiple-choice' ? 'block' : 'none';
+                document.getElementById('writtenOptions').style.display = e.target.value === 'written' ? 'block' : 'none';
+            });
+            document.getElementById('addCustomQuestion').addEventListener('click', addCustomQuestion);
+            document.getElementById('exportWithoutAnswers').addEventListener('click', () => exportPaper(false));
+            document.getElementById('exportWithAnswers').addEventListener('click', () => exportPaper(true));
+            [paperTitleInput, paperSubtitleInput].forEach(el => el.addEventListener('input', updatePreview));
+            updatePreview();
         });
-        
-        function toggleQuestionType() {
-            if (questionTypeSelect.value === 'multiple-choice') {
-                mcOptionsDiv.style.display = 'block';
-                writtenOptionsDiv.style.display = 'none';
-            } else {
-                mcOptionsDiv.style.display = 'none';
-                writtenOptionsDiv.style.display = 'block';
+
+        // Fisher-Yates Shuffle Algorithm
+        function shuffleArray(array) {
+            let shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
+            return shuffled;
         }
-        
+
         function handleExcelUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-            
             const reader = new FileReader();
             reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    // Get raw data as array of arrays — NO header assumption
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-                    
-                    const questions = [];
-                    // Start from i = 0 — include first row as data
-                    for (let i = 0; i < jsonData.length; i++) {
-                        const row = jsonData[i];
-                        // Skip empty rows or rows with insufficient data
-                        if (!row || row.length < 5) continue;
-                        // Skip if first cell is empty (optional safety)
-                        if (typeof row[0] !== 'string' && typeof row[0] !== 'number') continue;
-                        
-                        questions.push({
-                            question: String(row[0] || '').trim(),
-                            correct: String(row[1] || '').trim(),
-                            distractor1: String(row[2] || '').trim(),
-                            distractor2: String(row[3] || '').trim(),
-                            distractor3: String(row[4] || '').trim(),
-                            type: 'multiple-choice'
-                        });
-                    }
-                    
-                    excelQuestions = questions;
-                    renderQuestionList();
-                    questionCountEl.textContent = `Total questions loaded: ${excelQuestions.length}`;
-                } catch (error) {
-                    console.error(error);
-                    alert('Error reading Excel file: ' + error.message);
-                }
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                
+                excelQuestions = jsonData.filter(row => row.length >= 2).map((row, idx) => ({
+                    id: 'ex-' + idx,
+                    question: String(row[0] || ''),
+                    correct: String(row[1] || ''),
+                    distractor1: String(row[2] || ''),
+                    distractor2: String(row[3] || ''),
+                    distractor3: String(row[4] || ''),
+                    type: 'multiple-choice'
+                }));
+                renderQuestionList();
             };
             reader.readAsArrayBuffer(file);
         }
-        
+
         function renderQuestionList() {
-            if (excelQuestions.length === 0) {
-                questionList.innerHTML = '<p>No valid questions found in the Excel file.</p>';
-                return;
-            }
-            
-            let html = '';
-            excelQuestions.forEach((q, index) => {
-                // Truncate long questions for display
-                const displayText = q.question.length > 100 ? q.question.substring(0, 100) + '...' : q.question;
-                html += `
-                    <div class="question-item">
-                        <input type="checkbox" class="question-checkbox" data-index="${index}">
-                        <div class="question-text">
-                            <div>${displayText}</div>
-                            <div class="question-type">Multiple Choice</div>
+            questionList.innerHTML = excelQuestions.map((q, i) => `
+                <div class="question-item">
+                    <input type="checkbox" class="question-checkbox" data-index="${i}">
+                    <div class="question-main-content">
+                        <div class="question-text-row">${q.question}</div>
+                        <div class="options-row">
+                            <div class="opt-mini is-correct">✔ ${q.correct}</div>
+                            <div class="opt-mini">${q.distractor1}</div>
+                            <div class="opt-mini">${q.distractor2}</div>
+                            <div class="opt-mini">${q.distractor3}</div>
                         </div>
                     </div>
-                `;
-            });
-            
-            questionList.innerHTML = html;
-            
-            document.querySelectorAll('.question-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', handleQuestionSelection);
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.question-checkbox').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    const qData = excelQuestions[idx];
+                    if(e.target.checked) {
+                        // Randomize options specifically for this selection
+                        const options = shuffleArray([qData.correct, qData.distractor1, qData.distractor2, qData.distractor3]);
+                        selectedQuestions.push({ ...qData, shuffledOptions: options });
+                    } else {
+                        selectedQuestions = selectedQuestions.filter(q => q.id !== qData.id);
+                    }
+                    updatePreview();
+                });
             });
         }
-        
-        function handleQuestionSelection(e) {
-            const index = parseInt(e.target.dataset.index);
-            if (e.target.checked) {
-                if (!selectedExcelQuestions.includes(index)) {
-                    selectedExcelQuestions.push(index);
-                }
-            } else {
-                selectedExcelQuestions = selectedExcelQuestions.filter(i => i !== index);
-            }
-            updatePreview();
-        }
-        
+
         function addCustomQuestion() {
-            const type = questionTypeSelect.value;
-            
-            if (type === 'multiple-choice') {
-                const question = document.getElementById('customQuestion').value.trim();
-                const correct = document.getElementById('correctAnswer').value.trim();
-                const d1 = document.getElementById('distractor1').value.trim();
-                const d2 = document.getElementById('distractor2').value.trim();
-                const d3 = document.getElementById('distractor3').value.trim();
-                
-                if (!question || !correct || !d1 || !d2 || !d3) {
-                    alert('Please fill in all fields for multiple choice questions.');
-                    return;
-                }
-                
-                customQuestions.push({
-                    question,
-                    correct,
-                    distractor1: d1,
-                    distractor2: d2,
-                    distractor3: d3,
-                    type: 'multiple-choice'
-                });
+            const text = document.getElementById('customQuestion').value.trim();
+            const type = document.getElementById('questionType').value;
+            if(!text) return;
+
+            let newQ = { id: 'cust-' + Date.now(), question: text, type: type };
+            if(type === 'multiple-choice') {
+                newQ.correct = document.getElementById('correctAnswer').value;
+                newQ.shuffledOptions = shuffleArray([
+                    newQ.correct, 
+                    document.getElementById('distractor1').value,
+                    document.getElementById('distractor2').value,
+                    document.getElementById('distractor3').value
+                ]);
             } else {
-                const question = document.getElementById('customQuestion').value.trim();
-                const lines = parseInt(document.getElementById('linesCount').value);
-                
-                if (!question) {
-                    alert('Please enter a question.');
-                    return;
-                }
-                
-                customQuestions.push({
-                    question,
-                    lines,
-                    type: 'written'
-                });
+                newQ.lines = parseInt(document.getElementById('linesCount').value);
             }
-            
-            document.getElementById('customQuestion').value = '';
-            document.getElementById('correctAnswer').value = '';
-            document.getElementById('distractor1').value = '';
-            document.getElementById('distractor2').value = '';
-            document.getElementById('distractor3').value = '';
-            
+            selectedQuestions.push(newQ);
             updatePreview();
         }
-        
+
         function updatePreview() {
-            const title = paperTitleInput.value || 'Question Paper';
-            const subtitle = paperSubtitleInput.value || '';
-            
-            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
-            const allQuestions = [...selectedFromExcel, ...customQuestions];
-            
-            if (allQuestions.length === 0) {
-                previewContainer.innerHTML = `
-                    <div class="preview-header">
-                        <h2 class="preview-title">${title}</h2>
-                        ${subtitle ? `<p class="preview-subtitle">${subtitle}</p>` : ''}
-                    </div>
-                    <p>No questions added yet. Please select questions from Excel or add custom questions.</p>
-                `;
-                return;
-            }
-            
-            let previewHTML = `
+            let html = `
                 <div class="preview-header">
-                    <h2 class="preview-title">${title}</h2>
-                    ${subtitle ? `<p class="preview-subtitle">${subtitle}</p>` : ''}
+                    <h2>${paperTitleInput.value}</h2>
+                    <p>${paperSubtitleInput.value}</p>
                 </div>
             `;
-            
-            allQuestions.forEach((q, index) => {
-                if (q.type === 'multiple-choice') {
-                    const options = [q.correct, q.distractor1, q.distractor2, q.distractor3];
-                    shuffleArray(options);
-                    if (!q.currentAssignment) {
-                        q.currentAssignment = { options: [...options], correctIndex: options.indexOf(q.correct) };
-                    }
-                    
-                    previewHTML += `
-                        <div class="question-preview">
-                            <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
-                            <div class="options" data-question-index="${index}">
-                                <div class="option ${q.currentAssignment.correctIndex === 0 ? 'correct-answer' : ''}" 
-                                     data-option-index="0">A. ${q.currentAssignment.options[0]}</div>
-                                <div class="option ${q.currentAssignment.correctIndex === 1 ? 'correct-answer' : ''}" 
-                                     data-option-index="1">B. ${q.currentAssignment.options[1]}</div>
-                                <div class="option ${q.currentAssignment.correctIndex === 2 ? 'correct-answer' : ''}" 
-                                     data-option-index="2">C. ${q.currentAssignment.options[2]}</div>
-                                <div class="option ${q.currentAssignment.correctIndex === 3 ? 'correct-answer' : ''}" 
-                                     data-option-index="3">D. ${q.currentAssignment.options[3]}</div>
-                            </div>
-                            <div class="reassign-section">
-                                <button class="btn btn-sm" onclick="reassignAnswer(${index})">Reassign Correct Answer</button>
-                            </div>
-                        </div>
-                    `;
+
+            if(selectedQuestions.length === 0) {
+                html += `<p style="text-align:center; color:var(--gray); margin-top:50px;">Selected questions will appear here.</p>`;
+            }
+
+            selectedQuestions.forEach((q, i) => {
+                html += `<div class="question-preview"><div><b>${i+1}.</b> ${q.question}</div>`;
+                if(q.type === 'multiple-choice') {
+                    html += `<div style="margin-left:20px; margin-top:8px;">
+                        ${q.shuffledOptions.map((opt, j) => `<div>${String.fromCharCode(65+j)}. ${opt}</div>`).join('')}
+                    </div>`;
                 } else {
-                    const lineHeight = 20;
-                    const totalHeight = q.lines * lineHeight;
-                    previewHTML += `
-                        <div class="question-preview">
-                            <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
-                            <div class="answer-space" style="height: ${totalHeight}px;">
-                                <span class="answer-label">${q.lines} lines for answer</span>
-                            </div>
-                        </div>
-                    `;
+                    html += `<div class="answer-space" style="height:${q.lines * 20}px"></div>`;
                 }
+                html += `</div>`;
             });
-            
-            previewContainer.innerHTML = previewHTML;
-            
-            document.querySelectorAll('.option').forEach(option => {
-                option.addEventListener('click', handleOptionClick);
-            });
+            previewContainer.innerHTML = html;
         }
-        
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
-        
-        function handleOptionClick(e) {
-            const optionIndex = parseInt(e.target.dataset.optionIndex);
-            const questionIndex = parseInt(e.currentTarget.parentElement.dataset.questionIndex);
-            
-            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
-            const allQuestions = [...selectedFromExcel, ...customQuestions];
-            
-            allQuestions[questionIndex].currentAssignment.correctIndex = optionIndex;
-            
-            if (questionIndex < selectedFromExcel.length) {
-                excelQuestions[selectedExcelQuestions[questionIndex]].currentAssignment = 
-                    allQuestions[questionIndex].currentAssignment;
-            } else {
-                customQuestions[questionIndex - selectedFromExcel.length].currentAssignment = 
-                    allQuestions[questionIndex].currentAssignment;
-            }
-            
-            updatePreview();
-        }
-        
-        function reassignAnswer(questionIndex) {
-            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
-            const allQuestions = [...selectedFromExcel, ...customQuestions];
-            
-            const question = allQuestions[questionIndex];
-            const options = [question.correct, question.distractor1, question.distractor2, question.distractor3];
-            shuffleArray(options);
-            const correctIndex = options.indexOf(question.correct);
-            
-            question.currentAssignment = { options: [...options], correctIndex };
-            
-            if (questionIndex < selectedFromExcel.length) {
-                excelQuestions[selectedExcelQuestions[questionIndex]].currentAssignment = 
-                    question.currentAssignment;
-            } else {
-                customQuestions[questionIndex - selectedFromExcel.length].currentAssignment = 
-                    question.currentAssignment;
-            }
-            
-            updatePreview();
-        }
-        
-        window.reassignAnswer = reassignAnswer;
-        
-        function exportPaper(includeAnswers) {
-            const title = paperTitleInput.value || 'Question Paper';
-            const subtitle = paperSubtitleInput.value || '';
-            
-            const selectedFromExcel = selectedExcelQuestions.map(index => excelQuestions[index]);
-            const allQuestions = [...selectedFromExcel, ...customQuestions];
-            
-            if (allQuestions.length === 0) {
-                alert('Please add at least one question before exporting.');
-                return;
-            }
-            
-            let htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${title}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            color: #333;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #ccc;
-        }
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            font-style: italic;
-            color: #666;
-        }
-        .question {
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px dashed #eee;
-        }
-        .question-number {
-            font-weight: bold;
-            margin-right: 8px;
-        }
-        .options {
-            margin-top: 10px;
-            padding-left: 20px;
-        }
-        .option {
-            margin-bottom: 8px;
-        }
-        .answer-space {
-            min-height: 80px;
-            border-bottom: 1px solid #ccc;
-            margin-top: 10px;
-            position: relative;
-        }
-        .answer-label {
-            position: absolute;
-            bottom: 5px;
-            right: 10px;
-            color: #999;
-            font-size: 12px;
-        }
-        .answers-section {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #ccc;
-        }
-        .answers-title {
-            font-weight: bold;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="title">${title}</div>
-        ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
-    </div>
+
+        function exportPaper(withAnswers) {
+            const title = paperTitleInput.value || 'Exam';
+            let content = `
+                <div style="text-align:center; border-bottom:2px solid #000; margin-bottom:30px; padding-bottom:10px;">
+                    <h1>${paperTitleInput.value}</h1>
+                    <p>${paperSubtitleInput.value}</p>
+                </div>
             `;
-            
-            allQuestions.forEach((q, index) => {
-                if (q.type === 'multiple-choice') {
-                    const options = q.currentAssignment ? q.currentAssignment.options : 
-                                   [q.correct, q.distractor1, q.distractor2, q.distractor3];
-                    const correctIndex = q.currentAssignment ? q.currentAssignment.correctIndex : 
-                                        options.indexOf(q.correct);
-                    
-                    let correctOption = '';
-                    if (correctIndex === 0) correctOption = 'A';
-                    else if (correctIndex === 1) correctOption = 'B';
-                    else if (correctIndex === 2) correctOption = 'C';
-                    else if (correctIndex === 3) correctOption = 'D';
-                    
-                    htmlContent += `
-    <div class="question">
-        <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
-        <div class="options">
-            <div class="option">A. ${options[0]}</div>
-            <div class="option">B. ${options[1]}</div>
-            <div class="option">C. ${options[2]}</div>
-            <div class="option">D. ${options[3]}</div>
-        </div>
-        ${includeAnswers ? `<div style="margin-top: 8px; color: #d63031; font-weight: bold;">Answer: ${correctOption}</div>` : ''}
-    </div>
-                    `;
+
+            selectedQuestions.forEach((q, i) => {
+                content += `<div style="margin-bottom:20px; page-break-inside:avoid;">
+                    <div><b>${i+1}.</b> ${q.question}</div>`;
+                if(q.type === 'multiple-choice') {
+                    content += `<div style="margin-left:20px; margin-top:5px;">
+                        ${q.shuffledOptions.map((opt, j) => `<div>${String.fromCharCode(65+j)}. ${opt}</div>`).join('')}
+                    </div>`;
                 } else {
-                    const lineHeight = 20;
-                    const totalHeight = q.lines * lineHeight;
-                    
-                    htmlContent += `
-    <div class="question">
-        <div><span class="question-number">${index + 1}.</span> ${q.question}</div>
-        <div class="answer-space" style="height: ${totalHeight}px;">
-            <span class="answer-label">${q.lines} lines for answer</span>
-        </div>
-    </div>
-                    `;
+                    content += `<div style="border-bottom:1px solid #ccc; height:${q.lines * 22}px; margin-top:10px;"></div>`;
                 }
+                content += `</div>`;
             });
-            
-            if (includeAnswers) {
-                htmlContent += `
-    <div class="answers-section">
-        <div class="answers-title">Answer Key</div>
-                `;
-                
-                allQuestions.forEach((q, index) => {
-                    if (q.type === 'multiple-choice') {
-                        const options = q.currentAssignment ? q.currentAssignment.options : 
-                                       [q.correct, q.distractor1, q.distractor2, q.distractor3];
-                        const correctIndex = q.currentAssignment ? q.currentAssignment.correctIndex : 
-                                            options.indexOf(q.correct);
-                        
-                        let correctOption = '';
-                        if (correctIndex === 0) correctOption = 'A';
-                        else if (correctIndex === 1) correctOption = 'B';
-                        else if (correctIndex === 2) correctOption = 'C';
-                        else if (correctIndex === 3) correctOption = 'D';
-                        
-                        htmlContent += `<div>${index + 1}. ${correctOption}</div>`;
+
+            if(withAnswers) {
+                content += `<div style="page-break-before:always; margin-top:40px; border-top:2px solid #000; padding-top:20px;">
+                    <h3>Answer Key</h3><div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px;">`;
+                selectedQuestions.forEach((q, i) => {
+                    if(q.type === 'multiple-choice') {
+                        const letter = String.fromCharCode(65 + q.shuffledOptions.indexOf(q.correct));
+                        content += `<div>${i+1}: <b>${letter}</b></div>`;
                     } else {
-                        htmlContent += `<div>${index + 1}. [Written Answer]</div>`;
+                        content += `<div>${i+1}: [Written]</div>`;
                     }
                 });
-                
-                htmlContent += `
-    </div>
-                `;
+                content += `</div></div>`;
             }
-            
-            htmlContent += `
-</body>
-</html>
-            `;
-            
-            const blob = new Blob([htmlContent], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
+
+            const blob = new Blob([`<html><body style="font-family:sans-serif; padding:40px;">${content}</body></html>`], {type: 'text/html'});
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `${title.replace(/\s+/g, '_')}_Question_Paper.html`;
-            document.body.appendChild(a);
+            a.href = URL.createObjectURL(blob);
+            a.download = `${title.replace(/\s+/g, '_')}.html`;
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
-        
-        updatePreview();
     </script>
 </body>
 </html>
