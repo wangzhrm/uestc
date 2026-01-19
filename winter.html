@@ -1,35 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>Student Writing Portal</title>
+    <meta charset="UTF-8">
+    <title>雅思写作寒假作业门户</title>
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; }
         .hidden { display: none !important; }
-        #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; }
+        
+        /* 登录样式 */
+        #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; }
+        .instruction-card { background: #e7f3ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; width: 400px; border-left: 5px solid #007bff; font-size: 0.9rem; line-height: 1.6; }
         input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .btn-primary { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        /* 布局样式 */
         #workspace { display: flex; height: 100vh; }
         #left-panel { width: 55%; padding: 25px; overflow-y: auto; background: #fff; border-right: 1px solid #ddd; }
         #right-panel { width: 45%; padding: 40px; overflow-y: auto; background: #fdfdfd; }
+        
         section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
         h3 { color: #2c3e50; font-size: 1.1rem; margin-bottom: 5px; }
-        p.hint { color: #d9534f; font-size: 0.8rem; margin: 0 0 10px 0; }
+        
+        textarea { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: inherit; font-size: 1rem; }
         #preview-area { line-height: 1.8; font-size: 1.15rem; color: #333; white-space: pre-wrap; user-select: none; }
-        textarea { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: inherit; }
+        
         .sticky-header { position: sticky; top: 0; background: white; padding: 10px 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; }
         .word-count { background: #e9ecef; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; }
+        
+        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; width: 100%; }
+        .btn-submit { background: #28a745; color: white; width: 100%; margin-top: 10px; }
+        .btn-save { background: #6c757d; color: white; margin-right: 10px; }
     </style>
 </head>
 <body>
 
     <div id="login-container">
+        <div class="instruction-card">
+            <h3 style="margin-top:0">雅思写作寒假作业要求：</h3>
+            1. 根据附件当中的四篇英语文章组织出一篇essay task 2的文章；<br>
+            2. 要求按照模板中的结构从原文当中找出相应句子，用自己的语言进行总结，放入模板当中相应位置（页面已设置只能手动输入，不能复制粘贴）；<br>
+            3. 也可以根据自己的想法在相应输入框中写入自己觉得合理的句子；<br>
+            4. 每篇文章需要写够<strong>250字以上</strong>才能完成提交，否则会显示提交失败。<br>
+            <strong>建议：</strong>最好能抽出一小时连续完成。如需中途离开，请点击“暂存”，下次登录后恢复。
+        </div>
         <div class="login-box">
-            <h2 style="text-align:center">Student Login</h2>
-            <input type="text" id="username" placeholder="Username">
-            <input type="password" id="password" placeholder="Password">
-            <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+            <h2 style="text-align:center; margin-top:0;">学生登录</h2>
+            <input type="text" id="username" placeholder="用户名">
+            <input type="password" id="password" placeholder="密码">
+            <button class="btn btn-primary" onclick="handleLogin()">开始作业</button>
         </div>
     </div>
 
@@ -37,9 +57,15 @@
         <div id="left-panel">
             <div class="sticky-header">
                 <h2>Essay Builder</h2>
-                <button onclick="handleLogout()" style="background:none; border:none; color:red; cursor:pointer;">Logout</button>
+                <div>
+                    <button class="btn btn-save" onclick="saveDraft()">暂存草稿</button>
+                    <button onclick="handleLogout()" style="color:red; cursor:pointer; background:none; border:none;">退出登录</button>
+                </div>
             </div>
-            <p class="hint">* Manual typing only. Copy-paste is disabled. (Min: 250 words)</p>
+            
+            <p style="color: #d9534f; font-size: 0.85rem; background: #fff5f5; padding: 10px; border-radius: 4px; border: 1px solid #ffcccc;">
+                注意：禁止复制粘贴，需写满250字。中途离开请记得点击上方“暂存草稿”。
+            </p>
 
             <section>
                 <h3>1. Introduction</h3>
@@ -54,7 +80,6 @@
                 <textarea id="b1-l1" placeholder="First Logic / Argument" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b1-e1" placeholder="Example (Optional)" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b1-l2" placeholder="Second Logic / Argument" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
-                <textarea id="b1-e2" placeholder="Example for Second Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b1-sum" placeholder="Sub-summary" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
             </section>
 
@@ -63,24 +88,22 @@
                 <textarea id="b2-ts" placeholder="Topic Sentence" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b2-l1" placeholder="First Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b2-e1" placeholder="Example" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
-                <textarea id="b2-l2" placeholder="Second Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
-                <textarea id="b2-e2" placeholder="Example" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="b2-sum" placeholder="Sub-summary" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
             </section>
 
             <section>
                 <h3>4. Conclusion</h3>
-                <textarea id="conc-thesis" placeholder="Restatement of Thesis/Stance" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="conc-thesis" placeholder="Restatement of Thesis" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
                 <textarea id="conc-summary" placeholder="Summary of Arguments" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
             </section>
 
-            <button class="btn-primary" style="background:#28a745; margin-bottom: 50px;" onclick="submitEssay()">Submit Essay</button>
+            <button class="btn btn-submit" onclick="submitEssay()">正式提交作业</button>
         </div>
 
         <div id="right-panel">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                <span class="word-count">Words: <span id="count">0</span></span>
-                <p style="color:#888; font-style:italic; margin:0;">Live Essay View</p>
+                <span class="word-count">字数: <span id="count">0</span></span>
+                <p style="color:#888; font-style:italic; margin:0;">作文预览</p>
             </div>
             <div id="preview-area"></div>
         </div>
@@ -93,9 +116,16 @@
             serverURL: "https://cx9mfvvv.lc-cn-n1-shared.com"
         });
 
+        const fieldIds = [
+            'intro-bg', 'intro-dispute', 'intro-outline',
+            'b1-ts', 'b1-l1', 'b1-e1', 'b1-l2', 'b1-sum',
+            'b2-ts', 'b2-l1', 'b2-e1', 'b2-sum',
+            'conc-thesis', 'conc-summary'
+        ];
+
         function preventPaste(e) {
             e.preventDefault();
-            alert("Copy-paste is disabled. Please type manually.");
+            alert("要求：从原文中找出相应句子并用自己的语言总结，禁止复制粘贴。");
             return false;
         }
 
@@ -105,7 +135,8 @@
             try {
                 await AV.User.logIn(u, p);
                 checkLogin();
-            } catch (e) { alert("Login failed: " + e.message); }
+                loadDraft();
+            } catch (e) { alert("登录失败，请检查账号密码"); }
         }
 
         function checkLogin() {
@@ -115,51 +146,65 @@
             }
         }
 
-        function handleLogout() {
-            AV.User.logOut();
-            location.reload();
-        }
+        function handleLogout() { AV.User.logOut(); location.reload(); }
 
         function updatePreview() {
-            const sections = [
+            const structure = [
                 ['intro-bg', 'intro-dispute', 'intro-outline'],
-                ['b1-ts', 'b1-l1', 'b1-e1', 'b1-l2', 'b1-e2', 'b1-sum'],
-                ['b2-ts', 'b2-l1', 'b2-e1', 'b2-l2', 'b2-e2', 'b2-sum'],
+                ['b1-ts', 'b1-l1', 'b1-e1', 'b1-l2', 'b1-sum'],
+                ['b2-ts', 'b2-l1', 'b2-e1', 'b2-sum'],
                 ['conc-thesis', 'conc-summary']
             ];
             let fullText = "";
             let totalWords = 0;
-
-            sections.forEach((group) => {
-                let paragraphText = "";
+            structure.forEach(group => {
+                let paraText = "";
                 group.forEach(id => {
                     const val = document.getElementById(id).value.trim();
                     if (val) {
-                        paragraphText += (paragraphText ? " " : "") + val;
+                        paraText += (paraText ? " " : "") + val;
                         totalWords += val.split(/\s+/).filter(w => w.length > 0).length;
                     }
                 });
-                if (paragraphText) fullText += paragraphText + "\n\n";
+                if (paraText) fullText += paraText + "\n\n";
             });
             document.getElementById('preview-area').innerText = fullText.trim();
             document.getElementById('count').innerText = totalWords;
         }
 
+        async function saveDraft() {
+            const user = AV.User.current();
+            const data = {};
+            fieldIds.forEach(id => { data[id] = document.getElementById(id).value; });
+            user.set('essayDraft', data);
+            try { await user.save(); alert("进度已保存。"); } catch (e) { alert("保存失败"); }
+        }
+
+        function loadDraft() {
+            const draft = AV.User.current().get('essayDraft');
+            if (draft) {
+                fieldIds.forEach(id => { if (draft[id]) document.getElementById(id).value = draft[id]; });
+                updatePreview();
+            }
+        }
+
         async function submitEssay() {
-            const currentCount = parseInt(document.getElementById('count').innerText);
-            if (currentCount < 250) {
-                alert("Your essay must be at least 250 words to submit. You need " + (250 - currentCount) + " more words.");
+            const count = parseInt(document.getElementById('count').innerText);
+            if (count < 250) {
+                alert("提交失败：字数未达到250字要求（当前" + count + "字）。");
                 return;
             }
-            const Essay = AV.Object.extend('StudentEssay');
-            const essay = new Essay();
+            const essay = new (AV.Object.extend('StudentEssay'))();
             essay.set('username', AV.User.current().getUsername());
             essay.set('content', document.getElementById('preview-area').innerText);
-            essay.set('wordCount', currentCount);
+            essay.set('wordCount', count);
             try {
                 await essay.save();
-                alert("Essay submitted successfully!");
-            } catch (e) { alert("Error: " + e.message); }
+                const user = AV.User.current();
+                user.unset('essayDraft');
+                await user.save();
+                alert("作业提交成功！");
+            } catch (e) { alert("提交出错"); }
         }
         checkLogin();
     </script>
