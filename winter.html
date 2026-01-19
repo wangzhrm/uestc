@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Writing Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; }
+        .hidden { display: none !important; }
+        
+        /* Login Styles */
+        #login-container { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .btn-primary { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        /* Essay Workspace Styles */
+        #workspace { display: flex; height: 100vh; }
+        #left-panel { width: 55%; padding: 25px; overflow-y: auto; background: #fff; border-right: 1px solid #ddd; }
+        #right-panel { width: 45%; padding: 40px; overflow-y: auto; background: #fdfdfd; }
+        
+        section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        h3 { color: #2c3e50; font-size: 1.1rem; margin-bottom: 5px; }
+        p.hint { color: #d9534f; font-size: 0.8rem; margin: 0 0 10px 0; }
+        
+        #preview-area { line-height: 1.8; font-size: 1.15rem; color: #333; white-space: pre-wrap; user-select: none; }
+        textarea { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: inherit; }
+        
+        .sticky-header { position: sticky; top: 0; background: white; padding: 10px 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; }
+        .word-count { background: #e9ecef; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <div class="login-box">
+            <h2 style="text-align:center">Student Login</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+        </div>
+    </div>
+
+    <div id="workspace" class="hidden">
+        <div id="left-panel">
+            <div class="sticky-header">
+                <h2>Essay Builder</h2>
+                <button onclick="handleLogout()" style="background:none; border:none; color:red; cursor:pointer;">Logout</button>
+            </div>
+            
+            <p class="hint">* Manual typing only. Copy-paste is disabled.</p>
+
+            <section>
+                <h3>1. Introduction</h3>
+                <textarea id="intro-bg" placeholder="Background Information" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="intro-dispute" placeholder="Current Dispute" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="intro-outline" placeholder="Outline & Stance" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+            </section>
+
+            <section>
+                <h3>2. Body Paragraph One</h3>
+                <textarea id="b1-ts" placeholder="Topic Sentence" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b1-l1" placeholder="First Logic / Argument" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b1-e1" placeholder="Example (Optional)" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b1-l2" placeholder="Second Logic / Argument" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b1-e2" placeholder="Example for Second Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b1-sum" placeholder="Sub-summary" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+            </section>
+
+            <section>
+                <h3>3. Body Paragraph Two</h3>
+                <textarea id="b2-ts" placeholder="Topic Sentence" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b2-l1" placeholder="First Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b2-e1" placeholder="Example" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b2-l2" placeholder="Second Logic" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b2-e2" placeholder="Example" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="b2-sum" placeholder="Sub-summary" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+            </section>
+
+            <section>
+                <h3>4. Conclusion</h3>
+                <textarea id="conc-thesis" placeholder="Restatement of Thesis/Stance" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+                <textarea id="conc-summary" placeholder="Summary of Arguments" oninput="updatePreview()" onpaste="preventPaste(event)"></textarea>
+            </section>
+
+            <button class="btn-primary" style="background:#28a745; margin-bottom: 50px;" onclick="submitEssay()">Submit Essay</button>
+        </div>
+
+        <div id="right-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <span class="word-count">Words: <span id="count">0</span></span>
+                <p style="color:#888; font-style:italic; margin:0;">Live Essay View</p>
+            </div>
+            <div id="preview-area"></div>
+        </div>
+    </div>
+
+    <script>
+        AV.init({
+            appId: "CX9mfvVVmHuzRXqfMMOOVZYF-gzGzoHsz",
+            appKey: "YK9WWq7u5FTuO4vIPLSM0yBr",
+            serverURL: "https://cx9mfvvv.lc-cn-n1-shared.com"
+        });
+
+        function preventPaste(e) {
+            e.preventDefault();
+            alert("Copy-paste is disabled. Please type manually.");
+            return false;
+        }
+
+        async function handleLogin() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            try {
+                await AV.User.logIn(u, p);
+                checkLogin();
+            } catch (e) { alert("Login failed: " + e.message); }
+        }
+
+        function checkLogin() {
+            if (AV.User.current()) {
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('workspace').classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            AV.User.logOut();
+            location.reload();
+        }
+
+        function updatePreview() {
+            const sections = [
+                ['intro-bg', 'intro-dispute', 'intro-outline'],
+                ['b1-ts', 'b1-l1', 'b1-e1', 'b1-l2', 'b1-e2', 'b1-sum'],
+                ['b2-ts', 'b2-l1', 'b2-e1', 'b2-l2', 'b2-e2', 'b2-sum'],
+                ['conc-thesis', 'conc-summary']
+            ];
+            
+            let fullText = "";
+            let totalWords = 0;
+
+            sections.forEach((group) => {
+                let paragraphText = "";
+                group.forEach(id => {
+                    const val = document.getElementById(id).value.trim();
+                    if (val) {
+                        paragraphText += (paragraphText ? " " : "") + val;
+                        totalWords += val.split(/\s+/).filter(w => w.length > 0).length;
+                    }
+                });
+                if (paragraphText) fullText += paragraphText + "\n\n";
+            });
+
+            document.getElementById('preview-area').innerText = fullText.trim();
+            document.getElementById('count').innerText = totalWords;
+        }
+
+        async function submitEssay() {
+            const Essay = AV.Object.extend('StudentEssay');
+            const essay = new Essay();
+            essay.set('username', AV.User.current().getUsername());
+            essay.set('content', document.getElementById('preview-area').innerText);
+            essay.set('wordCount', parseInt(document.getElementById('count').innerText));
+            try {
+                await essay.save();
+                alert("Essay submitted successfully!");
+            } catch (e) { alert("Error: " + e.message); }
+        }
+
+        checkLogin();
+    </script>
+</body>
+</html>
