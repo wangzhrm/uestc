@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #4f46e5; --secondary: #059669; --bg: #f8fafc; --border: #e2e8f0; --text-muted: #64748b; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        /* Header Meta Styles */
+        .quiz-header { text-align: center; margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); }
+        .quiz-meta { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .quiz-title { margin: 0; color: var(--primary); font-size: 1.8rem; }
+
+        /* Auth View */
+        .auth-box { background: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 50px; }
+
+        /* Library Mode */
+        .unit-section { background: white; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .unit-header { background: #f1f5f9; padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        .unit-content { display: none; padding: 10px 20px; border-top: 1px solid var(--border); }
+        .unit-section.active .unit-content { display: block; }
+        .chapter-box { margin-bottom: 15px; padding-left: 15px; border-left: 3px solid var(--primary); margin-top: 10px; }
+        .quiz-link { display: block; padding: 8px 12px; color: var(--primary); text-decoration: none; font-weight: 500; }
+        .quiz-link:hover { background: #f5f7ff; text-decoration: underline; }
+
+        /* Quiz Mode */
+        .q-card { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .opt { display: block; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; cursor: pointer; transition: 0.2s; }
+        .opt:hover { background: #f1f5f9; }
+
+        /* Results */
+        .review-item { padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
+        .review-correct { background: #ecfdf5; border-color: #10b981; }
+        .review-wrong { background: #fef2f2; border-color: #ef4444; }
+
+        input[type="password"] { padding: 10px; width: 80%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-success { background: var(--secondary); width: 100%; font-size: 1.1rem; margin-top: 10px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container hidden" id="view-auth">
+    <div class="auth-box">
+        <h2>Teacher/Admin Access</h2>
+        <input type="password" id="libPassword" placeholder="Enter Password">
+        <br>
+        <button onclick="checkPassword()">Access Library</button>
+    </div>
+</div>
+
+<div class="container hidden" id="view-library">
+    <h1 style="text-align:center;">Quiz Curriculum</h1>
+    <div id="hierarchy-container"></div>
+</div>
+
+<div class="container hidden" id="view-quiz">
+    <div class="quiz-header">
+        <div id="quiz-meta-info" class="quiz-meta">Loading Chapter Details...</div>
+        <h1 id="quiz-title" class="quiz-title"></h1>
+    </div>
+    <div id="questions-area"></div>
+    <button class="btn-success" onclick="submitQuiz()">Submit My Answers</button>
+</div>
+
+<div class="container hidden" id="view-results">
+    <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <h1 id="result-text" style="text-align: center; color: var(--secondary);"></h1>
+        <hr>
+        <div id="review-area"></div>
+    </div>
+</div>
+
+<script>
+    const SB_URL = "https://fepooifleoeseapsbisy.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlcG9vaWZsZW9lc2VhcHNiaXN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4NDE1ODksImV4cCI6MjA4NDQxNzU4OX0.vRQO2RBsQQRs4qCfYZw4qV7RpAHyByN3qT_wSMvjIDY";
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    let activeQuestions = [];
+
+    async function init() {
+        const params = new URLSearchParams(window.location.search);
+        const quizId = params.get('id');
+        // If there's an ID in the URL, go straight to quiz mode
+        if (quizId) {
+            startQuiz(quizId);
+        } else {
+            // Otherwise, show the password protection for the library
+            document.getElementById('view-auth').classList.remove('hidden');
+        }
+    }
+
+    function checkPassword() {
+        if (document.getElementById('libPassword').value === "wang123") {
+            document.getElementById('view-auth').classList.add('hidden');
+            loadHierarchy();
+        } else alert("Incorrect password.");
+    }
+
+    async function loadHierarchy() {
+        document.getElementById('view-library').classList.remove('hidden');
+        const { data: units } = await _supabase.from('units').select('*').order('sort_order');
+        const { data: chapters } = await _supabase.from('chapters').select('*').order('sort_order');
+        const { data: onlineQuizzes } = await _supabase.from('online_quizzes').select('*');
+
+        document.getElementById('hierarchy-container').innerHTML = units.map(u => {
+            const unitChapters = chapters.filter(c => c.unit_id === u.id);
+            return `
+                <div class="unit-section">
+                    <div class="unit-header" onclick="this.parentElement.classList.toggle('active')">
+                        <span>${u.name}</span><span>▼</span>
+                    </div>
+                    <div class="unit-content">
+                        ${unitChapters.map(c => `
+                            <div class="chapter-box">
+                                <strong>${c.name}</strong>
+                                ${onlineQuizzes.map(oq => `<a href="?id=${oq.id}" target="_blank" class="quiz-link">📝 ${oq.title}</a>`).join('')}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function startQuiz(id) {
+        document.getElementById('view-quiz').classList.remove('hidden');
+        
+        const { data: meta } = await _supabase.from('online_quizzes').select('*').eq('id', id).single();
+        if(!meta) {
+            document.getElementById('quiz-title').innerText = "Quiz not found";
+            return;
+        }
+        document.getElementById('quiz-title').innerText = meta.title;
+
+        const { data: questions } = await _supabase.from('quizzes').select('*').in('id', meta.quiz_ids);
+        activeQuestions = questions;
+
+        if (questions && questions.length > 0) {
+            const firstQ = questions[0];
+            const { data: chap } = await _supabase.from('chapters').select('name, unit_id').eq('id', firstQ.chapter_id).single();
+            const { data: unit } = await _supabase.from('units').select('name').eq('id', chap.unit_id).single();
+            document.getElementById('quiz-meta-info').innerText = `${unit.name} > ${chap.name}`;
+        }
+
+        document.getElementById('questions-area').innerHTML = questions.map((q, i) => {
+            const opts = [q.correct_answer, q.distractor1, q.distractor2, q.distractor3].filter(Boolean).sort(() => Math.random() - 0.5);
+            return `
+                <div class="q-card">
+                    <h3>${i+1}. ${q.question}</h3>
+                    ${opts.map(opt => `<label class="opt"><input type="radio" name="q-${q.id}" value="${opt}"> ${opt}</label>`).join('')}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function submitQuiz() {
+        let score = 0;
+        let reviewHtml = "<h3>Answer Key & Review:</h3>";
+
+        activeQuestions.forEach((q, i) => {
+            const selected = document.querySelector(`input[name="q-${q.id}"]:checked`);
+            const val = selected ? selected.value : "No Answer";
+            const isCorrect = val === q.correct_answer;
+            if (isCorrect) score++;
+
+            reviewHtml += `
+                <div class="review-item ${isCorrect ? 'review-correct' : 'review-wrong'}">
+                    <strong>${i+1}. ${q.question}</strong><br>
+                    <span>Your Answer: ${val} ${isCorrect ? '✅' : '❌'}</span>
+                    ${!isCorrect ? `<br><span style="color:var(--secondary); font-weight:bold">Correct: ${q.correct_answer}</span>` : ''}
+                </div>
+            `;
+        });
+
+        document.getElementById('view-quiz').classList.add('hidden');
+        document.getElementById('view-results').classList.remove('hidden');
+        const rate = Math.round((score / activeQuestions.length) * 100);
+        document.getElementById('result-text').innerText = `Correct Rate: ${rate}% (${score}/${activeQuestions.length})`;
+        document.getElementById('review-area').innerHTML = reviewHtml;
+    }
+
+    init();
+</script>
+</body>
+</html>

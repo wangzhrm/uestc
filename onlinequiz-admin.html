@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Manager Admin Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <style>
+        :root { --primary: #007bff; --danger: #dc3545; --success: #28a745; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; gap: 20px; padding: 20px; background: var(--bg); margin: 0; height: 100vh; box-sizing: border-box; }
+        .panel { border: 1px solid #ddd; padding: 20px; border-radius: 8px; flex: 1; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow-y: auto; }
+        
+        /* Hierarchy Styles */
+        .unit-item { margin-bottom: 15px; border: 1px solid #e0e0e0; background: #fff; border-radius: 6px; }
+        .unit-header { background: #f8f9fa; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .chapter-list { padding: 10px; min-height: 20px; list-style: none; margin: 0; }
+        .chapter-item { background: #f0f7ff; margin: 5px 0; padding: 8px; border-radius: 4px; display: flex; justify-content: space-between; border: 1px solid #d0e0f0; }
+        
+        /* Quiz Preview Styles */
+        .quiz-preview { background: #fff; border: 1px solid #eee; max-height: 400px; overflow-y: auto; margin-top: 10px; padding: 15px; border-radius: 6px; }
+        .preview-card { border-bottom: 1px solid #eee; padding: 10px 0; margin-bottom: 5px; }
+        .preview-card:last-child { border-bottom: none; }
+        .option-label { display: block; font-size: 0.85em; margin-left: 15px; padding: 2px 5px; border-radius: 3px; }
+        .correct { background: #d1fae5; color: #065f46; border: 1px solid #34d399; font-weight: bold; }
+        .distractor { color: #6b7280; }
+        
+        .inline-edit { padding: 4px; border: 1px solid var(--primary); border-radius: 3px; width: 60%; }
+        .btn-group { display: flex; gap: 5px; }
+        .btn-sm { padding: 4px 8px; font-size: 11px; border: none; color: white; border-radius: 3px; cursor: pointer; }
+        .edit-btn { background: #6c757d; }
+        .delete-btn { background: var(--danger); }
+        .save-inline-btn { background: var(--success); }
+        .handle { color: #ccc; cursor: grab; padding-right: 10px; }
+        
+        select, input { padding: 8px; margin: 5px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { cursor: pointer; padding: 10px 15px; background: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <h2>1. Import Excel Quizzes</h2>
+        <input type="file" id="excelInput" accept=".xlsx, .xls" />
+        <div id="previewArea" class="quiz-preview">No file loaded yet. Data format: [Q, Correct, D1, D2, D3]</div>
+        <hr>
+        <h2>2. Target Location</h2>
+        <label>Select Unit:</label>
+        <select id="unitSelect" onchange="loadChaptersForSelect(this.value)"><option value="">-- Choose Unit --</option></select>
+        <label>Select Chapter:</label>
+        <select id="chapterSelect"><option value="">-- Choose Chapter --</option></select>
+        <button id="uploadBtn" style="background: var(--success); width: 100%; margin-top: 10px;">Upload to Supabase</button>
+    </div>
+
+    <div class="panel">
+        <h2>Structure Management</h2>
+        <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <input type="text" id="newUnitName" placeholder="New Unit Name">
+            <button onclick="createUnit()" style="width:100%">Add Unit</button>
+            <div style="margin-top:10px;">
+                <select id="parentUnitSelect"></select>
+                <input type="text" id="newChapterName" placeholder="New Chapter Name">
+                <button onclick="createChapter()" style="width:100%; background:#6c757d;">Add Chapter</button>
+            </div>
+        </div>
+
+        <h3>Current Structure</h3>
+        <div id="unitHierarchy"></div>
+    </div>
+
+    <script>
+        const SB_URL = "https://fepooifleoeseapsbisy.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlcG9vaWZsZW9lc2VhcHNiaXN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4NDE1ODksImV4cCI6MjA4NDQxNzU4OX0.vRQO2RBsQQRs4qCfYZw4qV7RpAHyByN3qT_wSMvjIDY";
+        const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+        let parsedQuizzes = [];
+
+        // --- EXCEL HANDLING & PREVIEW ---
+        document.getElementById('excelInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const workbook = XLSX.read(evt.target.result, { type: 'binary' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                
+                // Mapping the rows and ensuring valid data
+                parsedQuizzes = rows.filter(r => r[0]).map(r => ({
+                    question: r[0],
+                    correct_answer: r[1],
+                    distractor1: r[2],
+                    distractor2: r[3],
+                    distractor3: r[4]
+                }));
+                
+                renderQuizPreview();
+            };
+            reader.readAsBinaryString(file);
+        });
+
+        function renderQuizPreview() {
+            const area = document.getElementById('previewArea');
+            if (parsedQuizzes.length === 0) { area.innerHTML = "No data found."; return; }
+            
+            area.innerHTML = parsedQuizzes.map((q, i) => `
+                <div class="preview-card">
+                    <strong>${i+1}. ${q.question}</strong>
+                    <span class="option-label correct">✔ ${q.correct_answer}</span>
+                    <span class="option-label distractor">✖ ${q.distractor1}</span>
+                    <span class="option-label distractor">✖ ${q.distractor2}</span>
+                    <span class="option-label distractor">✖ ${q.distractor3}</span>
+                </div>
+            `).join('');
+        }
+
+        // --- RENDER HIERARCHY ---
+        async function refreshAll() {
+            const { data: units } = await _supabase.from('units').select('*').order('sort_order');
+            const { data: chapters } = await _supabase.from('chapters').select('*').order('sort_order');
+
+            const options = (units || []).map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+            document.getElementById('unitSelect').innerHTML = '<option value="">-- Choose Unit --</option>' + options;
+            document.getElementById('parentUnitSelect').innerHTML = '<option value="">-- Assign to Unit --</option>' + options;
+
+            const container = document.getElementById('unitHierarchy');
+            container.innerHTML = (units || []).map(u => `
+                <div class="unit-item" data-id="${u.id}">
+                    <div class="unit-header">
+                        <span id="label-units-${u.id}"><span class="handle">☰</span><strong>${u.name}</strong></span>
+                        <div class="btn-group">
+                            <button class="btn-sm edit-btn" onclick="toggleEdit('units', '${u.id}', '${u.name}')">Edit</button>
+                            <button class="btn-sm delete-btn" onclick="secureDelete('units', '${u.id}')">Del</button>
+                        </div>
+                    </div>
+                    <ul class="chapter-list" data-unit-id="${u.id}">
+                        ${chapters.filter(c => c.unit_id === u.id).map(c => `
+                            <li class="chapter-item" data-id="${c.id}">
+                                <span id="label-chapters-${c.id}"><span class="handle">⋮</span>${c.name}</span>
+                                <div class="btn-group">
+                                    <button class="btn-sm edit-btn" onclick="toggleEdit('chapters', '${c.id}', '${c.name}')">Edit</button>
+                                    <button class="btn-sm delete-btn" onclick="secureDelete('chapters', '${c.id}')">Del</button>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `).join('');
+            initSortable();
+        }
+
+        // --- EDIT/DELETE FUNCTIONS ---
+        function toggleEdit(table, id, currentName) {
+            const labelSpan = document.getElementById(`label-${table}-${id}`);
+            labelSpan.innerHTML = `<input type="text" class="inline-edit" id="input-${table}-${id}" value="${currentName}">
+                                   <button class="btn-sm save-inline-btn" onclick="saveEdit('${table}', '${id}')">OK</button>`;
+        }
+
+        async function saveEdit(table, id) {
+            const newName = document.getElementById(`input-${table}-${id}`).value;
+            if (newName) {
+                await _supabase.from(table).update({ name: newName }).eq('id', id);
+                refreshAll();
+            }
+        }
+
+        async function secureDelete(table, id) {
+            const pw = prompt("This will delete all nested data. Enter password:");
+            if (pw === "wang123") {
+                await _supabase.from(table).delete().eq('id', id);
+                refreshAll();
+            } else if (pw !== null) alert("Incorrect password.");
+        }
+
+        // --- SORTING & CREATION ---
+        function initSortable() {
+            new Sortable(document.getElementById('unitHierarchy'), {
+                handle: '.handle', animation: 150, onEnd: () => updateOrder('units', 'unitHierarchy')
+            });
+            document.querySelectorAll('.chapter-list').forEach(el => {
+                new Sortable(el, { handle: '.handle', animation: 150, onEnd: (evt) => updateOrder('chapters', null, evt.from) });
+            });
+        }
+
+        async function updateOrder(table, containerId, element = null) {
+            const parent = element || document.getElementById(containerId);
+            const items = Array.from(parent.querySelectorAll(`[data-id]`)).filter(el => el.parentElement === parent);
+            for (let i = 0; i < items.length; i++) {
+                const id = items[i].getAttribute('data-id');
+                await _supabase.from(table).update({ sort_order: i }).eq('id', id);
+            }
+        }
+
+        async function createUnit() {
+            const name = document.getElementById('newUnitName').value;
+            if (name) { await _supabase.from('units').insert([{ name, sort_order: 999 }]); document.getElementById('newUnitName').value = ''; refreshAll(); }
+        }
+
+        async function createChapter() {
+            const unitId = document.getElementById('parentUnitSelect').value;
+            const name = document.getElementById('newChapterName').value;
+            if (unitId && name) { await _supabase.from('chapters').insert([{ unit_id: unitId, name, sort_order: 999 }]); document.getElementById('newChapterName').value = ''; refreshAll(); }
+        }
+
+        async function loadChaptersForSelect(unitId) {
+            const { data } = await _supabase.from('chapters').select('*').eq('unit_id', unitId).order('sort_order');
+            document.getElementById('chapterSelect').innerHTML = (data || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+
+        document.getElementById('uploadBtn').onclick = async () => {
+            const chapterId = document.getElementById('chapterSelect').value;
+            if(!chapterId || parsedQuizzes.length === 0) return alert("Select chapter and file!");
+            const payload = parsedQuizzes.map(q => ({ ...q, chapter_id: chapterId }));
+            await _supabase.from('quizzes').insert(payload);
+            alert("Success!");
+            parsedQuizzes = [];
+            document.getElementById('previewArea').innerHTML = "Upload complete. Ready for next file.";
+        };
+
+        refreshAll();
+    </script>
+</body>
+</html>

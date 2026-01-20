@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Online Quiz Builder</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #4f46e5; --bg: #f8fafc; --border: #e2e8f0; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--bg); }
+        
+        header { background: white; padding: 15px 30px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .main-container { display: flex; flex: 1; overflow: hidden; padding: 15px; gap: 15px; }
+        
+        .pane { background: white; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .pane-header { padding: 15px; border-bottom: 1px solid var(--border); background: #fcfcfd; border-radius: 10px 10px 0 0; }
+        .scroll-area { flex: 1; overflow-y: auto; padding: 15px; }
+
+        /* Quiz Item Styles */
+        .quiz-card { border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; transition: 0.2s; }
+        .quiz-card:hover { border-color: var(--primary); background: #f5f7ff; }
+        .quiz-card input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 3px; }
+        .quiz-info { flex: 1; font-size: 0.95rem; }
+        
+        /* New Styles for Options Display */
+        .options-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; font-size: 0.75rem; color: #64748b; }
+        .opt-tag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .correct-tag { color: #059669; font-weight: bold; }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        select, input[type="text"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; width: 100%; box-sizing: border-box; }
+        
+        button { padding: 10px 20px; border-radius: 6px; border: none; background: var(--primary); color: white; cursor: pointer; font-weight: 600; }
+        button:disabled { background: #ccc; }
+        
+        .remove-btn { color: #dc3545; background: none; border: 1px solid #dc3545; padding: 2px 8px; font-size: 11px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2 style="margin:0">Online Quiz Builder</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <input type="text" id="quizTitle" placeholder="Untitled Quiz Name" style="width: 250px;">
+        <button onclick="createOnlineQuiz()">Create Online Quiz</button>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="pane">
+        <div class="pane-header">
+            <h3>1. Select from Bank</h3>
+            <div class="controls">
+                <select id="unitSelect" onchange="loadChapters(this.value)"><option value="">Select Unit</option></select>
+                <select id="chapterSelect" onchange="loadBankQuizzes(this.value)"><option value="">Select Chapter</option></select>
+            </div>
+        </div>
+        <div class="scroll-area" id="bankList">Select a chapter to browse...</div>
+    </div>
+
+    <div class="pane" style="border-left: 4px solid var(--primary);">
+        <div class="pane-header">
+            <h3>2. Selected Quizzes (<span id="count">0</span>)</h3>
+            <p style="font-size: 0.8rem; color: #666; margin: 0;">Correct answers will be randomized for students.</p>
+        </div>
+        <div class="scroll-area" id="selectedList"></div>
+    </div>
+</div>
+
+<script>
+    const SB_URL = "https://fepooifleoeseapsbisy.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlcG9vaWZsZW9lc2VhcHNiaXN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4NDE1ODksImV4cCI6MjA4NDQxNzU4OX0.vRQO2RBsQQRs4qCfYZw4qV7RpAHyByN3qT_wSMvjIDY";
+    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    let currentBank = [];
+    let selectedSet = new Map();
+
+    async function init() {
+        const { data } = await _supabase.from('units').select('*').order('sort_order');
+        document.getElementById('unitSelect').innerHTML += data.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+    }
+
+    async function loadChapters(unitId) {
+        if(!unitId) return;
+        const { data } = await _supabase.from('chapters').select('*').eq('unit_id', unitId).order('sort_order');
+        document.getElementById('chapterSelect').innerHTML = '<option value="">Select Chapter</option>' + data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    async function loadBankQuizzes(chapterId) {
+        if(!chapterId) return;
+        const { data } = await _supabase.from('quizzes').select('*').eq('chapter_id', chapterId);
+        currentBank = data || [];
+        renderBank();
+    }
+
+    function renderBank() {
+        const container = document.getElementById('bankList');
+        container.innerHTML = currentBank.map(q => `
+            <div class="quiz-card">
+                <input type="checkbox" id="chk-${q.id}" ${selectedSet.has(q.id) ? 'checked' : ''} onchange="toggleQuiz('${q.id}')">
+                <div class="quiz-info">
+                    <label for="chk-${q.id}"><strong>${q.question}</strong></label>
+                    <div class="options-preview">
+                        <div class="opt-tag correct-tag">✔ ${q.correct_answer}</div>
+                        <div class="opt-tag">✖ ${q.distractor1}</div>
+                        <div class="opt-tag">✖ ${q.distractor2}</div>
+                        <div class="opt-tag">✖ ${q.distractor3}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function toggleQuiz(id) {
+        if (selectedSet.has(id)) {
+            selectedSet.delete(id);
+        } else {
+            const quiz = currentBank.find(q => q.id === id) || Array.from(selectedSet.values()).find(q => q.id === id);
+            selectedSet.set(id, quiz);
+        }
+        renderSelected();
+        renderBank();
+    }
+
+    function renderSelected() {
+        const container = document.getElementById('selectedList');
+        const list = Array.from(selectedSet.values());
+        document.getElementById('count').innerText = list.length;
+        
+        container.innerHTML = list.map(q => `
+            <div class="quiz-card">
+                <div class="quiz-info">
+                    <strong>${q.question}</strong><br>
+                    <button class="remove-btn" onclick="toggleQuiz('${q.id}')">Move back to Bank</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function createOnlineQuiz() {
+        const title = document.getElementById('quizTitle').value.trim();
+        const ids = Array.from(selectedSet.keys());
+        
+        if (!title || ids.length === 0) return alert("Enter a title and select quizzes!");
+
+        const { data, error } = await _supabase.from('online_quizzes').insert([{ title, quiz_ids: ids }]).select();
+        
+        if (error) alert("Error: " + error.message);
+        else {
+            alert("Quiz created successfully! It is now saved in your library.");
+            // Reset fields
+            document.getElementById('quizTitle').value = "";
+            selectedSet.clear();
+            renderSelected();
+            renderBank();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
