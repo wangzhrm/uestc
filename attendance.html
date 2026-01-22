@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Attendance Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        :root { --primary: #2ecc71; --bg: #f4f7f6; --border: #e0e0e0; --accent: #3498db; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, sans-serif; background-color: var(--bg); margin: 0; padding: 10px; color: #333; }
+        
+        .container { max-width: 100%; margin: auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        /* Auto-Summary Card */
+        .auto-summary { 
+            background: linear-gradient(135deg, #2193b0, #6dd5ed); 
+            color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; 
+        }
+        .auto-summary h4 { margin: 0 0 5px 0; text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.5px; opacity: 0.9; }
+        .summary-val { font-size: 1.6em; font-weight: bold; }
+        .summary-dates { font-size: 0.75em; opacity: 0.85; margin-top: 4px; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .nav-btn { padding: 8px 15px; background: #eee; border: none; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; }
+        h2 { margin: 0; font-size: 1.1em; text-align: center; color: #2c3e50; flex: 1; }
+
+        /* Grid Setup */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .weekday-label { text-align: center; font-weight: bold; padding: 5px 0; color: #999; font-size: 0.7em; }
+        
+        .day-cell { 
+            aspect-ratio: 1 / 1.2; border: 1px solid var(--border); border-radius: 6px; 
+            padding: 4px; cursor: pointer; background: #fff; position: relative;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .day-cell.empty { background: transparent; border: none; pointer-events: none; }
+        .day-number { font-weight: bold; font-size: 1em; }
+        
+        /* Present State - Clean "P" Label */
+        .present { background-color: #90ee90 !important; border-color: #27ae60 !important; }
+        .status-p { font-size: 0.85em; color: #27ae60; font-weight: 900; margin-top: 2px; }
+
+        .tool-section { margin-top: 25px; padding: 15px; background: #fafafa; border-radius: 10px; border: 1px solid #eee; }
+        .input-row { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        input[type="date"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+        button.calc-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        
+        #loading { color: var(--accent); text-align: center; font-size: 0.8em; min-height: 1.2em; }
+
+        @media (min-width: 600px) {
+            .container { padding: 25px; max-width: 600px; }
+            .input-row { flex-direction: row; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="auto-summary">
+        <h4>Cycle Attendance</h4>
+        <div class="summary-val" id="cycleCount">--</div>
+        <div class="summary-dates" id="cycleDates">Calculating...</div>
+    </div>
+
+    <header>
+        <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
+        <h2 id="monthDisplay">Month Year</h2>
+        <button class="nav-btn" onclick="changeMonth(1)">❯</button>
+    </header>
+
+    <div id="loading"></div>
+    
+    <div class="calendar-grid" id="calendarGrid">
+        <div class="weekday-label">S</div><div class="weekday-label">M</div>
+        <div class="weekday-label">T</div><div class="weekday-label">W</div>
+        <div class="weekday-label">T</div><div class="weekday-label">F</div>
+        <div class="weekday-label">S</div>
+    </div>
+
+    <div class="tool-section">
+        <h3>Custom Range</h3>
+        <div class="input-row">
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
+            <button class="calc-btn" onclick="calculateRange()">Count</button>
+        </div>
+        <div id="countResult" style="margin-top:10px; font-weight:bold; color:var(--primary);"></div>
+    </div>
+</div>
+
+<script>
+    AV.init({
+        appId: "bb4PDn2M5eauCkWPRBvUq8oD-gzGzoHsz",
+        appKey: "aobz5BiW9oM7OcKCgUSLLg4l",
+        serverURL: "https://bb4pdn2m.lc-cn-n1-shared.com"
+    });
+
+    const Attendance = AV.Object.extend('Attendance');
+    let currentViewDate = new Date();
+
+    // 16th (Month-2) to 15th (Month-1) Logic
+    async function loadSpecialCycle() {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = today.getMonth(); 
+
+        const startDate = new Date(y, m - 2, 16);
+        const endDate = new Date(y, m - 1, 15);
+
+        const startStr = formatDate(startDate);
+        const endStr = formatDate(endDate);
+
+        document.getElementById('cycleDates').innerText = `Period: ${startStr} to ${endStr}`;
+
+        try {
+            const query = new AV.Query('Attendance');
+            query.greaterThanOrEqualTo('date', startStr);
+            query.lessThanOrEqualTo('date', endStr);
+            query.equalTo('status', 'present');
+            const count = await query.count();
+            document.getElementById('cycleCount').innerText = `${count} Presents`;
+        } catch (err) {
+            document.getElementById('cycleCount').innerText = "Error";
+        }
+    }
+
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    async function renderMonth() {
+        const year = currentViewDate.getFullYear();
+        const month = currentViewDate.getMonth();
+        document.getElementById('monthDisplay').innerText = currentViewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        const grid = document.getElementById('calendarGrid');
+        const labels = Array.from(grid.querySelectorAll('.weekday-label'));
+        grid.innerHTML = '';
+        labels.forEach(l => grid.appendChild(l));
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+        
+        document.getElementById('loading').innerText = "Syncing...";
+
+        try {
+            const query = new AV.Query('Attendance');
+            query.startsWith('date', monthPrefix);
+            const results = await query.find();
+            const dataMap = {};
+            results.forEach(r => dataMap[r.get('date')] = { id: r.id, status: r.get('status') });
+
+            for (let i = 0; i < firstDay; i++) {
+                grid.appendChild(Object.assign(document.createElement('div'), {className: 'day-cell empty'}));
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${monthPrefix}-${String(d).padStart(2, '0')}`;
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                const record = dataMap[dateStr] || { id: null, status: 'absent' };
+                
+                const updateUI = (status) => {
+                    cell.classList.toggle('present', status === 'present');
+                    cell.innerHTML = `<span class="day-number">${d}</span>` + 
+                                     (status === 'present' ? '<span class="status-p">P</span>' : '');
+                };
+                
+                updateUI(record.status);
+
+                cell.onclick = async () => {
+                    const newStatus = cell.classList.contains('present') ? 'absent' : 'present';
+                    updateUI(newStatus);
+
+                    let obj = record.id ? AV.Object.createWithoutData('Attendance', record.id) : new Attendance();
+                    if (!record.id) obj.set('date', dateStr);
+                    obj.set('status', newStatus);
+                    
+                    try {
+                        const saved = await obj.save();
+                        record.id = saved.id;
+                        record.status = newStatus;
+                        loadSpecialCycle(); 
+                    } catch(e) { renderMonth(); }
+                };
+                grid.appendChild(cell);
+            }
+            document.getElementById('loading').innerText = "";
+        } catch (err) { console.error(err); }
+    }
+
+    function changeMonth(delta) {
+        currentViewDate.setMonth(currentViewDate.getMonth() + delta);
+        renderMonth();
+    }
+
+    async function calculateRange() {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        if(!start || !end) return;
+        const query = new AV.Query('Attendance');
+        query.greaterThanOrEqualTo('date', start).lessThanOrEqualTo('date', end).equalTo('status', 'present');
+        const count = await query.count();
+        document.getElementById('countResult').innerText = `Total: ${count}`;
+    }
+
+    renderMonth();
+    loadSpecialCycle();
+</script>
+</body>
+</html>
