@@ -133,10 +133,19 @@
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             try {
-                await AV.User.logIn(u, p);
+                const user = await AV.User.logIn(u, p);
+                
+                // --- LOGIN COUNTER LOGIC ---
+                // Increment the 'loginCount' field by 1 in the _User table
+                user.increment('loginCount', 1);
+                await user.save();
+                // ---------------------------
+
                 checkLogin();
                 loadDraft();
-            } catch (e) { alert("登录失败，请检查账号密码"); }
+            } catch (e) { 
+                alert("登录失败，请检查账号密码"); 
+            }
         }
 
         function checkLogin() {
@@ -206,7 +215,10 @@
                 alert("作业提交成功！");
             } catch (e) { alert("提交出错"); }
         }
+        
+        // Final check on load in case session is still active
         checkLogin();
+        if (AV.User.current()) loadDraft();
     </script>
 </body>
 </html>
