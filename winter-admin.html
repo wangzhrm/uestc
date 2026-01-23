@@ -56,7 +56,7 @@
             <thead>
                 <tr>
                     <th>Username</th>
-                    <th>Submissions</th>
+                    <th>Logins</th> <th>Submissions</th>
                     <th>History (Click to View)</th>
                 </tr>
             </thead>
@@ -115,18 +115,15 @@
 
         async function fetchEverything() {
             try {
-                // 1. Fetch ALL users
                 const userQuery = new AV.Query('_User');
                 userQuery.limit(1000);
                 const allUsers = await userQuery.find({ useMasterKey: true });
 
-                // 2. Fetch ALL essays
                 const essayQuery = new AV.Query('StudentEssay');
                 essayQuery.descending('createdAt');
                 essayQuery.limit(1000);
                 const allEssays = await essayQuery.find();
 
-                // 3. Map essays to usernames
                 const essayMap = {};
                 allEssays.forEach(e => {
                     const u = e.get('username');
@@ -138,19 +135,18 @@
                     });
                 });
 
-                // 4. Render Table
                 const tbody = document.getElementById('table-body');
                 tbody.innerHTML = "";
 
                 allUsers.forEach(user => {
                     const username = user.getUsername();
+                    const loginCount = user.get('loginCount') || 0; // Get login count from LeanCloud
                     const submissions = essayMap[username] || [];
                     const row = document.createElement('tr');
                     
                     let linksHtml = "";
                     if (submissions.length > 0) {
                         submissions.forEach(s => {
-                            // Using encodeURIComponent to safely pass content string
                             const safeContent = encodeURIComponent(s.content);
                             linksHtml += `<span class="essay-link" onclick="viewEssay('${safeContent}', '${username}', '${s.date}', ${s.words})">${s.date}</span>`;
                         });
@@ -160,7 +156,7 @@
 
                     row.innerHTML = `
                         <td><strong>${username}</strong></td>
-                        <td>${submissions.length}</td>
+                        <td>${loginCount}</td> <td>${submissions.length}</td>
                         <td>${linksHtml}</td>
                     `;
                     tbody.appendChild(row);
