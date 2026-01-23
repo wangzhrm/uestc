@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --glass: rgba(255, 255, 255, 0.9); }
+        :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --teacher-green: #e8f5e9; --glass: rgba(255, 255, 255, 0.9); }
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; }
         
         /* LOGIN STYLES */
@@ -55,6 +55,7 @@
         .group-card { background: white; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .group-header { background: #1a1a1a; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
         .zone { padding: 10px; border-bottom: 1px solid #eee; }
+        .zone-label { font-size: 9px; font-weight: bold; color: #999; margin-bottom: 5px; text-transform: uppercase; }
         .tag-container { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; padding: 10px; background: #fafafa; border-radius: 8px; border: 1px dashed #ddd; }
         .mini-tag { background: white; border: 1px solid #ccc; padding: 4px 10px; border-radius: 6px; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: grab; }
         .deadline-popup { position: fixed; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none; transform: translate(-50%, -130%); }
@@ -64,7 +65,7 @@
 
 <div id="login-overlay">
     <div class="login-card">
-        <h2 style="color:var(--primary); margin-top:0;">Admin Access</h2>
+        <h2 style="color:var(--primary); margin-top:0;">Portal Access</h2>
         <input type="text" id="login-user" placeholder="Username">
         <input type="password" id="login-pass" placeholder="Password">
         <button onclick="handleLogin()">Login</button>
@@ -72,13 +73,24 @@
     </div>
 </div>
 
-<div id="sidebar-toggle" onclick="toggleSidebar()">STUDENT MANAGER ◀</div>
+<div id="sidebar-toggle" onclick="toggleSidebar()">SYSTEM MANAGEMENT ◀</div>
 
 <div id="student-manager">
     <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-        <h2 style="margin:0; color:var(--primary)">Group Management</h2>
+        <h2 style="margin:0; color:var(--primary)">System Management</h2>
         <button onclick="toggleSidebar()" class="btn-action">Close ✖</button>
     </div>
+
+    <div style="background:var(--teacher-green); padding:15px; border-radius:12px; border:1px solid #c8e6c9; margin-bottom:20px;">
+        <span style="font-size:11px; font-weight:bold; color:#2e7d32;">TEACHER LIBRARY</span>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <input id="t-name" placeholder="Name" style="flex:1; padding:8px;">
+            <input id="t-pass" placeholder="Password" style="flex:1; padding:8px;">
+            <button onclick="addTeacher()" class="btn-action btn-save">Add</button>
+        </div>
+        <div id="lib-teachers" class="tag-container" style="margin-top:15px;"></div>
+    </div>
+
     <div style="background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid #ddd; margin-bottom:20px;">
         <span style="font-size:11px; font-weight:bold; color:#999;">STUDENT LIBRARY</span>
         <div style="display:flex; gap:10px; margin-top:10px;">
@@ -95,18 +107,20 @@
         </div>
         <div id="lib-students" class="tag-container" style="margin-top:15px;"></div>
     </div>
+
     <div style="background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid #ddd; margin-bottom:20px;">
         <span style="font-size:11px; font-weight:bold; color:#999;">UNIT LIBRARY</span>
         <div id="lib-units" class="tag-container"></div>
     </div>
+
     <div style="display:flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin:0">Groups</h3>
+        <h3 style="margin:0">Groups & Assignments</h3>
         <button onclick="addNewGroup()" class="btn-action btn-save">+ New Group</button>
     </div>
     <div id="mgr-groups" class="group-grid"></div>
 </div>
 
-<header><h1>UESTC H189 Admin Portal</h1></header>
+<header><h1>UESTC H189 Portal</h1></header>
 
 <div class="container">
     <div id="unit-view">
@@ -132,51 +146,102 @@
     let calendarOffset = 0;
     let cachedDeadlines = [];
 
-    // LOGIN LOGIC
-    function handleLogin() {
-        const user = document.getElementById('login-user').value;
-        const pass = document.getElementById('login-pass').value;
-        if (user === "wangzhrm" && pass === "wang123") {
-            sessionStorage.setItem('isAdmin', 'true');
-            document.getElementById('login-overlay').style.display = 'none';
-            init();
-        } else {
-            document.getElementById('login-error').style.display = 'block';
+    // --- LOGIN LOGIC ---
+    async function handleLogin() {
+        const u = document.getElementById('login-user').value;
+        const p = document.getElementById('login-pass').value;
+        const errorEl = document.getElementById('login-error');
+
+        // 1. Admin Check
+        if (u === "wangzhrm" && p === "wang123") {
+            sessionStorage.setItem('role', 'admin');
+            loginSuccess();
+            return;
         }
+
+        // 2. Teacher Check
+        try {
+            const { data: teacher } = await client.from('teacher_accounts').select('*').eq('username', u).eq('password', p).single();
+            if (teacher) {
+                sessionStorage.setItem('role', 'teacher');
+                sessionStorage.setItem('tid', teacher.id);
+                loginSuccess();
+                return;
+            }
+            // If neither matches
+            errorEl.style.display = 'block';
+        } catch (e) {
+            errorEl.style.display = 'block';
+        }
+    }
+
+    function loginSuccess() {
+        document.getElementById('login-overlay').style.display = 'none';
+        init();
     }
 
     // Check login state on load
     window.onload = () => {
-        if (sessionStorage.getItem('isAdmin') === 'true') {
+        if (sessionStorage.getItem('role')) {
             document.getElementById('login-overlay').style.display = 'none';
             init();
         }
     }
 
+    // --- INITIALIZATION ---
     async function init() {
-        const { data: units } = await client.from('units').select('*').order('created_at', { ascending: true });
-        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').not('deadline', 'is', null);
-        
+        const role = sessionStorage.getItem('role');
+        const tid = sessionStorage.getItem('tid');
+
+        // HIDE SIDEBAR FOR TEACHERS
+        if (role === 'teacher') {
+            document.getElementById('sidebar-toggle').style.display = 'none';
+        } else {
+            document.getElementById('sidebar-toggle').style.display = 'flex';
+            loadMgr(); // Only admin loads the sidebar content
+        }
+
+        // FETCH UNITS (Admin sees all; Teacher sees assigned)
+        let units = [];
+        if (role === 'admin') {
+            const { data } = await client.from('units').select('*').order('created_at', { ascending: true });
+            units = data || [];
+        } else {
+            // Teacher Logic: Find groups -> Find units
+            const { data: membership } = await client.from('teacher_group_membership').select('group_id').eq('teacher_id', tid);
+            const gids = (membership || []).map(m => m.group_id);
+            if (gids.length > 0) {
+                const { data: access } = await client.from('unit_group_access').select('unit_id').in('group_id', gids);
+                const uids = (access || []).map(a => a.unit_id);
+                if (uids.length > 0) {
+                    const { data: teacherUnits } = await client.from('units').select('*').in('id', uids);
+                    units = teacherUnits || [];
+                }
+            }
+        }
+
+        const visibleIds = units.map(u => u.id);
+        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').in('unit_id', visibleIds).not('deadline', 'is', null);
         cachedDeadlines = deadlines || [];
-        const grid = document.getElementById('unit-grid');
         
+        const grid = document.getElementById('unit-grid');
         grid.innerHTML = (units || []).map(u => `
             <div class="card" id="unit-card-${u.id}">
                 <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
                 <div style="padding:15px; text-align:center;">
                     <strong style="display:block; margin-bottom:10px;">${u.name}</strong>
-                    <button class="btn-action" onclick="editUnitInline('${u.id}', '${u.name}', '${u.header_image_url}')">Edit Info</button>
+                    ${role === 'admin' ? `<button class="btn-action" onclick="editUnitInline('${u.id}', '${u.name}', '${u.header_image_url}')">Edit Info</button>` : ''}
                 </div>
             </div>
-        `).join('') + `
+        `).join('') + (role === 'admin' ? `
             <div id="add-unit-placeholder" onclick="createNewUnit()" style="border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; cursor:pointer; min-height:200px; border-radius:12px; color:#999;">
                 + Add Unit
-            </div>`;
+            </div>` : '');
 
         renderCalendars();
-        loadMgr();
     }
 
+    // --- CALENDAR ---
     function changeMonth(step) { calendarOffset += step; renderCalendars(); }
     function resetMonth() { calendarOffset = 0; renderCalendars(); }
 
@@ -228,6 +293,7 @@
         return el;
     }
 
+    // --- UNIT EDITING (ADMIN ONLY) ---
     function editUnitInline(id, oldName, oldImg) {
         const card = document.getElementById(`unit-card-${id}`);
         card.innerHTML = `
@@ -254,10 +320,7 @@
     }
 
     async function deleteUnit(id) {
-        if(confirm("Are you sure? This will delete the unit and all its content!")) {
-            await client.from('units').delete().eq('id', id);
-            init();
-        }
+        if(confirm("Are you sure?")) { await client.from('units').delete().eq('id', id); init(); }
     }
 
     function createNewUnit() {
@@ -286,6 +349,7 @@
         init();
     }
 
+    // --- EDITOR LOGIC (TEACHERS AND ADMINS) ---
     function showOverview() {
         currentUnitId = null;
         document.getElementById('unit-view').classList.remove('hidden');
@@ -450,19 +514,26 @@
 
     function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
     
+    // --- SYSTEM MANAGEMENT (ADMIN ONLY) ---
     async function loadMgr() {
         const { data: users } = await client.from('student_accounts').select('*').order('username');
+        const { data: teachers } = await client.from('teacher_accounts').select('*').order('username'); // Fetch Teachers
         const { data: units } = await client.from('units').select('id, name');
         const { data: groups } = await client.from('groups').select('*').order('created_at', {ascending: false});
+        
         const { data: uLinks } = await client.from('user_group_membership').select('*, student_accounts(username)');
+        const { data: tLinks } = await client.from('teacher_group_membership').select('*, teacher_accounts(username)'); // Teachers in Groups
         const { data: gLinks } = await client.from('unit_group_access').select('*, units(name)');
         
+        // Render Libraries
+        document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
         document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
         document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
         
         const grid = document.getElementById('mgr-groups');
         grid.innerHTML = (groups || []).map(g => {
             const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
+            const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); // Filter teachers
             const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
             return `<div class="group-card" id="g-card-${g.id}">
                 <div class="group-header" id="g-header-${g.id}">
@@ -472,14 +543,16 @@
                         <button onclick="deleteGroup('${g.id}')" style="background:transparent; border:none; color:white; cursor:pointer;">×</button>
                     </div>
                 </div>
-                <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${ul.units?.name} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
-                <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${ul.student_accounts?.username} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
+                <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="zone-label">Units</div><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${ul.units?.name} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
+                <div class="zone" data-group-id="${g.id}" data-zone-type="teacher"><div class="zone-label" style="color:#2e7d32;">Teachers</div><div class="tag-container drop-zone">${gTeachers.map(tl => `<div class="mini-tag">${tl.teacher_accounts?.username} <span onclick="removeTeacherLink('${g.id}','${tl.teacher_id}')">×</span></div>`).join('')}</div></div>
+                <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="zone-label">Students</div><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${ul.student_accounts?.username} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
             </div>`;
         }).join('');
         setupDrag();
     }
 
     function setupDrag() {
+        Sortable.create(document.getElementById('lib-teachers'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         Sortable.create(document.getElementById('lib-students'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         Sortable.create(document.getElementById('lib-units'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         document.querySelectorAll('.drop-zone').forEach(el => {
@@ -488,8 +561,11 @@
             Sortable.create(el, { group: 'shared', onAdd: async (evt) => {
                 const id = evt.item.dataset.id;
                 if (evt.item.dataset.type !== zType) { evt.item.remove(); return; }
+                
                 if (zType === 'student') await client.from('user_group_membership').upsert({ group_id: gid, user_id: id });
+                else if (zType === 'teacher') await client.from('teacher_group_membership').upsert({ group_id: gid, teacher_id: id }); // NEW
                 else await client.from('unit_group_access').upsert({ group_id: gid, unit_id: id });
+                
                 loadMgr();
             }});
         });
@@ -536,8 +612,15 @@
     }
 
     async function deleteGroup(id) { if(confirm("Delete Group?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
+    
+    // CRUD ACTIONS
+    async function addTeacher() { const u = document.getElementById('t-name').value, p = document.getElementById('t-pass').value; if(u && p) { await client.from('teacher_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
+    
+    async function deleteTeacher(id) { await client.from('teacher_accounts').delete().eq('id', id); loadMgr(); }
     async function deleteUser(id) { await client.from('student_accounts').delete().eq('id', id); loadMgr(); }
+    
+    async function removeTeacherLink(gid, tid) { await client.from('teacher_group_membership').delete().eq('group_id', gid).eq('teacher_id', tid); loadMgr(); }
     async function removeUserLink(gid, uid) { await client.from('user_group_membership').delete().eq('group_id', gid).eq('user_id', uid); loadMgr(); }
     async function removeUnitLink(gid, uid) { await client.from('unit_group_access').delete().eq('group_id', gid).eq('unit_id', uid); loadMgr(); }
     
