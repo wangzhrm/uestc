@@ -33,6 +33,12 @@
       padding: 30px 25px;
       border-radius: 20px;
       box-shadow: 0 15px 35px rgba(0,0,0,0.05);
+      transition: filter 0.3s ease;
+    }
+
+    .blurred {
+      filter: blur(8px);
+      pointer-events: none;
     }
 
     h1 {
@@ -51,7 +57,6 @@
       box-sizing: border-box;
     }
 
-    /* Single Row Button Styling */
     button {
       width: 100%;
       padding: 16px;
@@ -71,7 +76,6 @@
       margin-top: 10px;
     }
 
-    /* One option per row layout */
     #answerButtons {
       display: flex;
       flex-direction: column;
@@ -112,7 +116,7 @@
 </head>
 <body>
 
-  <div class="container">
+  <div class="container" id="quizContainer">
     <h1>📝 In-Class Quiz</h1>
 
     <div id="nameForm">
@@ -134,7 +138,6 @@
   </div>
 
   <script>
-    // ✅ KEEP YOUR EXISTING LEANCLOUD CONFIGURATION
     AV.init({
       appId: "uVBVHbOKtEMRFzh62IZq45oN-gzGzoHsz",
       appKey: "rSylV5CS5F1bpERGJCWAn5Ae",
@@ -145,6 +148,30 @@
     let currentQuestionIndex = -1;
     let correctAnswer = null;
     let showResults = false;
+
+    // --- EVENT-DRIVEN MONITORING ---
+    document.addEventListener("visibilitychange", async () => {
+      if (!studentName) return;
+      const container = document.getElementById("quizContainer");
+      
+      try {
+        const query = new AV.Query('StudentResponse');
+        query.equalTo('studentName', studentName);
+        const obj = await query.first();
+        if (obj) {
+          if (document.visibilityState === 'hidden') {
+            container.classList.add("blurred");
+            obj.set('presenceStatus', 'Away');
+            obj.increment('tabSwitches', 1);
+            await obj.save();
+          } else {
+            container.classList.remove("blurred");
+            obj.set('presenceStatus', 'Live');
+            await obj.save();
+          }
+        }
+      } catch (err) { console.error("Monitor Error:", err); }
+    });
 
     async function submitName() {
       const name = document.getElementById("studentName").value.trim();
@@ -169,6 +196,8 @@
           obj.set('studentName', studentName);
           obj.set('answers', []);
           obj.set('isCorrect', []);
+          obj.set('tabSwitches', 0);
+          obj.set('presenceStatus', 'Live');
           await obj.save();
         }
       } catch (err) { console.error("Error:", err); }
@@ -179,7 +208,6 @@
         const query = new AV.Query('QuizSession');
         const session = await query.first();
         if (!session) {
-          document.getElementById("status").textContent = "⏳ Waiting for teacher...";
           setTimeout(pollQuizStatus, 2000);
           return;
         }
@@ -231,7 +259,7 @@
         await obj.save();
 
         document.getElementById("answerButtons").classList.add("hidden");
-        document.getElementById("status").textContent = "📤 Answer sent! Waiting for teacher to show results...";
+        document.getElementById("status").textContent = "📤 Answer sent! Waiting for teacher...";
       } catch (err) { alert("Failed to submit."); }
     }
   </script>
