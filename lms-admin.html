@@ -152,14 +152,12 @@
         const p = document.getElementById('login-pass').value;
         const errorEl = document.getElementById('login-error');
 
-        // 1. Admin Check
         if (u === "wangzhrm" && p === "wang123") {
             sessionStorage.setItem('role', 'admin');
             loginSuccess();
             return;
         }
 
-        // 2. Teacher Check
         try {
             const { data: teacher } = await client.from('teacher_accounts').select('*').eq('username', u).eq('password', p).single();
             if (teacher) {
@@ -168,7 +166,6 @@
                 loginSuccess();
                 return;
             }
-            // If neither matches
             errorEl.style.display = 'block';
         } catch (e) {
             errorEl.style.display = 'block';
@@ -180,7 +177,6 @@
         init();
     }
 
-    // Check login state on load
     window.onload = () => {
         if (sessionStorage.getItem('role')) {
             document.getElementById('login-overlay').style.display = 'none';
@@ -193,21 +189,18 @@
         const role = sessionStorage.getItem('role');
         const tid = sessionStorage.getItem('tid');
 
-        // HIDE SIDEBAR FOR TEACHERS
         if (role === 'teacher') {
             document.getElementById('sidebar-toggle').style.display = 'none';
         } else {
             document.getElementById('sidebar-toggle').style.display = 'flex';
-            loadMgr(); // Only admin loads the sidebar content
+            loadMgr();
         }
 
-        // FETCH UNITS (Admin sees all; Teacher sees assigned)
         let units = [];
         if (role === 'admin') {
             const { data } = await client.from('units').select('*').order('created_at', { ascending: true });
             units = data || [];
         } else {
-            // Teacher Logic: Find groups -> Find units
             const { data: membership } = await client.from('teacher_group_membership').select('group_id').eq('teacher_id', tid);
             const gids = (membership || []).map(m => m.group_id);
             if (gids.length > 0) {
@@ -227,10 +220,10 @@
         const grid = document.getElementById('unit-grid');
         grid.innerHTML = (units || []).map(u => `
             <div class="card" id="unit-card-${u.id}">
-                <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
+                <img src="${u.image_url || 'https://via.placeholder.com/400x200'}" onclick="openEditor('${u.id}')">
                 <div style="padding:15px; text-align:center;">
                     <strong style="display:block; margin-bottom:10px;">${u.name}</strong>
-                    ${role === 'admin' ? `<button class="btn-action" onclick="editUnitInline('${u.id}', '${u.name}', '${u.header_image_url}')">Edit Info</button>` : ''}
+                    ${role === 'admin' ? `<button class="btn-action" onclick="editUnitInline('${u.id}', '${u.name}', '${u.image_url}')">Edit Info</button>` : ''}
                 </div>
             </div>
         `).join('') + (role === 'admin' ? `
@@ -293,7 +286,7 @@
         return el;
     }
 
-    // --- UNIT EDITING (ADMIN ONLY) ---
+    // --- UNIT EDITING (FIXED COLUMN NAME) ---
     function editUnitInline(id, oldName, oldImg) {
         const card = document.getElementById(`unit-card-${id}`);
         card.innerHTML = `
@@ -313,14 +306,21 @@
 
     async function saveUnitEdit(id) {
         const name = document.getElementById(`edit-name-${id}`).value;
-        const header_image_url = document.getElementById(`edit-img-${id}`).value;
+        const image_url = document.getElementById(`edit-img-${id}`).value;
         if(!name) return;
-        await client.from('units').update({ name, header_image_url }).eq('id', id);
+        const { error } = await client.from('units').update({ name, image_url }).eq('id', id);
+        if (error) { alert("Update failed: " + error.message); return; }
         init();
+        loadMgr();
     }
 
     async function deleteUnit(id) {
-        if(confirm("Are you sure?")) { await client.from('units').delete().eq('id', id); init(); }
+        if(confirm("Are you sure?")) { 
+            const { error } = await client.from('units').delete().eq('id', id); 
+            if (error) { alert("Delete failed: " + error.message); return; }
+            init(); 
+            loadMgr();
+        }
     }
 
     function createNewUnit() {
@@ -345,11 +345,21 @@
         const name = document.getElementById('new-unit-name').value;
         const img = document.getElementById('new-unit-img').value;
         if (!name) return alert("Please enter a name");
-        await client.from('units').insert([{ name, header_image_url: img }]);
-        init();
+        
+        // Updated key to 'image_url' to match schema cache
+        const { error } = await client.from('units').insert([{ name, image_url: img }]);
+        
+        if (error) {
+            console.error("Supabase error:", error);
+            alert("Failed to create unit: " + error.message);
+            return;
+        }
+        
+        init(); 
+        loadMgr();
     }
 
-    // --- EDITOR LOGIC (TEACHERS AND ADMINS) ---
+    // --- EDITOR LOGIC ---
     function showOverview() {
         currentUnitId = null;
         document.getElementById('unit-view').classList.remove('hidden');
@@ -514,18 +524,17 @@
 
     function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
     
-    // --- SYSTEM MANAGEMENT (ADMIN ONLY) ---
+    // --- SYSTEM MANAGEMENT ---
     async function loadMgr() {
         const { data: users } = await client.from('student_accounts').select('*').order('username');
-        const { data: teachers } = await client.from('teacher_accounts').select('*').order('username'); // Fetch Teachers
+        const { data: teachers } = await client.from('teacher_accounts').select('*').order('username'); 
         const { data: units } = await client.from('units').select('id, name');
         const { data: groups } = await client.from('groups').select('*').order('created_at', {ascending: false});
         
         const { data: uLinks } = await client.from('user_group_membership').select('*, student_accounts(username)');
-        const { data: tLinks } = await client.from('teacher_group_membership').select('*, teacher_accounts(username)'); // Teachers in Groups
+        const { data: tLinks } = await client.from('teacher_group_membership').select('*, teacher_accounts(username)'); 
         const { data: gLinks } = await client.from('unit_group_access').select('*, units(name)');
         
-        // Render Libraries
         document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
         document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
         document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
@@ -533,7 +542,7 @@
         const grid = document.getElementById('mgr-groups');
         grid.innerHTML = (groups || []).map(g => {
             const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
-            const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); // Filter teachers
+            const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); 
             const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
             return `<div class="group-card" id="g-card-${g.id}">
                 <div class="group-header" id="g-header-${g.id}">
@@ -563,7 +572,7 @@
                 if (evt.item.dataset.type !== zType) { evt.item.remove(); return; }
                 
                 if (zType === 'student') await client.from('user_group_membership').upsert({ group_id: gid, user_id: id });
-                else if (zType === 'teacher') await client.from('teacher_group_membership').upsert({ group_id: gid, teacher_id: id }); // NEW
+                else if (zType === 'teacher') await client.from('teacher_group_membership').upsert({ group_id: gid, teacher_id: id }); 
                 else await client.from('unit_group_access').upsert({ group_id: gid, unit_id: id });
                 
                 loadMgr();
@@ -613,7 +622,6 @@
 
     async function deleteGroup(id) { if(confirm("Delete Group?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
     
-    // CRUD ACTIONS
     async function addTeacher() { const u = document.getElementById('t-name').value, p = document.getElementById('t-pass').value; if(u && p) { await client.from('teacher_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     
