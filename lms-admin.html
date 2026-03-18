@@ -168,6 +168,7 @@
             }
             errorEl.style.display = 'block';
         } catch (e) {
+            console.error("Login error:", e);
             errorEl.style.display = 'block';
         }
     }
@@ -198,7 +199,8 @@
 
         let units = [];
         if (role === 'admin') {
-            const { data } = await client.from('units').select('*').order('created_at', { ascending: true });
+            const { data, error } = await client.from('units').select('*').order('created_at', { ascending: true });
+            if(error) console.error("Fetch units error:", error);
             units = data || [];
         } else {
             const { data: membership } = await client.from('teacher_group_membership').select('group_id').eq('teacher_id', tid);
@@ -214,8 +216,15 @@
         }
 
         const visibleIds = units.map(u => u.id);
-        const { data: deadlines } = await client.from('lectures').select('deadline, name, units(name)').in('unit_id', visibleIds).not('deadline', 'is', null);
-        cachedDeadlines = deadlines || [];
+        const { data: deadlines } = await client.from('lectures').select('deadline, name, unit_id').in('unit_id', visibleIds).not('deadline', 'is', null);
+        
+        const unitMap = {};
+        units.forEach(u => unitMap[u.id] = u.name);
+
+        cachedDeadlines = (deadlines || []).map(dl => ({
+            ...dl,
+            units: { name: unitMap[dl.unit_id] || 'Unknown Unit' }
+        }));
         
         const grid = document.getElementById('unit-grid');
         grid.innerHTML = (units || []).map(u => `
@@ -286,7 +295,7 @@
         return el;
     }
 
-    // --- UNIT EDITING (FIXED COLUMN NAME) ---
+    // --- UNIT EDITING ---
     function editUnitInline(id, oldName, oldImg) {
         const card = document.getElementById(`unit-card-${id}`);
         card.innerHTML = `
@@ -346,7 +355,6 @@
         const img = document.getElementById('new-unit-img').value;
         if (!name) return alert("Please enter a name");
         
-        // Updated key to 'image_url' to match schema cache
         const { error } = await client.from('units').insert([{ name, image_url: img }]);
         
         if (error) {
@@ -378,15 +386,26 @@
     async function refreshEditor() {
         if(!currentUnitId) return;
         try {
-            const { data: unit } = await client.from('units').select('*').eq('id', currentUnitId).single();
-            const { data: tabs } = await client.from('lectures')
-                .select('*, resources(*)')
+            const { data: unit, error: unitError } = await client.from('units').select('*').eq('id', currentUnitId).single();
+            if (unitError) throw unitError;
+
+            const { data: tabs, error: tabsError } = await client.from('lectures')
+                .select('*')
                 .eq('unit_id', currentUnitId)
                 .order('sort_order', { ascending: true });
-            const { data: genRes } = await client.from('resources').select('*').eq('unit_id', currentUnitId).is('lecture_id', null);
-            const sortedGen = (genRes || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+            
+            if (tabsError) throw tabsError;
 
-            document.getElementById('editor-content').innerHTML = `
+            const { data: allResources, error: resError } = await client.from('resources')
+                .select('*')
+                .eq('unit_id', currentUnitId);
+
+            if (resError) throw resError;
+
+            const genRes = (allResources || []).filter(r => r.lecture_id === null);
+            const sortedGen = genRes.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+            let html = `
                 <h2>Editing: ${unit.name}</h2>
                 <div style="margin-bottom:20px;">
                     <strong>General Resources</strong> <button class="btn-action" onclick="showResInput('gen-list', 'null')">+ Add</button>
@@ -396,15 +415,29 @@
                 <h3>Tabs / Folders (Drag to Reorder)</h3>
                 <button class="btn-action btn-save" style="margin-bottom:15px;" onclick="addDraftTab()">+ Add New Tab</button>
                 <div id="tabs-container" class="tab-sort-zone">
-                    ${tabs.map(t => {
-                        const sortedTabRes = (t.resources || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-                        return renderTabFolder(t, sortedTabRes);
-                    }).join('')}
-                </div>
             `;
+
+            (tabs || []).forEach(t => {
+                const tabResources = (allResources || []).filter(r => r.lecture_id === t.id);
+                const sortedTabRes = tabResources.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                html += renderTabFolder(t, sortedTabRes);
+            });
+
+            html += `</div>`;
+            document.getElementById('editor-content').innerHTML = html;
+            
             setupResourceSort();
             setupTabSort();
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("Editor Load Error:", e);
+            document.getElementById('editor-content').innerHTML = `
+                <div style="color:red; padding:20px; text-align:center;">
+                    <h3>Error Loading Content</h3>
+                    <p>${e.message}</p>
+                    <button class="btn-action" onclick="showOverview()">Go Back</button>
+                </div>
+            `;
+        }
     }
 
     function renderResourceRow(r) {
@@ -415,7 +448,7 @@
             <span style="color:#999; margin-right:8px;">☰</span>
             <span style="flex-grow:1">${r.name} ${r.is_hidden ? '<small>(Hidden)</small>' : ''}</span>
             <button class="btn-action" onclick="toggleVisibility('${r.id}', ${r.is_hidden})">${icon} ${hiddenStatus}</button>
-            <button class="btn-action" onclick="startEditRes('${r.id}', '${r.name}', '${r.url}')">Edit</button>
+            <button class="btn-action" onclick="startEditRes('${r.id}', '${r.name.replace(/'/g, "\\'")}', '${r.url.replace(/'/g, "\\'")}')">Edit</button>
             <button class="btn-action" onclick="deleteRes('${r.id}')" style="color:red">Remove</button>
         </div>`;
     }
@@ -451,7 +484,7 @@
                 <span style="flex-grow:1"><strong>${t.name}</strong> ${(isAsmt && t.deadline) ? ' (Due: '+t.deadline+')' : ''}</span>
                 <div onclick="event.stopPropagation()" style="display:flex; gap:5px; align-items:center;">
                     ${isAsmt ? `<input type="date" value="${t.deadline||''}" onchange="updateDeadline('${t.id}', this.value)">` : ''}
-                    <button class="btn-action" onclick="startEditTab('${t.id}', '${t.name}', '${t.type}')">Edit</button>
+                    <button class="btn-action" onclick="startEditTab('${t.id}', '${t.name.replace(/'/g, "\\'")}', '${t.type}')">Edit</button>
                     <button class="btn-action" onclick="deleteTab('${t.id}')" style="color:red">×</button>
                 </div>
             </div>
@@ -492,19 +525,42 @@
 
     async function saveR(lecId) {
         const n = document.getElementById('r-n').value, u = document.getElementById('r-u').value;
+        if(!n || !u) return alert("Name and URL required");
         const lecture_id = (lecId === 'null' || !lecId) ? null : lecId;
         await client.from('resources').insert([{ name: n, url: u, unit_id: currentUnitId, lecture_id, is_hidden: false }]);
         refreshEditor();
     }
 
-    async function addDraftTab() { await client.from('lectures').insert([{ name: "New Tab", type: "lecture", unit_id: currentUnitId }]); refreshEditor(); }
-    async function updateDeadline(id, val) { await client.from('lectures').update({ deadline: val }).eq('id', id); refreshEditor(); }
-    async function deleteTab(id) { if(confirm("Delete?")) { await client.from('lectures').delete().eq('id', id); refreshEditor(); } }
-    async function deleteRes(id) { if(confirm("Delete?")) { await client.from('resources').delete().eq('id', id); refreshEditor(); } }
+    async function addDraftTab() { 
+        const { error } = await client.from('lectures').insert([{ name: "New Tab", type: "lecture", unit_id: currentUnitId }]); 
+        if(error) alert(error.message);
+        else refreshEditor(); 
+    }
+    
+    async function updateDeadline(id, val) { 
+        await client.from('lectures').update({ deadline: val }).eq('id', id); 
+        refreshEditor(); 
+    }
+    
+    async function deleteTab(id) { 
+        if(confirm("Delete?")) { 
+            await client.from('lectures').delete().eq('id', id); 
+            refreshEditor(); 
+        } 
+    }
+    
+    async function deleteRes(id) { 
+        if(confirm("Delete?")) { 
+            await client.from('resources').delete().eq('id', id); 
+            refreshEditor(); 
+        } 
+    }
+    
     function toggleTab(id) { document.getElementById(`content-${id}`).classList.toggle('hidden'); }
+    
     function showResInput(listId, lecId) {
         const div = document.createElement('div'); div.className = 'item-row';
-        div.innerHTML = `<input id="r-n" placeholder="Name"> <input id="r-u" placeholder="URL"> <button class="btn-save" onclick="saveR('${lecId}')">OK</button>`;
+        div.innerHTML = `<input id="r-n" placeholder="Name" style="flex:1"> <input id="r-u" placeholder="URL" style="flex:1"> <button class="btn-save" onclick="saveR('${lecId}')">OK</button>`;
         document.getElementById(listId).appendChild(div);
     }
 
@@ -512,71 +568,105 @@
         const block = document.getElementById(`tab-${id}`);
         const h = block.querySelector(`.tab-header`);
         h.onclick = null; h.style.cursor = 'default';
-        h.innerHTML = `<input id="en-${id}" value="${n}"> <select id="et-${id}">
+        h.innerHTML = `<input id="en-${id}" value="${n}" style="flex:1"> <select id="et-${id}">
             <option value="lecture" ${t==='lecture'?'selected':''}>Lecture</option>
             <option value="assessment" ${t==='assessment'?'selected':''}>Assessment</option>
-        </select><button onclick="saveTabEdit('${id}')">Save</button>`;
+        </select><button class="btn-save" onclick="saveTabEdit('${id}')">Save</button>`;
     }
+    
     async function saveTabEdit(id) {
         const name = document.getElementById(`en-${id}`).value, type = document.getElementById(`et-${id}`).value;
-        await client.from('lectures').update({ name, type }).eq('id', id); refreshEditor();
+        await client.from('lectures').update({ name, type }).eq('id', id); 
+        refreshEditor();
     }
 
     function toggleSidebar() { document.getElementById('student-manager').classList.toggle('open'); }
     
     // --- SYSTEM MANAGEMENT ---
     async function loadMgr() {
-        const { data: users } = await client.from('student_accounts').select('*').order('username');
-        const { data: teachers } = await client.from('teacher_accounts').select('*').order('username'); 
-        const { data: units } = await client.from('units').select('id, name');
-        const { data: groups } = await client.from('groups').select('*').order('created_at', {ascending: false});
-        
-        const { data: uLinks } = await client.from('user_group_membership').select('*, student_accounts(username)');
-        const { data: tLinks } = await client.from('teacher_group_membership').select('*, teacher_accounts(username)'); 
-        const { data: gLinks } = await client.from('unit_group_access').select('*, units(name)');
-        
-        document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
-        document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
-        document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
-        
-        const grid = document.getElementById('mgr-groups');
-        grid.innerHTML = (groups || []).map(g => {
-            const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
-            const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); 
-            const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
-            return `<div class="group-card" id="g-card-${g.id}">
-                <div class="group-header" id="g-header-${g.id}">
-                    <span style="font-weight:bold;">${g.name}</span>
-                    <div style="display:flex; gap:5px; align-items:center;">
-                        <button class="btn-action" style="padding:2px 5px; font-size:10px;" onclick="editGroupName('${g.id}', '${g.name.replace(/'/g, "\\'")}')">Edit</button>
-                        <button onclick="deleteGroup('${g.id}')" style="background:transparent; border:none; color:white; cursor:pointer;">×</button>
+        try {
+            const { data: users } = await client.from('student_accounts').select('*').order('username');
+            const { data: teachers } = await client.from('teacher_accounts').select('*').order('username'); 
+            const { data: units } = await client.from('units').select('id, name');
+            const { data: groups } = await client.from('groups').select('*').order('created_at', {ascending: false});
+            
+            const { data: uLinks } = await client.from('user_group_membership').select('*');
+            const { data: tLinks } = await client.from('teacher_group_membership').select('*'); 
+            const { data: gLinks } = await client.from('unit_group_access').select('*');
+            
+            const userMap = {}; (users||[]).forEach(u => userMap[u.id] = u.username);
+            const teacherMap = {}; (teachers||[]).forEach(t => teacherMap[t.id] = t.username);
+            const unitMap = {}; (units||[]).forEach(u => unitMap[u.id] = u.name);
+
+            document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
+            document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
+            document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
+            
+            const grid = document.getElementById('mgr-groups');
+            grid.innerHTML = (groups || []).map(g => {
+                const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
+                const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); 
+                const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
+                
+                return `<div class="group-card" id="g-card-${g.id}">
+                    <div class="group-header" id="g-header-${g.id}">
+                        <span style="font-weight:bold;">${g.name}</span>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <button class="btn-action" style="padding:2px 5px; font-size:10px;" onclick="editGroupName('${g.id}', '${g.name.replace(/'/g, "\\'")}')">Edit</button>
+                            <!-- Fixed Delete Button -->
+                            <button onclick="deleteGroup('${g.id}')" style="background:transparent; border:none; color:white; cursor:pointer; font-size:16px; line-height:1;">×</button>
+                        </div>
                     </div>
-                </div>
-                <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="zone-label">Units</div><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${ul.units?.name} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
-                <div class="zone" data-group-id="${g.id}" data-zone-type="teacher"><div class="zone-label" style="color:#2e7d32;">Teachers</div><div class="tag-container drop-zone">${gTeachers.map(tl => `<div class="mini-tag">${tl.teacher_accounts?.username} <span onclick="removeTeacherLink('${g.id}','${tl.teacher_id}')">×</span></div>`).join('')}</div></div>
-                <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="zone-label">Students</div><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${ul.student_accounts?.username} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
-            </div>`;
-        }).join('');
-        setupDrag();
+                    <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="zone-label">Units</div><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${unitMap[ul.unit_id] || 'Unknown'} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
+                    <div class="zone" data-group-id="${g.id}" data-zone-type="teacher"><div class="zone-label" style="color:#2e7d32;">Teachers</div><div class="tag-container drop-zone">${gTeachers.map(tl => `<div class="mini-tag">${teacherMap[tl.teacher_id] || 'Unknown'} <span onclick="removeTeacherLink('${g.id}','${tl.teacher_id}')">×</span></div>`).join('')}</div></div>
+                    <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="zone-label">Students</div><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${userMap[ul.user_id] || 'Unknown'} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
+                </div>`;
+            }).join('');
+            setupDrag();
+        } catch (err) {
+            console.error("Manager Load Error:", err);
+            alert("Failed to load management panel. Check console.");
+        }
     }
 
     function setupDrag() {
         Sortable.create(document.getElementById('lib-teachers'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         Sortable.create(document.getElementById('lib-students'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
         Sortable.create(document.getElementById('lib-units'), { group: { name: 'shared', pull: 'clone', put: false }, sort: false });
+        
         document.querySelectorAll('.drop-zone').forEach(el => {
             const zType = el.closest('.zone').dataset.zoneType;
             const gid = el.closest('.zone').dataset.groupId;
-            Sortable.create(el, { group: 'shared', onAdd: async (evt) => {
-                const id = evt.item.dataset.id;
-                if (evt.item.dataset.type !== zType) { evt.item.remove(); return; }
-                
-                if (zType === 'student') await client.from('user_group_membership').upsert({ group_id: gid, user_id: id });
-                else if (zType === 'teacher') await client.from('teacher_group_membership').upsert({ group_id: gid, teacher_id: id }); 
-                else await client.from('unit_group_access').upsert({ group_id: gid, unit_id: id });
-                
-                loadMgr();
-            }});
+            Sortable.create(el, { 
+                group: 'shared', 
+                onAdd: async (evt) => {
+                    const id = evt.item.dataset.id;
+                    if (evt.item.dataset.type !== zType) { 
+                        evt.item.remove(); 
+                        return; 
+                    }
+                    
+                    let error = null;
+                    if (zType === 'student') {
+                        const res = await client.from('user_group_membership').upsert({ group_id: gid, user_id: id }, { onConflict: ['group_id', 'user_id'] });
+                        error = res.error;
+                    } else if (zType === 'teacher') {
+                        const res = await client.from('teacher_group_membership').upsert({ group_id: gid, teacher_id: id }, { onConflict: ['group_id', 'teacher_id'] });
+                        error = res.error;
+                    } else if (zType === 'unit') {
+                        const res = await client.from('unit_group_access').upsert({ group_id: gid, unit_id: id }, { onConflict: ['group_id', 'unit_id'] });
+                        error = res.error;
+                    }
+                    
+                    if (error) {
+                        console.error("Drag drop error:", error);
+                        alert("Failed to assign: " + error.message);
+                        evt.item.remove();
+                    } else {
+                        loadMgr();
+                    }
+                }
+            });
         });
     }
 
@@ -620,7 +710,28 @@
         loadMgr();
     }
 
-    async function deleteGroup(id) { if(confirm("Delete Group?")) { await client.from('groups').delete().eq('id', id); loadMgr(); } }
+    // --- FIXED DELETE GROUP FUNCTION ---
+    async function deleteGroup(id) {
+        // Stop event propagation just in case
+        event.stopPropagation();
+        
+        // Use a slight delay to ensure the confirm dialog renders correctly
+        setTimeout(async () => {
+            if (confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+                console.log("Deleting group:", id);
+                const { data, error } = await client.from('groups').delete().eq('id', id);
+                
+                if (error) {
+                    console.error("Delete error:", error);
+                    alert("Failed to delete group: " + error.message);
+                } else {
+                    console.log("Group deleted successfully");
+                    // Force reload
+                    await loadMgr();
+                }
+            }
+        }, 10);
+    }
     
     async function addTeacher() { const u = document.getElementById('t-name').value, p = document.getElementById('t-pass').value; if(u && p) { await client.from('teacher_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
