@@ -32,6 +32,7 @@
   .ot-indicator { font-size: 0.7em; margin-top: 6px; border-top: 1px solid #eee; padding-top: 4px; }
   .text-ot { color: #2a9d8f; font-weight: bold; }
   .text-to { color: #e63946; font-weight: bold; }
+  .spent-ot { text-decoration: line-through; opacity: 0.5; } /* New style for used OT */
 
   /* Modal & UI */
   .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index: 1000; }
@@ -42,6 +43,11 @@
   .ot-inputs { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 15px; display: flex; gap: 15px; border: 1px solid #eee; }
   .ot-inputs div { flex: 1; }
   .ot-inputs label { font-size: 0.8em; font-weight: bold; display: block; margin-bottom: 5px; color: #666; }
+  
+  /* Ledger Info Box */
+  .ledger-info { background: #e0f2f1; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.85em; color: #004d40; border: 1px solid #b2dfdb; }
+  .ledger-info ul { margin: 5px 0 0 0; padding-left: 20px; }
+  
   .modal-footer { text-align: right; margin-top: 20px; }
   button { padding:10px 20px; cursor:pointer; border: none; border-radius: 6px; font-weight: 600; }
   .btn-save { background: #2a9d8f; color: white; }
@@ -91,6 +97,7 @@
   <div class="modal-content">
     <h3 id="modalDate" style="margin-top:0; color:#2c3e50;"></h3>
     <table id="modalTable"></table>
+    
     <div class="ot-inputs">
       <div>
         <label>Overtime (h)</label>
@@ -101,6 +108,9 @@
         <input type="number" id="inputTimeoff" step="0.5" min="0" value="0">
       </div>
     </div>
+    
+    <div id="ledgerInfo" class="ledger-info" style="display:none;"></div>
+
     <div class="modal-footer">
       <button class="btn-save" id="saveBtn" onclick="saveDayData()">Save Records</button>
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -124,6 +134,10 @@ let year = currentViewDate.getFullYear();
 let month = currentViewDate.getMonth();
 let classTypes = [];
 let selectedDate = "";
+
+// Global objects to hold the dynamically calculated ledger
+let globalOtStatus = {}; 
+let globalTimeoffSources = {};
 
 async function initApp(){
   try {
@@ -168,10 +182,62 @@ async function refreshData(){
     query.limit(1000); 
     const records = await query.find();
 
+    // Sort records chronologically so FIFO works correctly
+    records.sort((a, b) => a.get("date") - b.get("date"));
+
     let globalBal = 0;
     let mHrs = 0;
     const mTotals = {};
     classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
+
+    // --- START LEDGER CALCULATION ---
+    globalOtStatus = {};
+    globalTimeoffSources = {};
+    let otQueue = [];
+
+    // Pass 1: Identify all OT
+    records.forEach(r => {
+      const d = r.get("date");
+      if (!d) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const ot = Number(r.get("overtime")) || 0;
+      
+      if (ot > 0) {
+        globalOtStatus[key] = { total: ot, available: ot, used: 0, usedBy: [] };
+        otQueue.push({ key, available: ot });
+      }
+    });
+
+    // Pass 2: Process Time-Off to calculate offsets (FIFO)
+    records.forEach(r => {
+      const d = r.get("date");
+      if (!d) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const to = Number(r.get("timeoff")) || 0;
+      
+      if (to > 0) {
+        globalTimeoffSources[key] = [];
+        let remainingToFulfill = to;
+        
+        // Deduct from oldest available OT
+        for (let i = 0; i < otQueue.length && remainingToFulfill > 0; i++) {
+          let otEntry = otQueue[i];
+          if (otEntry.available > 0) {
+            let deduct = Math.min(otEntry.available, remainingToFulfill);
+            otEntry.available -= deduct;
+            remainingToFulfill -= deduct;
+            
+            // Map the connection
+            globalTimeoffSources[key].push({ fromDate: otEntry.key, amount: deduct });
+            
+            globalOtStatus[otEntry.key].available -= deduct;
+            globalOtStatus[otEntry.key].used += deduct;
+            globalOtStatus[otEntry.key].usedBy.push({ onDate: key, amount: deduct });
+          }
+        }
+      }
+    });
+    // --- END LEDGER CALCULATION ---
 
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 0, 23, 59, 59);
@@ -198,13 +264,11 @@ async function refreshData(){
             if(qty > 0){
               const colorClass = index < 5 ? `tag-${index}` : 'tag-default';
               const shortName = c.name.substring(0, 2).toUpperCase();
-              
               h += `<div class="tag ${colorClass}">
                       <span class="full-name">${c.name}</span>
                       <span class="short-name">${shortName}</span>
                       x${qty}
                     </div>`;
-              
               mTotals[c.key].q += qty;
               mTotals[c.key].h += (qty * c.hours);
               mHrs += (qty * c.hours);
@@ -216,7 +280,12 @@ async function refreshData(){
         const otEl = document.getElementById(`ot-${key}`);
         if(otEl && (ot > 0 || to > 0)){
           let ih = "";
-          if(ot > 0) ih += `<span class="text-ot">+${ot}h</span> `;
+          if(ot > 0) {
+            // Check if OT is fully spent for visual strike-through
+            const isSpent = globalOtStatus[key] && globalOtStatus[key].available === 0;
+            const otClass = isSpent ? "text-ot spent-ot" : "text-ot";
+            ih += `<span class="${otClass}">+${ot}h</span> `;
+          }
           if(to > 0) ih += `<span class="text-to">-${to}h</span>`;
           otEl.innerHTML = ih;
         }
@@ -243,6 +312,34 @@ async function openModal(dateStr){
   
   document.getElementById("inputOvertime").value = 0;
   document.getElementById("inputTimeoff").value = 0;
+
+  // Render Ledger UI
+  const ledgerDiv = document.getElementById("ledgerInfo");
+  let ledgerHtml = "";
+  
+  if (globalOtStatus[dateStr] && globalOtStatus[dateStr].total > 0) {
+      let stat = globalOtStatus[dateStr];
+      ledgerHtml += `<strong>Overtime Status:</strong> ${stat.total}h Total | ${stat.available}h Available<br>`;
+      if (stat.usedBy.length > 0) {
+          ledgerHtml += `<ul>`;
+          stat.usedBy.forEach(u => ledgerHtml += `<li>Used ${u.amount}h on ${u.onDate}</li>`);
+          ledgerHtml += `</ul>`;
+      }
+  }
+  
+  if (globalTimeoffSources[dateStr] && globalTimeoffSources[dateStr].length > 0) {
+      if (ledgerHtml !== "") ledgerHtml += `<hr style="border-top:1px solid #b2dfdb; margin:8px 0;">`;
+      ledgerHtml += `<strong>Time-Off Offset From:</strong><ul>`;
+      globalTimeoffSources[dateStr].forEach(s => ledgerHtml += `<li>${s.amount}h from ${s.fromDate}</li>`);
+      ledgerHtml += `</ul>`;
+  }
+
+  if (ledgerHtml) {
+      ledgerDiv.innerHTML = ledgerHtml;
+      ledgerDiv.style.display = "block";
+  } else {
+      ledgerDiv.style.display = "none";
+  }
 
   const parts = dateStr.split('-');
   const start = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0);
