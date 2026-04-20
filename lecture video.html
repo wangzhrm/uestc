@@ -13,7 +13,7 @@
         .hidden { display: none !important; }
         
         /* Tactical Feedback Animations */
-        button, .folder-trigger { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        button, .folder-trigger, .video-link { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
         button:active { transform: scale(0.96); }
         .folder-trigger:active { background: rgba(30, 41, 59, 0.8); }
 
@@ -25,8 +25,13 @@
 
         /* Video Display */
         .video-box { background: #0f172a; border-radius: 1.5rem; padding: 1.5rem; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); margin-bottom: 2rem; }
-        .custom-video-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 1rem; overflow: hidden; margin-top: 1rem; }
+        .custom-video-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 1rem; overflow: hidden; margin-top: 1rem; cursor: pointer; }
         .custom-video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        
+        .video-thumbnail { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.6; transition: opacity 0.3s; }
+        .custom-video-wrapper:hover .video-thumbnail { opacity: 0.8; }
+        .play-button-overlay { position: absolute; inset: 0; display: flex; items-center; justify-center; font-size: 3rem; color: white; opacity: 0.8; }
+        .play-button-overlay::before { content: '\f04b'; font-family: 'Font Awesome 6 Free'; font-weight: 900; }
 
         /* Spinner Animation */
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -48,8 +53,7 @@
             <select id="uSelect" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 text-white cursor-pointer"></select>
         </div>
 
-        <div id="lectureFolderContainer" class="space-y-4">
-            </div>
+        <div id="lectureFolderContainer" class="space-y-4"></div>
     </div>
 
     <div id="adminModal" class="fixed inset-0 bg-black/98 z-50 flex items-center justify-center p-4 hidden">
@@ -248,7 +252,7 @@
                     container.appendChild(box);
                 });
                 document.getElementById('viewerOverlay').classList.remove('hidden');
-                if(btn) btn.innerHTML = "Enter Classroom";
+                if(btn) btn.innerHTML = "Enter Full Classroom";
             }, 300);
         };
 
@@ -263,16 +267,28 @@
                 const div = document.createElement('div');
                 div.className = "bg-slate-900/30 border border-slate-800 rounded-2xl overflow-hidden mb-4";
                 const vids = (l.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+                
                 div.innerHTML = `
                     <div class="folder-trigger flex justify-between items-center p-6 cursor-pointer" onclick="toggleFolder(this)">
-                        <div class="flex items-center gap-4"><i class="fas fa-folder text-indigo-500"></i><h3 class="font-bold text-slate-200">${l.name}</h3></div>
+                        <div class="flex items-center gap-4">
+                            <i class="fas fa-folder text-indigo-500"></i>
+                            <h3 class="font-bold text-slate-200">${l.name}</h3>
+                        </div>
                         <i class="fas fa-chevron-down text-slate-600 chevron-icon"></i>
                     </div>
                     <div class="hidden p-6 pt-0 border-t border-slate-800/30 bg-slate-950/20">
-                        <div class="space-y-2 mt-4">
-                            ${vids.map(v => `<div class="text-sm text-slate-400 py-2 border-b border-slate-800/50"><i class="fas fa-play-circle mr-2 opacity-50"></i>${v.name}</div>`).join('')}
+                        <div class="space-y-1 mt-4">
+                            ${vids.map(v => `
+                                <a href="javascript:void(0)" onclick="launchLecture('${unitId}', '${l.id}')" class="flex items-center text-sm text-indigo-400 hover:text-indigo-300 py-2 transition group">
+                                    <i class="fas fa-play-circle mr-3 opacity-50 group-hover:opacity-100"></i>
+                                    <span class="underline decoration-indigo-500/20 underline-offset-4 group-hover:decoration-indigo-500 transition-all">${v.name}</span>
+                                </a>
+                            `).join('')}
+                            ${vids.length === 0 ? '<p class="text-xs text-slate-600 italic py-2">No videos available</p>' : ''}
                         </div>
-                        <button onclick="launchLecture('${unitId}', '${l.id}', this)" class="w-full mt-6 bg-white text-black py-4 rounded-xl text-xs font-black uppercase tracking-widest active:scale-[0.98] transition">Enter Classroom</button>
+                        <button onclick="launchLecture('${unitId}', '${l.id}', this)" class="w-full mt-6 bg-white text-black py-4 rounded-xl text-xs font-black uppercase tracking-widest active:scale-[0.98] transition">
+                            Enter Full Classroom
+                        </button>
                     </div>`;
                 container.appendChild(div);
             });
@@ -305,6 +321,8 @@
         };
 
         document.getElementById('openAdmin').onclick = () => document.getElementById('adminModal').classList.remove('hidden');
+        
+        // Initial Sync
         logic.sync();
     </script>
 </body>
