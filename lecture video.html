@@ -3,97 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Portal v3 - Tactile UI</title>
+    <title>StudyHub v9 - Direct Link Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        body { background: #020617; color: #f1f5f9; font-family: 'Inter', sans-serif; }
+        body { background-color: #f3f4f6; color: #1f2937; font-family: 'Inter', sans-serif; min-height: 100vh; }
         .hidden { display: none !important; }
-        
-        /* Tactical Feedback Animations */
-        button, .folder-trigger, .video-link { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
-        button:active { transform: scale(0.96); }
-        .folder-trigger:active { background: rgba(30, 41, 59, 0.8); }
-
-        /* Admin Tree Styles */
-        .folder-content { display: none; padding-left: 1.25rem; border-left: 1px solid #1e293b; margin-left: 0.75rem; }
-        .folder-open > .folder-content { display: block; }
-        .chevron { transition: transform 0.2s; font-size: 10px; }
-        .folder-open > .folder-header .chevron { transform: rotate(90deg); }
-
-        /* Video Display */
-        .video-box { background: #0f172a; border-radius: 1.5rem; padding: 1.5rem; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); margin-bottom: 2rem; }
-        .custom-video-wrapper { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 1rem; overflow: hidden; margin-top: 1rem; cursor: pointer; }
-        .custom-video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-        
-        .video-thumbnail { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.6; transition: opacity 0.3s; }
-        .custom-video-wrapper:hover .video-thumbnail { opacity: 0.8; }
-        .play-button-overlay { position: absolute; inset: 0; display: flex; items-center; justify-center; font-size: 3rem; color: white; opacity: 0.8; }
-        .play-button-overlay::before { content: '\f04b'; font-family: 'Font Awesome 6 Free'; font-weight: 900; }
-
-        /* Spinner Animation */
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .spinner { animation: spin 0.8s linear infinite; }
+        .clickable-card { display: flex; width: 100%; align-items: center; transition: all 0.2s ease; cursor: pointer; border: 1px solid #e5e7eb; background: white; border-radius: 0.75rem; position: relative; z-index: 10; overflow: hidden; }
+        .clickable-card:hover { border-color: #6366f1; background-color: #f9fafb; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+        .active-lecture { border-color: #6366f1; background-color: #eef2ff; border-width: 2px; }
+        .card-main { flex: 1; padding: 1rem; display: flex; align-items: center; z-index: 20; }
+        .card-action { padding: 1rem; display: flex; align-items: center; justify-content: center; color: #94a3b8; z-index: 30; border-left: 1px solid #f1f5f9; }
+        .card-action:hover { color: #6366f1; background: #eef2ff; }
+        .video-box { background: #ffffff; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e5e7eb; margin-bottom: 2rem; cursor: pointer; transition: transform 0.2s; }
+        .video-box:hover { transform: translateY(-2px); border-color: #6366f1; }
     </style>
 </head>
 <body class="p-4 md:p-12">
 
-    <div id="selectorView" class="max-w-4xl mx-auto mt-10">
+    <div id="selectorView" class="max-w-4xl mx-auto">
         <div class="flex justify-between items-center mb-10">
-            <h1 class="text-3xl font-black text-white tracking-tighter">STUDY<span class="text-indigo-500">HUB</span></h1>
-            <button id="openAdmin" class="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-full font-bold transition flex items-center gap-2 active:scale-95">
-                <i class="fas fa-lock"></i> Admin
+            <h1 class="text-3xl font-black text-slate-800 tracking-tighter">STUDY<span class="text-indigo-600">HUB</span></h1>
+            <button id="openAdmin" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold shadow-md">
+                <i class="fas fa-user-shield mr-2"></i> Admin Portal
             </button>
         </div>
 
-        <div class="bg-slate-900/50 p-8 rounded-[2rem] border border-slate-800 backdrop-blur-sm mb-10">
-            <h2 class="text-lg font-bold mb-6 text-slate-400">Select Your Unit</h2>
-            <select id="uSelect" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 text-white cursor-pointer"></select>
+        <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm mb-8 text-center">
+            <h2 class="text-xs font-black mb-4 text-slate-400 uppercase tracking-widest">Select Subject Unit</h2>
+            <select id="uSelect" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium"></select>
         </div>
 
         <div id="lectureFolderContainer" class="space-y-4"></div>
     </div>
 
-    <div id="adminModal" class="fixed inset-0 bg-black/98 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 w-full max-w-6xl h-[90vh] rounded-[2.5rem] flex flex-col md:flex-row overflow-hidden border border-slate-800">
-            <div class="w-full md:w-5/12 border-r border-slate-800 flex flex-col">
-                <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/30">
-                    <span class="text-xs font-black tracking-widest text-indigo-400">STRUCTURE</span>
-                    <button onclick="window.ui.openForm('UNIT')" class="text-xs bg-indigo-600 px-3 py-1 rounded-lg hover:bg-indigo-500">+ Unit</button>
-                </div>
-                <div id="navTree" class="flex-1 overflow-y-auto p-6"></div>
+    <div id="adminModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-5xl h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-slate-800">Content Management</h2>
+                <button onclick="window.ui.closeAdmin()" class="text-slate-400 hover:text-red-500 p-2"><i class="fas fa-times text-xl"></i></button>
             </div>
-
-            <div class="w-full md:w-7/12 p-12 relative flex flex-col justify-center">
-                <button onclick="window.ui.closeAdmin()" class="absolute top-8 right-8 text-slate-500 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
-                <form id="dataForm" class="hidden space-y-8">
-                    <input type="hidden" id="fId"><input type="hidden" id="fType"><input type="hidden" id="fParentId">
-                    <h3 id="formTitle" class="text-2xl font-bold">Edit Entry</h3>
-                    <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-500 uppercase">Title</label>
-                        <input type="text" id="fName" required class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 outline-none focus:border-indigo-500 text-white">
+            <div class="flex flex-1 overflow-hidden">
+                <div class="w-1/3 border-r border-slate-100 bg-slate-50 p-4 flex flex-col">
+                    <select id="adminUnitSelect" class="w-full bg-white p-3 rounded-lg border border-slate-200 text-sm mb-6 outline-none"></select>
+                    <div id="adminLectureList" class="flex-1 overflow-y-auto space-y-2"></div>
+                    <button onclick="window.ui.openForm('UNIT')" class="mt-4 w-full py-2 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-white">+ New Unit</button>
+                </div>
+                <div class="w-2/3 p-8 overflow-y-auto bg-white relative">
+                    <div id="adminVideoArea" class="hidden">
+                        <div class="flex justify-between items-start mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <div>
+                                <h3 id="activeLectureTitle" class="text-xl font-bold text-slate-800"></h3>
+                                <button id="editLectureBtn" class="text-[10px] text-slate-400 hover:text-indigo-600 font-bold uppercase mt-2">Rename Lecture</button>
+                            </div>
+                            <button id="addVideoBtn" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition">+ Add Video</button>
+                        </div>
+                        <div id="adminVideoList" class="space-y-3"></div>
                     </div>
-                    <div id="embedInputGroup" class="hidden space-y-2">
-                        <label class="text-xs font-bold text-slate-500 uppercase">YouTube Link</label>
-                        <input type="text" id="fEmbed" class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 outline-none focus:border-indigo-500 font-mono text-xs text-white">
+                    <div id="adminFormArea" class="hidden">
+                        <div class="max-w-md mx-auto bg-slate-50 border border-slate-200 p-8 rounded-3xl">
+                            <form id="dataForm" class="space-y-5">
+                                <input type="hidden" id="fId"><input type="hidden" id="fType"><input type="hidden" id="fParentId">
+                                <h3 id="formTitle" class="text-sm font-black uppercase text-indigo-600 border-b border-indigo-100 pb-2">Edit</h3>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Display Name</label>
+                                    <input type="text" id="fName" required class="w-full bg-white p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500">
+                                </div>
+                                <div id="embedInputGroup" class="hidden">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Paste YouTube Link</label>
+                                    <textarea id="fEmbed" class="w-full bg-white p-4 rounded-xl border border-slate-200 outline-none font-mono text-xs focus:border-indigo-500" rows="3" placeholder="Paste URL here..."></textarea>
+                                </div>
+                                <div class="flex flex-col gap-3 pt-6">
+                                    <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg transition">Save Changes</button>
+                                    <div class="flex gap-2">
+                                        <button type="button" id="cancelForm" class="flex-1 bg-white border border-slate-200 text-slate-500 py-3 rounded-xl font-bold">Cancel</button>
+                                        <button type="button" id="delBtn" class="bg-red-50 text-red-500 px-6 rounded-xl hover:bg-red-500 hover:text-white transition"><i class="fas fa-trash-alt"></i></button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    <div class="flex gap-4">
-                        <button type="submit" id="saveBtn" class="flex-1 bg-indigo-600 p-4 rounded-xl font-bold hover:bg-indigo-500 flex items-center justify-center gap-2">
-                            <span>Save Changes</span>
-                        </button>
-                        <button type="button" id="delBtn" class="bg-red-500/10 text-red-500 px-8 rounded-xl border border-red-500/20 hover:bg-red-500 hover:text-white transition">Delete</button>
+                    <div id="adminIdle" class="h-full flex flex-col items-center justify-center text-slate-300">
+                        <i class="fas fa-video text-4xl mb-3"></i>
+                        <p class="text-sm">Select a lecture to manage content</p>
                     </div>
-                </form>
-                <div id="formIdle" class="text-center opacity-20"><i class="fas fa-layer-group text-7xl mb-6"></i><p>Select a component to modify</p></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="viewerOverlay" class="fixed inset-0 bg-slate-950 z-[100] hidden overflow-y-auto p-6 md:p-16">
+    <div id="viewerOverlay" class="fixed inset-0 bg-white z-[200] hidden overflow-y-auto p-6 md:p-12">
         <div class="max-w-4xl mx-auto">
-            <button onclick="window.ui.closeViewer()" class="mb-12 text-slate-400 hover:text-white flex items-center gap-2 font-bold uppercase tracking-tighter"><i class="fas fa-arrow-left"></i> Exit Classroom</button>
+            <button onclick="window.ui.closeViewer()" class="mb-10 text-slate-400 hover:text-indigo-600 flex items-center gap-2 font-bold uppercase tracking-widest transition">
+                <i class="fas fa-arrow-left"></i> Back to Portal
+            </button>
             <div id="vContainer"></div>
         </div>
     </div>
@@ -104,28 +109,25 @@
         const _db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let store = [];
-        let openNodes = new Set();
+        let currentUnitId = null;
+        let activeLectureId = null;
 
         const utils = {
-            setLoading(btnId, isLoading) {
-                const btn = document.getElementById(btnId);
-                if (!btn) return;
-                if (isLoading) {
-                    btn.disabled = true;
-                    btn.dataset.original = btn.innerHTML;
-                    btn.innerHTML = `<i class="fas fa-circle-notch spinner"></i> Processing...`;
-                    btn.style.opacity = '0.7';
-                } else {
-                    btn.disabled = false;
-                    btn.innerHTML = btn.dataset.original;
-                    btn.style.opacity = '1';
-                }
-            },
             extractVideoId(input) {
-                if (!input) return null;
-                const patterns = [/[?&]v=([a-zA-Z0-9_-]{11})/, /youtu\.be\/([a-zA-Z0-9_-]{11})/, /embed\/([a-zA-Z0-9_-]{11})/];
-                for (let p of patterns) { const m = input.match(p); if (m) return m[1]; }
-                return null;
+                if (!input) return "";
+                let str = input.trim();
+                if (str.includes('<iframe')) {
+                    const srcMatch = str.match(/src=["']([^"']+)["']/);
+                    if (srcMatch) str = srcMatch[1];
+                }
+                const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+                const match = str.match(regex);
+                if (match && match[1]) return match[1];
+                const rawMatch = str.match(/^[a-zA-Z0-9_-]{11}$/);
+                return rawMatch ? str : "";
+            },
+            openInYouTube(id) {
+                if(id) window.open(`https://www.youtube.com/watch?v=${id}`, '_blank');
             }
         };
 
@@ -133,77 +135,62 @@
             async sync() {
                 const { data } = await _db.from('units').select(`id, name, created_at, lectures (id, name, created_at, videos (id, name, embed, created_at))`).order('created_at', { ascending: true });
                 store = data || [];
-                window.ui.renderAll();
+                window.ui.renderMain();
+                window.ui.renderAdminUnits();
             }
         };
 
         window.ui = {
-            renderAll() {
+            renderMain() {
                 const us = document.getElementById('uSelect');
                 const lastVal = us.value;
-                us.innerHTML = '<option value="">-- Choose Unit --</option>';
+                us.innerHTML = '<option value="">-- Choose Subject --</option>';
                 store.forEach(u => us.innerHTML += `<option value="${u.id}">${u.name}</option>`);
                 us.value = lastVal;
-
-                const tree = document.getElementById('navTree');
-                tree.innerHTML = '';
-                store.forEach(u => {
-                    const isOpen = openNodes.has(u.id);
-                    let h = `<div class="folder-node ${isOpen ? 'folder-open' : ''}" id="node-${u.id}">
-                        <div class="folder-header flex justify-between items-center py-2 hover:bg-slate-800/50 rounded-lg cursor-pointer px-2 group">
-                            <div class="flex items-center gap-3 flex-1" onclick="window.ui.toggleNode('${u.id}')">
-                                <i class="fas fa-chevron-right text-indigo-500 chevron"></i>
-                                <span class="text-xs font-black uppercase text-slate-300">${u.name}</span>
-                            </div>
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100">
-                                <button onclick="window.ui.openForm('LECTURE', '', '${u.id}')" class="text-[9px] font-bold text-emerald-400 hover:scale-110">+ LEC</button>
-                                <button class="edit-btn text-slate-500 hover:text-white" data-type="UNIT" data-id="${u.id}" data-name="${u.name}"><i class="fas fa-pen"></i></button>
-                            </div>
-                        </div>
-                        <div class="folder-content">`;
-                    
-                    (u.lectures || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(l => {
-                        const lOpen = openNodes.has(l.id);
-                        h += `<div class="folder-node mt-2 ${lOpen ? 'folder-open' : ''}" id="node-${l.id}">
-                            <div class="folder-header flex justify-between items-center py-1 hover:bg-slate-800/30 rounded px-2 cursor-pointer group">
-                                <div class="flex items-center gap-2 flex-1" onclick="window.ui.toggleNode('${l.id}')">
-                                    <i class="fas fa-chevron-right text-slate-600 chevron"></i>
-                                    <span class="text-xs font-bold text-slate-400">${l.name}</span>
-                                </div>
-                                <div class="flex gap-2 opacity-0 group-hover:opacity-100">
-                                    <button onclick="window.ui.openForm('VIDEO', '', '${l.id}')" class="text-[9px] font-bold text-indigo-400 hover:scale-110">+ VID</button>
-                                    <button class="edit-btn text-slate-600 hover:text-white" data-type="LECTURE" data-id="${l.id}" data-pid="${u.id}" data-name="${l.name}"><i class="fas fa-pen"></i></button>
-                                </div>
-                            </div>
-                            <div class="folder-content">`;
-                        
-                        (l.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
-                            h += `<div class="flex justify-between items-center py-2 text-[11px] text-slate-500 group hover:text-white px-2">
-                                <span><i class="fas fa-play mr-2 opacity-30"></i>${v.name}</span>
-                                <button class="edit-btn text-indigo-500 opacity-0 group-hover:opacity-100 hover:scale-110" data-type="VIDEO" data-id="${v.id}" data-pid="${l.id}" data-name="${v.name}" data-embed="${(v.embed || '').replace(/"/g, '&quot;')}"><i class="fas fa-pen"></i></button>
-                            </div>`;
-                        });
-                        h += `</div></div>`;
-                    });
-                    h += `</div></div>`;
-                    tree.innerHTML += h;
-                });
-
-                document.querySelectorAll('.edit-btn').forEach(btn => {
-                    btn.onclick = (e) => {
-                        e.stopPropagation();
-                        window.ui.openForm(btn.dataset.type, btn.dataset.id, btn.dataset.pid || '', btn.dataset.name, btn.dataset.embed || '');
-                    };
+            },
+            renderAdminUnits() {
+                const aus = document.getElementById('adminUnitSelect');
+                aus.innerHTML = '<option value="">-- Select Unit --</option>';
+                store.forEach(u => aus.innerHTML += `<option value="${u.id}">${u.name}</option>`);
+            },
+            loadAdminLectures(unitId) {
+                currentUnitId = unitId;
+                const list = document.getElementById('adminLectureList');
+                list.innerHTML = '';
+                const unit = store.find(u => u.id === unitId);
+                if (!unit) return;
+                unit.lectures.forEach(l => {
+                    const btn = document.createElement('div');
+                    btn.className = `clickable-card mb-2 ${activeLectureId === l.id ? 'active-lecture' : ''}`;
+                    btn.innerHTML = `<div class="card-main"><span class="text-sm font-semibold">${l.name}</span></div><div class="card-action"><i class="fas fa-chevron-right"></i></div>`;
+                    btn.onclick = () => window.ui.selectAdminLecture(unitId, l.id);
+                    list.appendChild(btn);
                 });
             },
-            toggleNode(id) {
-                const node = document.getElementById(`node-${id}`);
-                openNodes.has(id) ? openNodes.delete(id) : openNodes.add(id);
-                node.classList.toggle('folder-open');
+            selectAdminLecture(unitId, lectureId) {
+                activeLectureId = lectureId;
+                this.loadAdminLectures(unitId);
+                document.getElementById('adminIdle').classList.add('hidden');
+                document.getElementById('adminFormArea').classList.add('hidden');
+                document.getElementById('adminVideoArea').classList.remove('hidden');
+                const unit = store.find(u => u.id === unitId);
+                const lecture = unit.lectures.find(l => l.id === lectureId);
+                document.getElementById('activeLectureTitle').innerText = lecture.name;
+                document.getElementById('editLectureBtn').onclick = () => window.ui.openForm('LECTURE', lecture.id, unitId, lecture.name);
+                document.getElementById('addVideoBtn').onclick = () => window.ui.openForm('VIDEO', '', lectureId);
+                const vList = document.getElementById('adminVideoList');
+                vList.innerHTML = '';
+                (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
+                    const row = document.createElement('div');
+                    row.className = "clickable-card";
+                    row.innerHTML = `<div class="card-main" onclick="utils.openInYouTube(utils.extractVideoId('${v.embed.replace(/'/g, "\\'")}'))"><i class="fab fa-youtube text-red-600 mr-3"></i><span class="text-sm font-bold text-slate-700">${v.name}</span></div><div class="card-action" onclick="event.stopPropagation(); window.ui.openForm('VIDEO', '${v.id}', '${lectureId}', '${v.name.replace(/'/g, "\\'")}', '${v.embed.replace(/'/g, "\\'")}')"><i class="fas fa-cog"></i></div>`;
+                    vList.appendChild(row);
+                });
             },
             openForm(type, id='', pId='', name='', embed='') {
-                document.getElementById('formIdle').classList.add('hidden');
-                document.getElementById('dataForm').classList.remove('hidden');
+                document.getElementById('adminVideoArea').classList.add('hidden');
+                document.getElementById('adminIdle').classList.add('hidden');
+                document.getElementById('adminFormArea').classList.remove('hidden');
                 document.getElementById('fType').value = type;
                 document.getElementById('fId').value = id;
                 document.getElementById('fParentId').value = pId;
@@ -217,86 +204,52 @@
             closeViewer() { document.getElementById('viewerOverlay').classList.add('hidden'); document.getElementById('vContainer').innerHTML = ''; }
         };
 
-        window.toggleFolder = (el) => {
-            const content = el.nextElementSibling;
-            const icon = el.querySelector('.chevron-icon');
-            const isHidden = content.classList.contains('hidden');
-            content.classList.toggle('hidden');
-            icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-        };
-
-        window.launchLecture = (uId, lId, btn) => {
-            if(btn) {
-                btn.style.width = btn.offsetWidth + 'px';
-                btn.innerHTML = `<i class="fas fa-circle-notch spinner"></i>`;
-            }
-            
-            setTimeout(() => {
-                const unit = store.find(u => u.id === uId);
-                const lecture = unit.lectures.find(l => l.id === lId);
-                const container = document.getElementById('vContainer');
-                container.innerHTML = `<div class="mb-10"><h2 class="text-4xl font-black text-white">${lecture.name}</h2></div>`;
-                
-                (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
-                    const box = document.createElement('div');
-                    box.className = "video-box";
-                    box.innerHTML = `<h3 class="text-xl font-black text-indigo-400 uppercase mb-4">${v.name}</h3>`;
-                    const vid = utils.extractVideoId(v.embed);
-                    if (vid) {
-                        const wrap = document.createElement('div');
-                        wrap.className = 'custom-video-wrapper';
-                        wrap.innerHTML = `<div class="video-thumbnail" style="background-image:url('https://img.youtube.com/vi/${vid}/maxresdefault.jpg')"></div><div class="play-button-overlay"></div>`;
-                        wrap.onclick = () => wrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${vid}?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-                        box.appendChild(wrap);
-                    }
-                    container.appendChild(box);
-                });
-                document.getElementById('viewerOverlay').classList.remove('hidden');
-                if(btn) btn.innerHTML = "Enter Full Classroom";
-            }, 300);
+        document.getElementById('adminUnitSelect').onchange = (e) => window.ui.loadAdminLectures(e.target.value);
+        document.getElementById('cancelForm').onclick = () => {
+            document.getElementById('adminFormArea').classList.add('hidden');
+            if(activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
+            else document.getElementById('adminIdle').classList.remove('hidden');
         };
 
         document.getElementById('uSelect').onchange = (e) => {
-            const unitId = e.target.value;
             const container = document.getElementById('lectureFolderContainer');
             container.innerHTML = ''; 
-            const unit = store.find(u => u.id === unitId);
+            const unit = store.find(u => u.id === e.target.value);
             if (!unit) return;
-
-            unit.lectures.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(l => {
-                const div = document.createElement('div');
-                div.className = "bg-slate-900/30 border border-slate-800 rounded-2xl overflow-hidden mb-4";
-                const vids = (l.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-                
-                div.innerHTML = `
-                    <div class="folder-trigger flex justify-between items-center p-6 cursor-pointer" onclick="toggleFolder(this)">
-                        <div class="flex items-center gap-4">
-                            <i class="fas fa-folder text-indigo-500"></i>
-                            <h3 class="font-bold text-slate-200">${l.name}</h3>
-                        </div>
-                        <i class="fas fa-chevron-down text-slate-600 chevron-icon"></i>
-                    </div>
-                    <div class="hidden p-6 pt-0 border-t border-slate-800/30 bg-slate-950/20">
-                        <div class="space-y-1 mt-4">
-                            ${vids.map(v => `
-                                <a href="javascript:void(0)" onclick="launchLecture('${unitId}', '${l.id}')" class="flex items-center text-sm text-indigo-400 hover:text-indigo-300 py-2 transition group">
-                                    <i class="fas fa-play-circle mr-3 opacity-50 group-hover:opacity-100"></i>
-                                    <span class="underline decoration-indigo-500/20 underline-offset-4 group-hover:decoration-indigo-500 transition-all">${v.name}</span>
-                                </a>
-                            `).join('')}
-                            ${vids.length === 0 ? '<p class="text-xs text-slate-600 italic py-2">No videos available</p>' : ''}
-                        </div>
-                        <button onclick="launchLecture('${unitId}', '${l.id}', this)" class="w-full mt-6 bg-white text-black py-4 rounded-xl text-xs font-black uppercase tracking-widest active:scale-[0.98] transition">
-                            Enter Full Classroom
-                        </button>
-                    </div>`;
-                container.appendChild(div);
+            unit.lectures.forEach(l => {
+                const btn = document.createElement('div');
+                btn.className = "clickable-card p-2";
+                btn.innerHTML = `<div class="card-main"><h3 class="font-bold text-slate-800">${l.name}</h3></div><div class="card-action"><i class="fas fa-arrow-right"></i></div>`;
+                btn.onclick = () => launchLecture(unit.id, l.id);
+                container.appendChild(btn);
             });
+        };
+
+        window.launchLecture = (uId, lId) => {
+            const lecture = store.find(u => u.id === uId).lectures.find(l => l.id === lId);
+            const container = document.getElementById('vContainer');
+            container.innerHTML = `<h2 class="text-3xl font-black text-slate-800 mb-10 border-l-8 border-indigo-600 pl-6">${lecture.name}</h2>`;
+            (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
+                const vid = utils.extractVideoId(v.embed);
+                const box = document.createElement('div');
+                box.className = "video-box flex items-center gap-4";
+                box.onclick = () => utils.openInYouTube(vid);
+                box.innerHTML = `
+                    <div class="w-20 h-20 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <i class="fab fa-youtube text-red-600 text-3xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-black text-slate-400 uppercase">Video Lesson</h3>
+                        <p class="text-lg font-bold text-slate-800">${v.name}</p>
+                        <p class="text-xs text-indigo-600 font-bold mt-1 uppercase">Watch on YouTube <i class="fas fa-external-link-alt ml-1"></i></p>
+                    </div>`;
+                container.appendChild(box);
+            });
+            document.getElementById('viewerOverlay').classList.remove('hidden');
         };
 
         document.getElementById('dataForm').onsubmit = async (e) => {
             e.preventDefault();
-            utils.setLoading('saveBtn', true);
             const type = document.getElementById('fType').value;
             const id = document.getElementById('fId').value;
             const payload = { 
@@ -307,22 +260,24 @@
             const table = type.toLowerCase() + 's';
             if (id) await _db.from(table).update(payload).eq('id', id); else await _db.from(table).insert([payload]);
             await logic.sync();
-            utils.setLoading('saveBtn', false);
-            document.getElementById('dataForm').classList.add('hidden');
+            window.ui.loadAdminLectures(currentUnitId);
+            if(activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
+            document.getElementById('adminFormArea').classList.add('hidden');
         };
 
         document.getElementById('delBtn').onclick = async () => {
-            if (!confirm("Delete this?")) return;
+            if (!confirm("Are you sure?")) return;
             const id = document.getElementById('fId').value;
             const table = document.getElementById('fType').value.toLowerCase() + 's';
             await _db.from(table).delete().eq('id', id);
             await logic.sync();
-            document.getElementById('dataForm').classList.add('hidden');
+            window.ui.loadAdminLectures(currentUnitId);
+            document.getElementById('adminFormArea').classList.add('hidden');
+            document.getElementById('adminIdle').classList.remove('hidden');
+            activeLectureId = null;
         };
 
         document.getElementById('openAdmin').onclick = () => document.getElementById('adminModal').classList.remove('hidden');
-        
-        // Initial Sync
         logic.sync();
     </script>
 </body>
