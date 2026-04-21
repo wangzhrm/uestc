@@ -3,22 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudyHub v9 - Direct Link Mode</title>
+    <title>StudyHub v11 - Drag & Tactile</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         body { background-color: #f3f4f6; color: #1f2937; font-family: 'Inter', sans-serif; min-height: 100vh; }
         .hidden { display: none !important; }
-        .clickable-card { display: flex; width: 100%; align-items: center; transition: all 0.2s ease; cursor: pointer; border: 1px solid #e5e7eb; background: white; border-radius: 0.75rem; position: relative; z-index: 10; overflow: hidden; }
-        .clickable-card:hover { border-color: #6366f1; background-color: #f9fafb; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
+        
+        /* Tactile Feedback Animation */
+        button, .clickable-card, .video-box {
+            transition: transform 0.1s active, box-shadow 0.2s;
+        }
+        button:active, .clickable-card:active, .video-box:active {
+            transform: scale(0.96);
+        }
+
+        .clickable-card { display: flex; width: 100%; align-items: center; border: 1px solid #e5e7eb; background: white; border-radius: 0.75rem; position: relative; overflow: hidden; margin-bottom: 0.5rem;}
         .active-lecture { border-color: #6366f1; background-color: #eef2ff; border-width: 2px; }
-        .card-main { flex: 1; padding: 1rem; display: flex; align-items: center; z-index: 20; }
-        .card-action { padding: 1rem; display: flex; align-items: center; justify-content: center; color: #94a3b8; z-index: 30; border-left: 1px solid #f1f5f9; }
-        .card-action:hover { color: #6366f1; background: #eef2ff; }
-        .video-box { background: #ffffff; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e5e7eb; margin-bottom: 2rem; cursor: pointer; transition: transform 0.2s; }
-        .video-box:hover { transform: translateY(-2px); border-color: #6366f1; }
+        
+        .drag-handle { cursor: grab; padding: 1rem; color: #cbd5e1; display: flex; align-items: center; }
+        .drag-handle:active { cursor: grabbing; }
+        
+        .card-main { flex: 1; padding: 1rem; display: flex; align-items: center; cursor: pointer; }
+        .card-action { padding: 1rem; display: flex; align-items: center; justify-content: center; color: #94a3b8; border-left: 1px solid #f1f5f9; cursor: pointer; }
+        
+        /* Sortable Ghosting */
+        .sortable-ghost { opacity: 0.4; background: #e0e7ff; border: 2px dashed #6366f1; }
+        
+        .video-box { background: #ffffff; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e5e7eb; margin-bottom: 2rem; cursor: pointer; }
     </style>
 </head>
 <body class="p-4 md:p-12">
@@ -35,7 +50,6 @@
             <h2 class="text-xs font-black mb-4 text-slate-400 uppercase tracking-widest">Select Subject Unit</h2>
             <select id="uSelect" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 font-medium"></select>
         </div>
-
         <div id="lectureFolderContainer" class="space-y-4"></div>
     </div>
 
@@ -48,7 +62,7 @@
             <div class="flex flex-1 overflow-hidden">
                 <div class="w-1/3 border-r border-slate-100 bg-slate-50 p-4 flex flex-col">
                     <select id="adminUnitSelect" class="w-full bg-white p-3 rounded-lg border border-slate-200 text-sm mb-6 outline-none"></select>
-                    <div id="adminLectureList" class="flex-1 overflow-y-auto space-y-2"></div>
+                    <div id="adminLectureList" class="flex-1 overflow-y-auto pt-2"></div>
                     <button onclick="window.ui.openForm('UNIT')" class="mt-4 w-full py-2 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-white">+ New Unit</button>
                 </div>
                 <div class="w-2/3 p-8 overflow-y-auto bg-white relative">
@@ -60,7 +74,7 @@
                             </div>
                             <button id="addVideoBtn" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition">+ Add Video</button>
                         </div>
-                        <div id="adminVideoList" class="space-y-3"></div>
+                        <div id="adminVideoList" class="space-y-1"></div>
                     </div>
                     <div id="adminFormArea" class="hidden">
                         <div class="max-w-md mx-auto bg-slate-50 border border-slate-200 p-8 rounded-3xl">
@@ -72,8 +86,8 @@
                                     <input type="text" id="fName" required class="w-full bg-white p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500">
                                 </div>
                                 <div id="embedInputGroup" class="hidden">
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase">Paste YouTube Link</label>
-                                    <textarea id="fEmbed" class="w-full bg-white p-4 rounded-xl border border-slate-200 outline-none font-mono text-xs focus:border-indigo-500" rows="3" placeholder="Paste URL here..."></textarea>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase">YouTube Link</label>
+                                    <textarea id="fEmbed" class="w-full bg-white p-4 rounded-xl border border-slate-200 outline-none font-mono text-xs focus:border-indigo-500" rows="3"></textarea>
                                 </div>
                                 <div class="flex flex-col gap-3 pt-6">
                                     <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg transition">Save Changes</button>
@@ -85,9 +99,9 @@
                             </form>
                         </div>
                     </div>
-                    <div id="adminIdle" class="h-full flex flex-col items-center justify-center text-slate-300">
-                        <i class="fas fa-video text-4xl mb-3"></i>
-                        <p class="text-sm">Select a lecture to manage content</p>
+                    <div id="adminIdle" class="h-full flex flex-col items-center justify-center text-slate-300 text-center">
+                        <i class="fas fa-hand-pointer text-4xl mb-3"></i>
+                        <p class="text-sm">Select a lecture, then drag items<br>to reorder them instantly.</p>
                     </div>
                 </div>
             </div>
@@ -116,18 +130,16 @@
             extractVideoId(input) {
                 if (!input) return "";
                 let str = input.trim();
-                if (str.includes('<iframe')) {
-                    const srcMatch = str.match(/src=["']([^"']+)["']/);
-                    if (srcMatch) str = srcMatch[1];
-                }
                 const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
                 const match = str.match(regex);
-                if (match && match[1]) return match[1];
-                const rawMatch = str.match(/^[a-zA-Z0-9_-]{11}$/);
-                return rawMatch ? str : "";
+                return match ? match[1] : (str.match(/^[a-zA-Z0-9_-]{11}$/) ? str : "");
             },
-            openInYouTube(id) {
-                if(id) window.open(`https://www.youtube.com/watch?v=${id}`, '_blank');
+            openInYouTube(id) { 
+                this.haptic();
+                if(id) window.open(`https://www.youtube.com/watch?v=${id}`, '_blank'); 
+            },
+            haptic() {
+                if (navigator.vibrate) navigator.vibrate(10);
             }
         };
 
@@ -137,6 +149,16 @@
                 store = data || [];
                 window.ui.renderMain();
                 window.ui.renderAdminUnits();
+            },
+            async saveNewOrder(videoIds) {
+                // We update timestamps sequentially to maintain the order in the database
+                const baseTime = new Date();
+                const updates = videoIds.map((id, index) => {
+                    const newTime = new Date(baseTime.getTime() + index * 1000).toISOString();
+                    return _db.from('videos').update({ created_at: newTime }).eq('id', id);
+                });
+                await Promise.all(updates);
+                await this.sync();
             }
         };
 
@@ -161,9 +183,9 @@
                 if (!unit) return;
                 unit.lectures.forEach(l => {
                     const btn = document.createElement('div');
-                    btn.className = `clickable-card mb-2 ${activeLectureId === l.id ? 'active-lecture' : ''}`;
+                    btn.className = `clickable-card ${activeLectureId === l.id ? 'active-lecture' : ''}`;
                     btn.innerHTML = `<div class="card-main"><span class="text-sm font-semibold">${l.name}</span></div><div class="card-action"><i class="fas fa-chevron-right"></i></div>`;
-                    btn.onclick = () => window.ui.selectAdminLecture(unitId, l.id);
+                    btn.onclick = () => { utils.haptic(); window.ui.selectAdminLecture(unitId, l.id); };
                     list.appendChild(btn);
                 });
             },
@@ -176,18 +198,43 @@
                 const unit = store.find(u => u.id === unitId);
                 const lecture = unit.lectures.find(l => l.id === lectureId);
                 document.getElementById('activeLectureTitle').innerText = lecture.name;
-                document.getElementById('editLectureBtn').onclick = () => window.ui.openForm('LECTURE', lecture.id, unitId, lecture.name);
-                document.getElementById('addVideoBtn').onclick = () => window.ui.openForm('VIDEO', '', lectureId);
+                
                 const vList = document.getElementById('adminVideoList');
                 vList.innerHTML = '';
-                (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
+                
+                const videos = (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+                
+                videos.forEach((v) => {
                     const row = document.createElement('div');
                     row.className = "clickable-card";
-                    row.innerHTML = `<div class="card-main" onclick="utils.openInYouTube(utils.extractVideoId('${v.embed.replace(/'/g, "\\'")}'))"><i class="fab fa-youtube text-red-600 mr-3"></i><span class="text-sm font-bold text-slate-700">${v.name}</span></div><div class="card-action" onclick="event.stopPropagation(); window.ui.openForm('VIDEO', '${v.id}', '${lectureId}', '${v.name.replace(/'/g, "\\'")}', '${v.embed.replace(/'/g, "\\'")}')"><i class="fas fa-cog"></i></div>`;
+                    row.dataset.id = v.id;
+                    row.innerHTML = `
+                        <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+                        <div class="card-main" onclick="utils.openInYouTube(utils.extractVideoId('${v.embed.replace(/'/g, "\\'")}'))">
+                            <i class="fab fa-youtube text-red-600 mr-3"></i>
+                            <span class="text-sm font-bold text-slate-700">${v.name}</span>
+                        </div>
+                        <div class="card-action" onclick="event.stopPropagation(); utils.haptic(); window.ui.openForm('VIDEO', '${v.id}', '${lectureId}', '${v.name.replace(/'/g, "\\'")}', '${v.embed.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    `;
                     vList.appendChild(row);
+                });
+
+                // Initialize Drag and Drop
+                new Sortable(vList, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    onEnd: async () => {
+                        utils.haptic();
+                        const newIds = Array.from(vList.children).map(el => el.dataset.id);
+                        await logic.saveNewOrder(newIds);
+                    }
                 });
             },
             openForm(type, id='', pId='', name='', embed='') {
+                utils.haptic();
                 document.getElementById('adminVideoArea').classList.add('hidden');
                 document.getElementById('adminIdle').classList.add('hidden');
                 document.getElementById('adminFormArea').classList.remove('hidden');
@@ -200,18 +247,14 @@
                 document.getElementById('delBtn').classList.toggle('hidden', !id);
                 document.getElementById('formTitle').innerText = (id ? 'Update ' : 'New ') + type;
             },
-            closeAdmin() { document.getElementById('adminModal').classList.add('hidden'); },
-            closeViewer() { document.getElementById('viewerOverlay').classList.add('hidden'); document.getElementById('vContainer').innerHTML = ''; }
+            closeAdmin() { utils.haptic(); document.getElementById('adminModal').classList.add('hidden'); },
+            closeViewer() { utils.haptic(); document.getElementById('viewerOverlay').classList.add('hidden'); document.getElementById('vContainer').innerHTML = ''; }
         };
 
-        document.getElementById('adminUnitSelect').onchange = (e) => window.ui.loadAdminLectures(e.target.value);
-        document.getElementById('cancelForm').onclick = () => {
-            document.getElementById('adminFormArea').classList.add('hidden');
-            if(activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
-            else document.getElementById('adminIdle').classList.remove('hidden');
-        };
-
+        // Events
+        document.getElementById('adminUnitSelect').onchange = (e) => { utils.haptic(); window.ui.loadAdminLectures(e.target.value); };
         document.getElementById('uSelect').onchange = (e) => {
+            utils.haptic();
             const container = document.getElementById('lectureFolderContainer');
             container.innerHTML = ''; 
             const unit = store.find(u => u.id === e.target.value);
@@ -220,7 +263,7 @@
                 const btn = document.createElement('div');
                 btn.className = "clickable-card p-2";
                 btn.innerHTML = `<div class="card-main"><h3 class="font-bold text-slate-800">${l.name}</h3></div><div class="card-action"><i class="fas fa-arrow-right"></i></div>`;
-                btn.onclick = () => launchLecture(unit.id, l.id);
+                btn.onclick = () => { utils.haptic(); launchLecture(unit.id, l.id); };
                 container.appendChild(btn);
             });
         };
@@ -230,19 +273,13 @@
             const container = document.getElementById('vContainer');
             container.innerHTML = `<h2 class="text-3xl font-black text-slate-800 mb-10 border-l-8 border-indigo-600 pl-6">${lecture.name}</h2>`;
             (lecture.videos || []).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(v => {
-                const vid = utils.extractVideoId(v.embed);
                 const box = document.createElement('div');
                 box.className = "video-box flex items-center gap-4";
-                box.onclick = () => utils.openInYouTube(vid);
+                box.onclick = () => utils.openInYouTube(utils.extractVideoId(v.embed));
                 box.innerHTML = `
-                    <div class="w-20 h-20 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <i class="fab fa-youtube text-red-600 text-3xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xs font-black text-slate-400 uppercase">Video Lesson</h3>
-                        <p class="text-lg font-bold text-slate-800">${v.name}</p>
-                        <p class="text-xs text-indigo-600 font-bold mt-1 uppercase">Watch on YouTube <i class="fas fa-external-link-alt ml-1"></i></p>
-                    </div>`;
+                    <div class="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center"><i class="fab fa-youtube text-red-600 text-2xl"></i></div>
+                    <div><h3 class="text-[10px] font-black text-slate-400 uppercase">Lesson</h3><p class="font-bold text-slate-800">${v.name}</p></div>
+                `;
                 container.appendChild(box);
             });
             document.getElementById('viewerOverlay').classList.remove('hidden');
@@ -250,6 +287,7 @@
 
         document.getElementById('dataForm').onsubmit = async (e) => {
             e.preventDefault();
+            utils.haptic();
             const type = document.getElementById('fType').value;
             const id = document.getElementById('fId').value;
             const payload = { 
@@ -260,24 +298,27 @@
             const table = type.toLowerCase() + 's';
             if (id) await _db.from(table).update(payload).eq('id', id); else await _db.from(table).insert([payload]);
             await logic.sync();
-            window.ui.loadAdminLectures(currentUnitId);
             if(activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
             document.getElementById('adminFormArea').classList.add('hidden');
         };
 
         document.getElementById('delBtn').onclick = async () => {
-            if (!confirm("Are you sure?")) return;
-            const id = document.getElementById('fId').value;
-            const table = document.getElementById('fType').value.toLowerCase() + 's';
-            await _db.from(table).delete().eq('id', id);
+            utils.haptic();
+            if (!confirm("Delete permanently?")) return;
+            await _db.from(document.getElementById('fType').value.toLowerCase() + 's').delete().eq('id', document.getElementById('fId').value);
             await logic.sync();
             window.ui.loadAdminLectures(currentUnitId);
             document.getElementById('adminFormArea').classList.add('hidden');
-            document.getElementById('adminIdle').classList.remove('hidden');
             activeLectureId = null;
         };
 
-        document.getElementById('openAdmin').onclick = () => document.getElementById('adminModal').classList.remove('hidden');
+        document.getElementById('openAdmin').onclick = () => { utils.haptic(); document.getElementById('adminModal').classList.remove('hidden'); };
+        document.getElementById('cancelForm').onclick = () => {
+            utils.haptic();
+            document.getElementById('adminFormArea').classList.add('hidden');
+            if(activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
+        };
+
         logic.sync();
     </script>
 </body>
