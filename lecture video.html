@@ -52,7 +52,10 @@
         <div class="bg-white w-full max-w-5xl h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl">
             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-800">Content Management</h2>
-                <button onclick="window.ui.closeAdmin()" class="text-slate-400 hover:text-red-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                <div class="flex gap-2">
+                    <button onclick="window.ui.openForm('UNIT', currentUnitId, '', (store.find(u=>u.id===currentUnitId)?.name || ''))" id="btnEditUnit" class="text-xs font-bold text-slate-400 hover:text-indigo-600 uppercase hidden">Edit Unit</button>
+                    <button onclick="window.ui.closeAdmin()" class="text-slate-400 hover:text-red-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                </div>
             </div>
             <div class="flex flex-1 overflow-hidden">
                 <div class="w-1/3 border-r border-slate-100 bg-slate-50 p-4 flex flex-col">
@@ -65,7 +68,7 @@
                         <div class="flex justify-between items-start mb-8 bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <div>
                                 <h3 id="activeLectureTitle" class="text-xl font-bold text-slate-800"></h3>
-                                <button id="btnRenameLecture" class="text-[10px] text-slate-400 hover:text-indigo-600 font-bold uppercase mt-2">Rename Lecture</button>
+                                <button id="btnRenameLecture" class="text-[10px] text-slate-400 hover:text-indigo-600 font-bold uppercase mt-2">Rename/Delete Lecture</button>
                             </div>
                             <button id="btnAddVideo" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 transition">+ Add Video</button>
                         </div>
@@ -168,15 +171,22 @@
             },
             renderAdminUnits() {
                 const aus = document.getElementById('adminUnitSelect');
+                const lastVal = aus.value;
                 aus.innerHTML = '<option value="">-- Select Unit --</option>';
                 store.forEach(u => aus.innerHTML += `<option value="${u.id}">${u.name}</option>`);
+                aus.value = lastVal;
+                document.getElementById('btnEditUnit').classList.toggle('hidden', !aus.value);
             },
             loadAdminLectures(unitId) {
                 currentUnitId = unitId;
                 const list = document.getElementById('adminLectureList');
                 list.innerHTML = '';
                 const unit = store.find(u => u.id === unitId);
-                if (!unit) return;
+                if (!unit) {
+                    document.getElementById('adminVideoArea').classList.add('hidden');
+                    document.getElementById('adminIdle').classList.remove('hidden');
+                    return;
+                }
                 unit.lectures.forEach(l => {
                     const btn = document.createElement('div');
                     btn.className = `clickable-card ${activeLectureId === l.id ? 'active-lecture' : ''}`;
@@ -195,9 +205,9 @@
                 
                 const unit = store.find(u => u.id === unitId);
                 const lecture = unit.lectures.find(l => l.id === lectureId);
+                if(!lecture) return;
                 document.getElementById('activeLectureTitle').innerText = lecture.name;
                 
-                // Re-bind Lecture specific actions
                 document.getElementById('btnRenameLecture').onclick = () => window.ui.openForm('LECTURE', lecture.id, unitId, lecture.name);
                 document.getElementById('btnAddVideo').onclick = () => window.ui.openForm('VIDEO', '', lectureId);
 
@@ -251,8 +261,11 @@
             closeViewer() { utils.haptic(); document.getElementById('viewerOverlay').classList.add('hidden'); document.getElementById('vContainer').innerHTML = ''; }
         };
 
-        // Event Listeners
-        document.getElementById('adminUnitSelect').onchange = (e) => { utils.haptic(); window.ui.loadAdminLectures(e.target.value); };
+        document.getElementById('adminUnitSelect').onchange = (e) => { 
+            utils.haptic(); 
+            window.ui.loadAdminLectures(e.target.value); 
+            document.getElementById('btnEditUnit').classList.toggle('hidden', !e.target.value);
+        };
         
         document.getElementById('uSelect').onchange = (e) => {
             utils.haptic();
@@ -293,7 +306,6 @@
             const id = document.getElementById('fId').value;
             const payload = { 
                 name: document.getElementById('fName').value,
-                ...(type === 'UNIT' && {}),
                 ...(type === 'LECTURE' && { unit_id: document.getElementById('fParentId').value }),
                 ...(type === 'VIDEO' && { lecture_id: document.getElementById('fParentId').value, embed: document.getElementById('fEmbed').value })
             };
@@ -301,22 +313,29 @@
             if (id) await _db.from(table).update(payload).eq('id', id); else await _db.from(table).insert([payload]);
             await logic.sync();
             
-            // Clean up UI and go back to where we were
             document.getElementById('adminFormArea').classList.add('hidden');
-            if (activeLectureId) window.ui.selectAdminLecture(currentUnitId, activeLectureId);
+            if (activeLectureId && type !== 'UNIT') window.ui.selectAdminLecture(currentUnitId, activeLectureId);
             else if (currentUnitId) window.ui.loadAdminLectures(currentUnitId);
+            else document.getElementById('adminIdle').classList.remove('hidden');
         };
 
         document.getElementById('delBtn').onclick = async () => {
             utils.haptic();
-            if (!confirm("Delete permanently?")) return;
+            if (!confirm("Delete permanently? Note: All items inside will also be deleted.")) return;
             const type = document.getElementById('fType').value;
-            await _db.from(type.toLowerCase() + 's').delete().eq('id', document.getElementById('fId').value);
+            const id = document.getElementById('fId').value;
+            await _db.from(type.toLowerCase() + 's').delete().eq('id', id);
             await logic.sync();
             document.getElementById('adminFormArea').classList.add('hidden');
             if (type === 'LECTURE') { activeLectureId = null; window.ui.loadAdminLectures(currentUnitId); }
             else if (type === 'VIDEO') window.ui.selectAdminLecture(currentUnitId, activeLectureId);
-            else { currentUnitId = null; window.ui.renderAdminUnits(); }
+            else { 
+                currentUnitId = null; 
+                document.getElementById('adminUnitSelect').value = "";
+                window.ui.renderAdminUnits(); 
+                document.getElementById('adminLectureList').innerHTML = "";
+                document.getElementById('adminIdle').classList.remove('hidden');
+            }
         };
 
         document.getElementById('openAdmin').onclick = () => { utils.haptic(); document.getElementById('adminModal').classList.remove('hidden'); };
