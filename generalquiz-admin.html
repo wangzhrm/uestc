@@ -3,19 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Teacher Admin Panel</title>
+  <title>Teacher Admin Panel (Timer + Dynamic)</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
     :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --bg: #f8f9fa; --card-bg: #ffffff; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: #2d3436; margin: 0; padding: 10px; }
     .container { max-width: 800px; margin: 0 auto; }
-    header { background: var(--card-bg); padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    header { background: var(--card-bg); padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .section { background: var(--card-bg); margin-bottom: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     h2 { font-size: 1.1rem; margin-top: 0; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
     button { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 14px; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-outline { background: #f1f2f6; color: #2d3436; border: 1px solid #dfe6e9; }
-    .answer-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    
+    /* Timer Style */
+    #timerDisplay { font-family: 'Courier New', Courier, monospace; font-size: 1.4rem; color: var(--danger); font-weight: bold; background: #eee; padding: 5px 12px; border-radius: 8px; min-width: 80px; text-align: center; }
+
+    .answer-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; }
     .answer-buttons button { font-size: 18px; padding: 15px; background: white; border: 2px solid #dfe6e9; }
     .answer-buttons button.correct { background: var(--success) !important; color: white; border-color: var(--success); }
     .answer-buttons button.incorrect { background: #fdf2f2; color: var(--danger); border-color: #fadbd8; }
@@ -36,26 +40,33 @@
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
     #bottomActions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+    .config-group { display: flex; align-items: center; gap: 10px; }
+    select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>Admin Panel</h1>
-      <div>
+      <div id="timerDisplay">00:00</div>
+      <div class="config-group">
+        <label>Options:</label>
+        <select id="optionCount">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+        </select>
         <button class="btn-primary" onclick="startQuiz()">Start Quiz</button>
         <button class="btn-outline" onclick="nextQuestion()">Next Question</button>
       </div>
     </header>
 
+    <!-- The rest of your HTML sections remain the same -->
     <div class="section">
       <h2>Set Correct Answer</h2>
-      <div class="answer-buttons">
-        <button id="btn-A" onclick="setCorrectAnswer('A')">A</button>
-        <button id="btn-B" onclick="setCorrectAnswer('B')">B</button>
-        <button id="btn-C" onclick="setCorrectAnswer('C')">C</button>
-        <button id="btn-D" onclick="setCorrectAnswer('D')">D</button>
-      </div>
+      <div class="answer-buttons" id="adminAnswerButtons"></div>
     </div>
 
     <div class="section">
@@ -73,10 +84,7 @@
 
     <div class="section" id="perOptionLists" style="display:none;">
       <h2>Choices Breakdown</h2>
-      <div id="optionA" class="option-box"></div>
-      <div id="optionB" class="option-box"></div>
-      <div id="optionC" class="option-box"></div>
-      <div id="optionD" class="option-box"></div>
+      <div id="breakdownContainer"></div>
     </div>
 
     <div id="finalResults" style="display:none;" class="section">
@@ -100,6 +108,25 @@
       serverURL: "https://uvbvhboktemrfzh62izq45on.lc-cn-n1-shared.com"
     });
 
+    let startTime;
+    let timerInterval;
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const totalSeconds = Math.floor(elapsed / 1000);
+        const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        const secs = (totalSeconds % 60).toString().padStart(2, '0');
+        document.getElementById("timerDisplay").textContent = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
     async function refresh() {
       try {
         const sQuery = new AV.Query('QuizSession');
@@ -109,16 +136,21 @@
         const idx = session.get('currentQuestionIndex') || 0;
         const correctAns = session.get('correctAnswer');
         const showResults = session.get('showResults');
+        const totalOpts = session.get('totalOptions') || 4;
+        
         document.getElementById("questionIndex").textContent = idx + 1;
+        const letters = Array.from({length: totalOpts}, (_, i) => String.fromCharCode(65 + i));
 
-        // UI for buttons
-        ['A','B','C','D'].forEach(opt => {
-          const btn = document.getElementById("btn-"+opt);
-          btn.classList.remove('correct', 'incorrect');
+        const adminBtnGroup = document.getElementById("adminAnswerButtons");
+        adminBtnGroup.innerHTML = '';
+        letters.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.textContent = opt;
+          btn.onclick = () => setCorrectAnswer(opt);
           if(correctAns) {
-            if(opt === correctAns) btn.classList.add('correct');
-            else btn.classList.add('incorrect');
+            btn.classList.add(opt === correctAns ? 'correct' : 'incorrect');
           }
+          adminBtnGroup.appendChild(btn);
         });
 
         const rQuery = new AV.Query('StudentResponse');
@@ -126,7 +158,8 @@
         document.getElementById("totalStudents").textContent = responses.length;
 
         let subHTML = "<h3>Submitted:</h3><ul>", notSubHTML = "<h3>Waiting:</h3><ul>", subCount = 0;
-        let breakdown = {A:[], B:[], C:[], D:[]};
+        let breakdown = {};
+        letters.forEach(l => breakdown[l] = []);
 
         responses.forEach(r => {
           const name = r.get('studentName') || 'Anon';
@@ -138,9 +171,9 @@
           const warn = switches > 0 ? `<span class="switch-warn">⚠️${switches}</span>` : '';
           const info = `<li>${name} ${badge} ${warn}</li>`;
 
-          if(ans) {
+          if(ans && letters.includes(ans)) {
             subCount++; subHTML += info;
-            if(breakdown[ans]) breakdown[ans].push(info);
+            breakdown[ans].push(info);
           } else {
             notSubHTML += info;
           }
@@ -150,23 +183,37 @@
         document.getElementById("submittedList").innerHTML = subHTML + "</ul>";
         document.getElementById("notSubmittedList").innerHTML = notSubHTML + "</ul>";
 
-        // Breakdown
+        const breakContainer = document.getElementById("breakdownContainer");
         document.getElementById("perOptionLists").style.display = showResults ? "block" : "none";
         if(showResults) {
-          ['A','B','C','D'].forEach(opt => {
-            const box = document.getElementById("option"+opt);
+          stopTimer(); // Stop timer when answer is set
+          breakContainer.innerHTML = '';
+          letters.forEach(opt => {
+            const box = document.createElement('div');
             box.className = "option-box " + (opt === correctAns ? "option-correct" : "option-incorrect");
             box.innerHTML = `<strong>Option ${opt} (${breakdown[opt].length}):</strong><ul>${breakdown[opt].join("")}</ul>`;
+            breakContainer.appendChild(box);
           });
         }
       } catch(e) { console.error(e); }
     }
 
     async function startQuiz() {
+      const count = parseInt(document.getElementById("optionCount").value);
       const q = new AV.Query('QuizSession');
       let s = await q.first();
-      s.set('isActive', true); s.set('showResults', false); s.set('correctAnswer', null);
-      await s.save(); refresh();
+      if(!s) {
+        const QuizSession = AV.Object.extend('QuizSession');
+        s = new QuizSession();
+      }
+      s.set('isActive', true); 
+      s.set('showResults', false); 
+      s.set('correctAnswer', null);
+      s.set('totalOptions', count);
+      s.set('currentQuestionIndex', 0);
+      await s.save(); 
+      startTimer();
+      refresh();
     }
 
     async function setCorrectAnswer(ans) {
@@ -193,10 +240,13 @@
       let s = await q.first();
       s.increment('currentQuestionIndex', 1);
       s.set('showResults', false); s.set('correctAnswer', null);
-      await s.save(); refresh();
+      await s.save(); 
+      startTimer();
+      refresh();
     }
 
     async function finishQuiz() {
+      stopTimer();
       const rQuery = new AV.Query('StudentResponse');
       const resps = await rQuery.find();
       const sQuery = new AV.Query('QuizSession');
@@ -215,6 +265,7 @@
 
     async function removeAllData() {
       if(!confirm("Reset everything?")) return;
+      stopTimer();
       const resps = await new AV.Query('StudentResponse').limit(1000).find();
       await AV.Object.destroyAll(resps);
       const s = await new AV.Query('QuizSession').first();
