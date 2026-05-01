@@ -3,45 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Teacher Admin Panel (Timer + Dynamic)</title>
+  <title>Teacher Admin Panel (Matrix Mode)</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
     :root { --primary: #4a90e2; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; --bg: #f8f9fa; --card-bg: #ffffff; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: #2d3436; margin: 0; padding: 10px; }
-    .container { max-width: 800px; margin: 0 auto; }
+    .container { max-width: 900px; margin: 0 auto; }
     header { background: var(--card-bg); padding: 15px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .section { background: var(--card-bg); margin-bottom: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     h2 { font-size: 1.1rem; margin-top: 0; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
     button { padding: 10px 18px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 14px; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-outline { background: #f1f2f6; color: #2d3436; border: 1px solid #dfe6e9; }
-    
-    /* Timer Style */
-    #timerDisplay { font-family: 'Courier New', Courier, monospace; font-size: 1.4rem; color: var(--danger); font-weight: bold; background: #eee; padding: 5px 12px; border-radius: 8px; min-width: 80px; text-align: center; }
-
-    .answer-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; }
+    #timerDisplay { font-family: 'Courier New', monospace; font-size: 1.4rem; color: var(--danger); font-weight: bold; background: #eee; padding: 5px 12px; border-radius: 8px; }
+    .answer-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; }
     .answer-buttons button { font-size: 18px; padding: 15px; background: white; border: 2px solid #dfe6e9; }
     .answer-buttons button.correct { background: var(--success) !important; color: white; border-color: var(--success); }
     .answer-buttons button.incorrect { background: #fdf2f2; color: var(--danger); border-color: #fadbd8; }
+    
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
     .stat-item { background: var(--bg); padding: 10px; border-radius: 8px; text-align: center; }
     .stat-label { font-size: 12px; color: #636e72; display: block; }
     .stat-val { font-size: 18px; font-weight: bold; }
-    .student-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    .list-box h3 { font-size: 14px; margin-top: 0; color: #636e72; }
-    ul { padding-left: 20px; }
-    .status-badge { font-size: 10px; padding: 2px 5px; border-radius: 4px; font-weight: bold; margin-left: 5px; }
-    .status-online { background: #e8f5e9; color: #27ae60; }
-    .status-away { background: #fff3e0; color: #e67e22; }
-    .switch-warn { color: var(--danger); font-weight: bold; margin-left: 5px; }
-    .option-box { padding: 12px; margin: 8px 0; border-radius: 8px; font-size: 14px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { padding: 12px; text-align: center; border: 1px solid #eee; }
+    th { background-color: #f1f2f6; }
+
+    /* Matrix Colors */
+    .cell-correct { background-color: #e8f5e9; color: #27ae60; font-weight: bold; }
+    .cell-incorrect { background-color: #ffebee; color: #e74c3c; font-weight: bold; }
+    .cell-empty { background-color: #f5f5f5; color: #999; }
+
+    .option-box { padding: 10px; margin: 5px 0; border-radius: 8px; }
     .option-correct { background-color: #e8f5e9; border-left: 5px solid var(--success); }
     .option-incorrect { background-color: #fff5f5; border-left: 5px solid #fab1a0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+    
     #bottomActions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
     .config-group { display: flex; align-items: center; gap: 10px; }
-    select { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+    select { padding: 8px; border-radius: 6px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -53,32 +54,29 @@
         <label>Options:</label>
         <select id="optionCount">
           <option value="2">2</option>
-          <option value="3">3</option>
           <option value="4" selected>4</option>
           <option value="5">5</option>
-          <option value="6">6</option>
         </select>
         <button class="btn-primary" onclick="startQuiz()">Start Quiz</button>
         <button class="btn-outline" onclick="nextQuestion()">Next Question</button>
       </div>
     </header>
 
-    <!-- The rest of your HTML sections remain the same -->
     <div class="section">
       <h2>Set Correct Answer</h2>
       <div class="answer-buttons" id="adminAnswerButtons"></div>
     </div>
 
     <div class="section">
-      <h2>Live Responses</h2>
+      <h2>Live Status</h2>
       <div class="stats-grid">
         <div class="stat-item"><span class="stat-label">Q</span><span class="stat-val" id="questionIndex">0</span></div>
         <div class="stat-item"><span class="stat-label">Students</span><span class="stat-val" id="totalStudents">0</span></div>
         <div class="stat-item"><span class="stat-label">Sub</span><span class="stat-val" id="submittedCount">0</span></div>
       </div>
-      <div class="student-lists">
-        <div class="list-box" id="submittedList"></div>
-        <div class="list-box" id="notSubmittedList"></div>
+      <div class="student-lists" style="display: flex; gap: 20px;">
+        <div id="submittedList" style="flex:1;"></div>
+        <div id="notSubmittedList" style="flex:1;"></div>
       </div>
     </div>
 
@@ -87,12 +85,24 @@
       <div id="breakdownContainer"></div>
     </div>
 
-    <div id="finalResults" style="display:none;" class="section">
+    <!-- Results Summary Section -->
+    <div id="finalResults" class="section hidden">
       <h2>Final Summary</h2>
       <table>
         <thead><tr><th>Name</th><th>⚠️</th><th>✅</th><th>❌</th><th>Rate</th></tr></thead>
         <tbody id="finalTable"></tbody>
       </table>
+      
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button class="btn-primary" onclick="generateMatrix()">Show Detailed Matrix</button>
+      </div>
+
+      <div id="matrixContainer" class="hidden" style="margin-top:20px; overflow-x: auto;">
+        <h2>Student Performance Matrix</h2>
+        <table id="matrixTable">
+          <!-- Dynamically Generated -->
+        </table>
+      </div>
     </div>
 
     <div id="bottomActions">
@@ -108,23 +118,17 @@
       serverURL: "https://uvbvhboktemrfzh62izq45on.lc-cn-n1-shared.com"
     });
 
-    let startTime;
-    let timerInterval;
+    let startTime, timerInterval;
 
     function startTimer() {
       clearInterval(timerInterval);
       startTime = Date.now();
       timerInterval = setInterval(() => {
         const elapsed = Date.now() - startTime;
-        const totalSeconds = Math.floor(elapsed / 1000);
-        const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const secs = (totalSeconds % 60).toString().padStart(2, '0');
-        document.getElementById("timerDisplay").textContent = `${mins}:${secs}`;
+        const s = Math.floor(elapsed / 1000);
+        document.getElementById("timerDisplay").textContent = 
+          `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
       }, 1000);
-    }
-
-    function stopTimer() {
-      clearInterval(timerInterval);
     }
 
     async function refresh() {
@@ -147,84 +151,57 @@
           const btn = document.createElement('button');
           btn.textContent = opt;
           btn.onclick = () => setCorrectAnswer(opt);
-          if(correctAns) {
-            btn.classList.add(opt === correctAns ? 'correct' : 'incorrect');
-          }
+          if(correctAns) btn.classList.add(opt === correctAns ? 'correct' : 'incorrect');
           adminBtnGroup.appendChild(btn);
         });
 
-        const rQuery = new AV.Query('StudentResponse');
-        const responses = await rQuery.find();
+        const responses = await new AV.Query('StudentResponse').find();
         document.getElementById("totalStudents").textContent = responses.length;
 
-        let subHTML = "<h3>Submitted:</h3><ul>", notSubHTML = "<h3>Waiting:</h3><ul>", subCount = 0;
-        let breakdown = {};
-        letters.forEach(l => breakdown[l] = []);
+        let subCount = 0, subH = "<b>Sub:</b><ul>", notH = "<b>Wait:</b><ul>";
+        let breakdown = {}; letters.forEach(l => breakdown[l] = []);
 
         responses.forEach(r => {
           const name = r.get('studentName') || 'Anon';
-          const switches = r.get('tabSwitches') || 0;
-          const status = r.get('presenceStatus') || 'Away';
           const ans = (r.get('answers') || [])[idx];
-
-          const badge = `<span class="status-badge ${status === 'Live' ? 'status-online' : 'status-away'}">${status}</span>`;
-          const warn = switches > 0 ? `<span class="switch-warn">⚠️${switches}</span>` : '';
-          const info = `<li>${name} ${badge} ${warn}</li>`;
-
-          if(ans && letters.includes(ans)) {
-            subCount++; subHTML += info;
-            breakdown[ans].push(info);
-          } else {
-            notSubHTML += info;
-          }
+          const info = `<li>${name}</li>`;
+          if(ans) { subCount++; subH += info; breakdown[ans]?.push(info); } 
+          else { notH += info; }
         });
 
         document.getElementById("submittedCount").textContent = subCount;
-        document.getElementById("submittedList").innerHTML = subHTML + "</ul>";
-        document.getElementById("notSubmittedList").innerHTML = notSubHTML + "</ul>";
+        document.getElementById("submittedList").innerHTML = subH + "</ul>";
+        document.getElementById("notSubmittedList").innerHTML = notH + "</ul>";
 
-        const breakContainer = document.getElementById("breakdownContainer");
-        document.getElementById("perOptionLists").style.display = showResults ? "block" : "none";
         if(showResults) {
-          stopTimer(); // Stop timer when answer is set
-          breakContainer.innerHTML = '';
+          clearInterval(timerInterval);
+          document.getElementById("perOptionLists").style.display = "block";
+          const cont = document.getElementById("breakdownContainer");
+          cont.innerHTML = '';
           letters.forEach(opt => {
             const box = document.createElement('div');
             box.className = "option-box " + (opt === correctAns ? "option-correct" : "option-incorrect");
-            box.innerHTML = `<strong>Option ${opt} (${breakdown[opt].length}):</strong><ul>${breakdown[opt].join("")}</ul>`;
-            breakContainer.appendChild(box);
+            box.innerHTML = `Option ${opt} (${breakdown[opt].length})`;
+            cont.appendChild(box);
           });
         }
       } catch(e) { console.error(e); }
     }
 
     async function startQuiz() {
-      const count = parseInt(document.getElementById("optionCount").value);
-      const q = new AV.Query('QuizSession');
-      let s = await q.first();
-      if(!s) {
-        const QuizSession = AV.Object.extend('QuizSession');
-        s = new QuizSession();
-      }
-      s.set('isActive', true); 
-      s.set('showResults', false); 
-      s.set('correctAnswer', null);
-      s.set('totalOptions', count);
-      s.set('currentQuestionIndex', 0);
-      await s.save(); 
-      startTimer();
-      refresh();
+      const q = await new AV.Query('QuizSession').first();
+      q.set('isActive', true); q.set('showResults', false); q.set('correctAnswer', null);
+      q.set('totalOptions', parseInt(document.getElementById("optionCount").value));
+      q.set('currentQuestionIndex', 0);
+      await q.save(); startTimer(); refresh();
     }
 
     async function setCorrectAnswer(ans) {
-      const q = new AV.Query('QuizSession');
-      let s = await q.first();
-      const idx = s.get('currentQuestionIndex') || 0;
-      s.set('correctAnswer', ans); s.set('showResults', true);
-      await s.save();
-      
-      const rQuery = new AV.Query('StudentResponse');
-      const resps = await rQuery.find();
+      const q = await new AV.Query('QuizSession').first();
+      const idx = q.get('currentQuestionIndex');
+      q.set('correctAnswer', ans); q.set('showResults', true);
+      await q.save();
+      const resps = await new AV.Query('StudentResponse').find();
       for (let r of resps) {
         let isC = r.get('isCorrect') || [];
         while(isC.length <= idx) isC.push(null);
@@ -236,42 +213,65 @@
     }
 
     async function nextQuestion() {
-      const q = new AV.Query('QuizSession');
-      let s = await q.first();
-      s.increment('currentQuestionIndex', 1);
-      s.set('showResults', false); s.set('correctAnswer', null);
-      await s.save(); 
-      startTimer();
-      refresh();
+      const q = await new AV.Query('QuizSession').first();
+      q.increment('currentQuestionIndex', 1);
+      q.set('showResults', false); q.set('correctAnswer', null);
+      await q.save(); startTimer(); refresh();
     }
 
     async function finishQuiz() {
-      stopTimer();
-      const rQuery = new AV.Query('StudentResponse');
-      const resps = await rQuery.find();
-      const sQuery = new AV.Query('QuizSession');
-      const session = await sQuery.first();
+      clearInterval(timerInterval);
+      const resps = await new AV.Query('StudentResponse').find();
+      const session = await new AV.Query('QuizSession').first();
       const total = (session.get('currentQuestionIndex') || 0) + 1;
       
       let html = "";
       resps.forEach(r => {
-        const correctCount = (r.get('isCorrect') || []).filter(v => v === true).length;
-        const rate = total > 0 ? ((correctCount/total)*100).toFixed(1) : 0;
-        html += `<tr><td>${r.get('studentName')}</td><td>${r.get('tabSwitches')}</td><td>${correctCount}</td><td>${total-correctCount}</td><td>${rate}%</td></tr>`;
+        const correct = (r.get('isCorrect') || []).filter(v => v === true).length;
+        html += `<tr><td>${r.get('studentName')}</td><td>${r.get('tabSwitches')}</td><td>${correct}</td><td>${total-correct}</td><td>${((correct/total)*100).toFixed(0)}%</td></tr>`;
       });
       document.getElementById("finalTable").innerHTML = html;
-      document.getElementById("finalResults").style.display = "block";
+      document.getElementById("finalResults").classList.remove("hidden");
+    }
+
+    async function generateMatrix() {
+      const resps = await new AV.Query('StudentResponse').find();
+      const session = await new AV.Query('QuizSession').first();
+      const totalQuestions = (session.get('currentQuestionIndex') || 0) + 1;
+      const table = document.getElementById("matrixTable");
+      
+      // Header: Names
+      let header = `<tr><th>Q\\Name</th>`;
+      resps.forEach(r => header += `<th>${r.get('studentName')}</th>`);
+      header += `</tr>`;
+
+      // Rows: Question Numbers
+      let rows = "";
+      for (let i = 0; i < totalQuestions; i++) {
+        rows += `<tr><td><b>Q${i + 1}</b></td>`;
+        resps.forEach(r => {
+          const isCorrect = (r.get('isCorrect') || [])[i];
+          const ans = (r.get('answers') || [])[i] || "-";
+          let cls = "cell-empty";
+          if (isCorrect === true) cls = "cell-correct";
+          else if (isCorrect === false) cls = "cell-incorrect";
+          rows += `<td class="${cls}">${ans}</td>`;
+        });
+        rows += `</tr>`;
+      }
+
+      table.innerHTML = header + rows;
+      document.getElementById("matrixContainer").classList.remove("hidden");
+      document.getElementById("matrixContainer").scrollIntoView({ behavior: 'smooth' });
     }
 
     async function removeAllData() {
-      if(!confirm("Reset everything?")) return;
-      stopTimer();
+      if(!confirm("Reset?")) return;
       const resps = await new AV.Query('StudentResponse').limit(1000).find();
       await AV.Object.destroyAll(resps);
       const s = await new AV.Query('QuizSession').first();
       s.set('currentQuestionIndex', 0); s.set('isActive', false); s.set('showResults', false);
-      await s.save();
-      location.reload();
+      await s.save(); location.reload();
     }
 
     setInterval(refresh, 3000);
