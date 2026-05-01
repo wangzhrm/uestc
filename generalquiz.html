@@ -3,112 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Quiz</title>
+  <title>Student Quiz (Dynamic)</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
   <style>
-    :root {
-      --primary-color: #4a90e2;
-      --success-color: #27ae60;
-      --error-color: #e74c3c;
-      --bg-color: #f4f7f9;
-      --card-bg: #ffffff;
-      --text-main: #2d3436;
-    }
-
-    body {
-      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      width: 90%;
-      max-width: 400px;
-      background: var(--card-bg);
-      padding: 30px 25px;
-      border-radius: 20px;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-      transition: filter 0.3s ease;
-    }
-
-    .blurred {
-      filter: blur(8px);
-      pointer-events: none;
-    }
-
-    h1 {
-      font-size: 22px;
-      margin-bottom: 20px;
-      color: var(--primary-color);
-    }
-
-    #nameForm input {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 15px;
-      border: 1px solid #dfe6e9;
-      border-radius: 10px;
-      font-size: 16px;
-      box-sizing: border-box;
-    }
-
-    button {
-      width: 100%;
-      padding: 16px;
-      margin-bottom: 12px;
-      font-size: 18px;
-      font-weight: 600;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    #nameForm button {
-      background-color: var(--primary-color);
-      color: white;
-      margin-top: 10px;
-    }
-
-    #answerButtons {
-      display: flex;
-      flex-direction: column;
-      margin-top: 20px;
-    }
-
-    #answerButtons button {
-      background-color: white;
-      border: 2px solid #edf2f7;
-      color: var(--text-main);
-      text-align: center;
-    }
-
-    #answerButtons button:active {
-      transform: scale(0.98);
-      background-color: #f1f5f9;
-      border-color: var(--primary-color);
-    }
-
-    #status {
-      margin: 15px 0;
-      font-size: 16px;
-      line-height: 1.4;
-      color: #636e72;
-    }
-
-    #resultMessage {
-      margin-top: 15px;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: bold;
-    }
-
+    :root { --primary-color: #4a90e2; --success-color: #27ae60; --error-color: #e74c3c; --bg-color: #f4f7f9; --card-bg: #ffffff; --text-main: #2d3436; }
+    body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .container { width: 90%; max-width: 400px; background: var(--card-bg); padding: 30px 25px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); transition: filter 0.3s ease; }
+    .blurred { filter: blur(8px); pointer-events: none; }
+    h1 { font-size: 22px; margin-bottom: 20px; color: var(--primary-color); text-align: center; }
+    #nameForm input { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #dfe6e9; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+    button { width: 100%; padding: 16px; margin-bottom: 12px; font-size: 18px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; }
+    #nameForm button { background-color: var(--primary-color); color: white; margin-top: 10px; }
+    #answerButtons { display: flex; flex-direction: column; margin-top: 20px; }
+    #answerButtons button { background-color: white; border: 2px solid #edf2f7; color: var(--text-main); }
+    #answerButtons button:active { transform: scale(0.98); background-color: #f1f5f9; border-color: var(--primary-color); }
+    #status { margin: 15px 0; font-size: 16px; line-height: 1.4; color: #636e72; text-align: center; }
+    #resultMessage { margin-top: 15px; padding: 15px; border-radius: 12px; font-weight: bold; text-align: center; }
     .correct { color: var(--success-color); background: #e8f5e9; }
     .incorrect { color: var(--error-color); background: #ffebee; }
     .hidden { display: none !important; }
@@ -126,14 +36,7 @@
     </div>
 
     <div id="status" class="hidden">Connecting to quiz...</div>
-
-    <div id="answerButtons" class="hidden">
-      <button onclick="submitAnswer('A')">Option A</button>
-      <button onclick="submitAnswer('B')">Option B</button>
-      <button onclick="submitAnswer('C')">Option C</button>
-      <button onclick="submitAnswer('D')">Option D</button>
-    </div>
-
+    <div id="answerButtons" class="hidden"></div>
     <div id="resultMessage"></div>
   </div>
 
@@ -146,14 +49,10 @@
 
     let studentName = "";
     let currentQuestionIndex = -1;
-    let correctAnswer = null;
-    let showResults = false;
 
-    // --- EVENT-DRIVEN MONITORING ---
     document.addEventListener("visibilitychange", async () => {
       if (!studentName) return;
       const container = document.getElementById("quizContainer");
-      
       try {
         const query = new AV.Query('StudentResponse');
         query.equalTo('studentName', studentName);
@@ -163,79 +62,84 @@
             container.classList.add("blurred");
             obj.set('presenceStatus', 'Away');
             obj.increment('tabSwitches', 1);
-            await obj.save();
           } else {
             container.classList.remove("blurred");
             obj.set('presenceStatus', 'Live');
-            await obj.save();
           }
+          await obj.save();
         }
-      } catch (err) { console.error("Monitor Error:", err); }
+      } catch (err) { console.error(err); }
     });
 
     async function submitName() {
       const name = document.getElementById("studentName").value.trim();
-      if (!name) { alert("Please enter your name."); return; }
+      if (!name) return;
       studentName = name;
       document.getElementById("nameForm").classList.add("hidden");
-      const statusDiv = document.getElementById("status");
-      statusDiv.classList.remove("hidden");
-      statusDiv.innerHTML = "✅ Welcome <b>" + studentName + "</b>!<br>Waiting for the first question...";
+      document.getElementById("status").classList.remove("hidden");
+      document.getElementById("status").innerHTML = "✅ Welcome <b>" + studentName + "</b>!<br>Waiting for teacher...";
       await registerStudent();
       pollQuizStatus();
     }
 
     async function registerStudent() {
-      try {
-        const query = new AV.Query('StudentResponse');
-        query.equalTo('studentName', studentName);
-        const results = await query.find();
-        if (results.length === 0) {
-          const StudentResponse = AV.Object.extend('StudentResponse');
-          const obj = new StudentResponse();
-          obj.set('studentName', studentName);
-          obj.set('answers', []);
-          obj.set('isCorrect', []);
-          obj.set('tabSwitches', 0);
-          obj.set('presenceStatus', 'Live');
-          await obj.save();
-        }
-      } catch (err) { console.error("Error:", err); }
+      const query = new AV.Query('StudentResponse');
+      query.equalTo('studentName', studentName);
+      const existing = await query.first();
+      if (!existing) {
+        const StudentResponse = AV.Object.extend('StudentResponse');
+        const obj = new StudentResponse();
+        obj.set('studentName', studentName);
+        obj.set('answers', []);
+        obj.set('isCorrect', []);
+        obj.set('tabSwitches', 0);
+        obj.set('presenceStatus', 'Live');
+        await obj.save();
+      }
     }
 
     async function pollQuizStatus() {
       try {
         const query = new AV.Query('QuizSession');
         const session = await query.first();
-        if (!session) {
-          setTimeout(pollQuizStatus, 2000);
-          return;
-        }
+        if (!session) return setTimeout(pollQuizStatus, 2000);
 
         const isActive = session.get('isActive');
         const idx = session.get('currentQuestionIndex') || 0;
-        correctAnswer = session.get('correctAnswer');
-        showResults = session.get('showResults');
+        const totalOpts = session.get('totalOptions') || 4;
+        const correctAns = session.get('correctAnswer');
+        const showRes = session.get('showResults');
 
+        // New Question Detected
         if (isActive && idx !== currentQuestionIndex) {
           currentQuestionIndex = idx;
           document.getElementById("status").innerHTML = "❓ <b>Question " + (idx + 1) + "</b><br>Choose your answer:";
-          document.getElementById("answerButtons").classList.remove("hidden");
+          const btnGroup = document.getElementById("answerButtons");
+          btnGroup.innerHTML = '';
+          btnGroup.classList.remove("hidden");
+          
+          for(let i=0; i<totalOpts; i++) {
+            const letter = String.fromCharCode(65 + i);
+            const btn = document.createElement('button');
+            btn.textContent = "Option " + letter;
+            btn.onclick = () => submitAnswer(letter);
+            btnGroup.appendChild(btn);
+          }
           document.getElementById("resultMessage").textContent = "";
           document.getElementById("resultMessage").className = "";
         }
 
-        if (showResults && correctAnswer !== undefined) {
+        // Show Results Mode
+        if (showRes && correctAns) {
           const respQuery = new AV.Query('StudentResponse');
           respQuery.equalTo('studentName', studentName);
           const resp = await respQuery.first();
           if (resp) {
-            const answers = resp.get('answers') || [];
-            const myAnswer = answers[idx];
-            if (myAnswer !== undefined && myAnswer !== null) {
-              const isRight = (myAnswer === correctAnswer);
+            const myAns = (resp.get('answers') || [])[idx];
+            if (myAns) {
+              const isRight = (myAns === correctAns);
               const msgDiv = document.getElementById("resultMessage");
-              msgDiv.textContent = isRight ? "✅ Correct!" : `❌ Incorrect. Correct: ${correctAnswer}`;
+              msgDiv.textContent = isRight ? "✅ Correct!" : `❌ Incorrect. Correct: ${correctAns}`;
               msgDiv.className = isRight ? "correct" : "incorrect";
               document.getElementById("answerButtons").classList.add("hidden");
             }
@@ -260,7 +164,7 @@
 
         document.getElementById("answerButtons").classList.add("hidden");
         document.getElementById("status").textContent = "📤 Answer sent! Waiting for teacher...";
-      } catch (err) { alert("Failed to submit."); }
+      } catch (err) { alert("Submission failed."); }
     }
   </script>
 </body>
