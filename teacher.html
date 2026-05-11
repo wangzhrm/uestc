@@ -6,90 +6,19 @@
 <title>Teaching Calendar & OT Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
 <style>
-  /* Base Reset & Layout */
   * { box-sizing: border-box; }
-  body { 
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; 
-    background: #f4f7f6; 
-    padding: 20px; 
-    max-width: 1000px; 
-    margin: auto; 
-    color: #333; 
-    line-height: 1.5;
-  }
-
+  body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #f4f7f6; padding: 20px; max-width: 1000px; margin: auto; color: #333; }
   .header-container { text-align: center; margin-bottom: 20px; }
-  
-  .ot-balance { 
-    font-size: 1.1rem; 
-    color: #2a9d8f; 
-    font-weight: bold; 
-    background: white; 
-    display: inline-block; 
-    padding: 8px 20px; 
-    border-radius: 50px; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-    border: 2px solid #2a9d8f;
-    max-width: 100%;
-  }
-
-  .nav { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 15px; 
-    gap: 10px;
-  }
-  
-  /* Calendar Layout */
-  .calendar { 
-    display: grid; 
-    grid-template-columns: repeat(7, 1fr); 
-    gap: 4px; 
-    width: 100%;
-  }
-  
-  .day-header { 
-    text-align: center; 
-    font-weight: bold; 
-    background: #34495e; 
-    color: white; 
-    padding: 10px 2px; 
-    border-radius: 4px; 
-    font-size: 0.8rem;
-  }
-
-  .date-cell { 
-    background: white; 
-    border: 1px solid #ddd; 
-    min-height: 100px; 
-    padding: 4px; 
-    cursor: pointer; 
-    border-radius: 4px; 
-    transition: 0.2s; 
-    position: relative; 
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  
+  .ot-balance { font-size: 1.1rem; color: #2a9d8f; font-weight: bold; background: white; display: inline-block; padding: 8px 20px; border-radius: 50px; border: 2px solid #2a9d8f; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .day-header { text-align: center; font-weight: bold; background: #34495e; color: white; padding: 10px 2px; border-radius: 4px; font-size: 0.8rem; }
+  .date-cell { background: white; border: 1px solid #ddd; min-height: 100px; padding: 4px; cursor: pointer; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; transition: 0.2s; }
   .date-cell:hover { border-color: #2a9d8f; background: #f0fdfa; }
-  .other-month { background: #ececec; cursor: default; }
   .date-number { font-weight: bold; font-size: 0.9em; color: #7f8c8d; margin-bottom: 4px; }
   
-  /* Tags & Indicators */
-  .class-summary { flex-grow: 1; overflow-y: hidden; }
-  .tag { 
-    display: block; 
-    padding: 2px 4px; 
-    border-radius: 3px; 
-    margin-bottom: 2px; 
-    color: white; 
-    font-size: 0.75em; 
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-  }
+  /* Class Color Tags */
+  .tag { display: block; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; color: white; font-size: 0.75em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
   .tag-0 { background-color: #3498db; }
   .tag-1 { background-color: #9b59b6; }
   .tag-2 { background-color: #f1c40f; color: #333; }
@@ -97,88 +26,24 @@
   .tag-4 { background-color: #1abc9c; }
   .tag-default { background-color: #95a5a6; }
 
-  .ot-indicator { 
-    font-size: 0.7em; 
-    margin-top: auto; 
-    border-top: 1px solid #eee; 
-    padding-top: 2px; 
-    display: flex;
-    justify-content: space-between;
-  }
-  .text-ot { color: #2a9d8f; font-weight: bold; }
+  /* OT/TO Indicators */
+  .ot-indicator { font-size: 0.7em; margin-top: auto; border-top: 1px solid #eee; padding-top: 2px; display: flex; justify-content: space-between; }
+  .text-ot { color: #2a9d8f; font-weight: bold; margin-right: 4px; }
   .text-to { color: #e63946; font-weight: bold; }
-  .spent-ot { text-decoration: line-through; opacity: 0.4; }
 
-  /* Modal */
-  .modal { 
-    display: none; 
-    position: fixed; 
-    inset: 0; 
-    background: rgba(0,0,0,0.7); 
-    z-index: 1000; 
-    padding: 15px;
-    overflow-y: auto;
-  }
-  .modal-content { 
-    background: white; 
-    margin: 10px auto; 
-    padding: 20px; 
-    width: 100%;
-    max-width: 450px; 
-    border-radius: 12px; 
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-  }
-
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-  td, th { padding: 8px 4px; border: 1px solid #eee; text-align: center; font-size: 0.9rem; }
-  select, input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-  
-  .ot-inputs { 
-    background: #f9f9f9; 
-    padding: 12px; 
-    border-radius: 8px; 
-    margin-top: 15px; 
-    display: flex; 
-    gap: 10px; 
-    border: 1px solid #eee; 
-  }
-  .ot-inputs div { flex: 1; }
-  .ot-inputs label { font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 5px; color: #666; }
-  
-  .ledger-info { background: #e0f2f1; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.8rem; color: #004d40; border: 1px solid #b2dfdb; }
-  
-  .modal-footer { text-align: right; margin-top: 20px; display: flex; justify-content: flex-end; }
-  button { padding: 10px 18px; cursor: pointer; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; }
-  .btn-save { background: #2a9d8f; color: white; flex: 1; }
-  .btn-cancel { background: #ecf0f1; color: #7f8c8d; margin-left: 10px; }
-
-  .summary-box { background: white; padding: 15px; border-radius: 12px; margin-top: 30px; border: 1px solid #ddd; overflow-x: auto; }
-
-  /* Mobile Adjustments */
-  @media (max-width: 600px) {
-    body { padding: 10px; }
-    h1 { font-size: 1.3rem; }
-    .date-cell { min-height: 70px; }
-    .day-header { font-size: 0.7rem; padding: 5px 0; }
-    .tag { font-size: 0.65em; }
-    .full-name { display: none; }
-    .short-name { display: inline; }
-    .ot-balance { font-size: 0.9rem; width: 100%; border-radius: 8px; }
-    .ot-inputs { flex-direction: row; }
-    button { padding: 12px; }
-  }
-
-  @media (min-width: 601px) {
-    .full-name { display: inline; }
-    .short-name { display: none; }
-  }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; padding: 15px; }
+  .modal-content { background: white; margin: auto; padding: 20px; max-width: 450px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+  .btn-switch { background: #34495e; color: white; padding: 15px; border-radius: 8px; border: none; cursor: pointer; width: 100%; margin-top: 20px; font-weight: bold; font-size: 1rem; }
+  .summary-box { background: white; padding: 15px; border-radius: 12px; margin-top: 25px; border: 1px solid #ddd; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px; border: 1px solid #eee; text-align: center; }
 </style>
 </head>
 <body>
 
 <div class="header-container">
-  <h1>Teaching Calendar</h1>
-  <div class="ot-balance">Available Time-Off: <span id="balanceDisplay">0.00</span> h</div>
+  <h1 id="schoolTitle">School A (International)</h1>
+  <div class="ot-balance">Available Balance: <span id="balanceDisplay">0.00</span> h</div>
 </div>
 
 <div class="nav">
@@ -194,274 +59,182 @@
   <div id="monthlySummaryContainer"></div>
 </div>
 
+<button class="btn-switch" onclick="toggleSchool()">SWITCH TO OTHER SCHOOL</button>
+
 <div class="modal" id="editModal">
   <div class="modal-content">
     <h3 id="modalDate" style="margin-top:0; color:#2c3e50;"></h3>
-    <div style="max-height: 40vh; overflow-y: auto;">
-      <table id="modalTable"></table>
+    <div id="modalTable" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+    <div style="display:flex; gap:10px; background:#f9f9f9; padding:12px; border-radius:8px;">
+      <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">OT (h)</label><input type="number" id="inputOvertime" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
+      <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">TO (h)</label><input type="number" id="inputTimeoff" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
     </div>
-    
-    <div class="ot-inputs">
-      <div>
-        <label>Overtime (h)</label>
-        <input type="number" id="inputOvertime" step="0.5" min="0">
-      </div>
-      <div>
-        <label>Time-Off (h)</label>
-        <input type="number" id="inputTimeoff" step="0.5" min="0">
-      </div>
-    </div>
-    
-    <div id="ledgerInfo" class="ledger-info" style="display:none;"></div>
-
-    <div class="modal-footer">
-      <button class="btn-save" id="saveBtn" onclick="saveDayData()">Save</button>
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+    <div style="margin-top:20px; display:flex; gap:10px;">
+      <button onclick="saveDayData()" style="flex:1; background:#2a9d8f; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold;">Save Record</button>
+      <button onclick="closeModal()" style="flex:1; background:#eee; padding:12px; border-radius:6px;">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
-AV.init({
-  appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz",
-  appKey: "SMx2RHGXoV82nuXnreLNzLhm",
-  serverURL: "https://qqgqwbks.lc-cn-n1-shared.com"
-});
+AV.init({ appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz", appKey: "SMx2RHGXoV82nuXnreLNzLhm", serverURL: "https://qqgqwbks.lc-cn-n1-shared.com" });
 
 const TeachingRecord = AV.Object.extend("TeachingRecord");
 const ClassType = AV.Object.extend("ClassType");
 
-let currentViewDate = new Date();
-let year = currentViewDate.getFullYear();
-let month = currentViewDate.getMonth();
+let currentSchool = "School_A";
+let year = new Date().getFullYear();
+let month = new Date().getMonth();
 let classTypes = [];
 let selectedDate = "";
-let globalOtStatus = {}; 
-let globalTimeoffSources = {};
 
-async function initApp(){
-  try {
-    const res = await new AV.Query(ClassType).find();
-    classTypes = res.map(o=>({
-      name: o.get("name"),
-      key: o.get("name").replace(/[^a-zA-Z0-9_]/g,"_"),
-      hours: o.get("hoursPerSession") || 0
-    }));
-    renderCalendar();
-  } catch (e) { console.error("Init error:", e); }
+function toggleSchool() {
+  currentSchool = (currentSchool === "School_A") ? "School_B" : "School_A";
+  document.getElementById("schoolTitle").textContent = currentSchool === "School_A" ? "School A (International)" : "School B (Second School)";
+  initApp();
 }
 
-function renderCalendar(){
+async function initApp() {
+  const query = new AV.Query(ClassType);
+  if (currentSchool === "School_A") {
+    const q1 = new AV.Query(ClassType).equalTo("school", "School_A");
+    const q2 = new AV.Query(ClassType).doesNotExist("school");
+    classTypes = (await AV.Query.or(q1, q2).find()).map(parseType);
+  } else {
+    classTypes = (await query.equalTo("school", "School_B").find()).map(parseType);
+  }
+  renderCalendar();
+}
+
+function parseType(o) {
+  return { name: o.get("name"), key: o.get("name").replace(/\W/g,"_"), hours: o.get("hoursPerSession") };
+}
+
+function renderCalendar() {
   const grid = document.getElementById("calendarGrid");
   grid.innerHTML = "";
   document.getElementById("currentMonth").textContent = `${year}-${String(month+1).padStart(2,"0")}`;
-  
   ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
     const h = document.createElement("div"); h.className="day-header"; h.textContent=d; grid.appendChild(h);
   });
-
   const firstDay = new Date(year, month, 1).getDay();
   const totalDays = new Date(year, month + 1, 0).getDate();
-
-  for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement("div")).className="date-cell other-month";
-
+  for(let i=0; i<firstDay; i++) grid.appendChild(document.createElement("div")).className="date-cell";
   for(let d=1; d<=totalDays; d++){
     const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const cell = document.createElement("div");
-    cell.className = "date-cell";
-    cell.innerHTML = `
-      <div class="date-number">${d}</div>
-      <div class="class-summary" id="sum-${dateStr}"></div>
-      <div class="ot-indicator" id="ot-${dateStr}"></div>`;
+    const cell = document.createElement("div"); cell.className="date-cell";
+    cell.innerHTML = `<div class="date-number">${d}</div><div id="sum-${dateStr}"></div><div id="ot-${dateStr}" class="ot-indicator"></div>`;
     cell.onclick = () => openModal(dateStr);
     grid.appendChild(cell);
   }
   refreshData();
 }
 
-async function refreshData(){
-  try {
-    const query = new AV.Query(TeachingRecord);
-    query.limit(1000); 
-    const records = await query.find();
-    records.sort((a, b) => a.get("date") - b.get("date"));
+async function refreshData() {
+  const q1 = new AV.Query(TeachingRecord).equalTo("school", currentSchool);
+  const q2 = new AV.Query(TeachingRecord).doesNotExist("school");
+  const query = (currentSchool === "School_A") ? AV.Query.or(q1, q2) : q1;
+  query.limit(1000);
+  
+  const records = await query.find();
+  let totalBal = 0, mHrs = 0;
+  const mTotals = {};
+  classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
 
-    let globalBal = 0;
-    let mHrs = 0;
-    const mTotals = {};
-    classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
+  records.forEach(r => {
+    const d = r.get("date");
+    if (!d) return;
+    const ot = r.get("overtime") || 0;
+    const to = r.get("timeoff") || 0;
+    totalBal += (ot - to);
 
-    globalOtStatus = {};
-    globalTimeoffSources = {};
-    let otQueue = [];
-
-    // Ledger Logic
-    records.forEach(r => {
-      const d = r.get("date");
-      if (!d) return;
-      const key = formatDate(d);
-      const ot = Number(r.get("overtime")) || 0;
-      if (ot > 0) {
-        globalOtStatus[key] = { total: ot, available: ot, used: 0, usedBy: [] };
-        otQueue.push({ key, available: ot });
-      }
-    });
-
-    records.forEach(r => {
-      const d = r.get("date");
-      if (!d) return;
-      const key = formatDate(d);
-      const to = Number(r.get("timeoff")) || 0;
-      if (to > 0) {
-        globalTimeoffSources[key] = [];
-        let rem = to;
-        for (let i = 0; i < otQueue.length && rem > 0; i++) {
-          if (otQueue[i].available > 0) {
-            let deduct = Math.min(otQueue[i].available, rem);
-            otQueue[i].available -= deduct;
-            rem -= deduct;
-            globalTimeoffSources[key].push({ fromDate: otQueue[i].key, amount: deduct });
-            globalOtStatus[otQueue[i].key].available -= deduct;
-            globalOtStatus[otQueue[i].key].used += deduct;
-            globalOtStatus[otQueue[i].key].usedBy.push({ onDate: key, amount: deduct });
+    if (d.getMonth() === month && d.getFullYear() === year) {
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const cls = r.get("classes") || {};
+      const sEl = document.getElementById(`sum-${key}`);
+      if(sEl) {
+        let hContent = "";
+        classTypes.forEach((c, idx) => {
+          if(cls[c.key]) {
+            const colorClass = idx < 5 ? `tag-${idx}` : 'tag-default';
+            hContent += `<div class="tag ${colorClass}">${c.name} x${cls[c.key]}</div>`;
+            mTotals[c.key].q += cls[c.key]; mTotals[c.key].h += (cls[c.key] * c.hours);
+            mHrs += (cls[c.key] * c.hours);
           }
-        }
+        });
+        sEl.innerHTML = hContent;
       }
-    });
-
-    const start = new Date(year, month, 1);
-    const end = new Date(year, month + 1, 0, 23, 59, 59);
-
-    document.querySelectorAll(".class-summary, .ot-indicator").forEach(e => e.innerHTML="");
-
-    records.forEach(r => {
-      const d = r.get("date");
-      if (!d) return;
-      const ot = Number(r.get("overtime")) || 0;
-      const to = Number(r.get("timeoff")) || 0;
-      globalBal += (ot - to);
-
-      if (d >= start && d <= end) {
-        const key = formatDate(d);
-        const cls = r.get("classes") || {};
-        const sEl = document.getElementById(`sum-${key}`);
-        if(sEl){
-          let h = "";
-          classTypes.forEach((c, idx) => {
-            const qty = cls[c.key] || 0;
-            if(qty > 0){
-              h += `<div class="tag tag-${idx < 5 ? idx : 'default'}">
-                      <span class="full-name">${c.name}</span>
-                      <span class="short-name">${c.name.substring(0,2).toUpperCase()}</span> x${qty}
-                    </div>`;
-              mTotals[c.key].q += qty;
-              mTotals[c.key].h += (qty * c.hours);
-              mHrs += (qty * c.hours);
-            }
-          });
-          sEl.innerHTML = h;
-        }
-        
-        const otEl = document.getElementById(`ot-${key}`);
-        if(otEl && (ot > 0 || to > 0)){
-          let ih = "";
-          if(ot > 0) {
-            const isSpent = globalOtStatus[key] && globalOtStatus[key].available === 0;
-            ih += `<span class="text-ot ${isSpent?'spent-ot':''}">+${ot}</span>`;
-          }
-          if(to > 0) ih += `<span class="text-to">-${to}</span>`;
-          otEl.innerHTML = ih;
-        }
+      const otEl = document.getElementById(`ot-${key}`);
+      if(otEl) {
+        let ih = "";
+        if(ot > 0) ih += `<span class="text-ot">+${ot}</span>`;
+        if(to > 0) ih += `<span class="text-to">-${to}</span>`;
+        otEl.innerHTML = ih;
       }
-    });
-
-    document.getElementById("balanceDisplay").textContent = globalBal.toFixed(2);
-    renderSummaryTable(mTotals, mHrs);
-  } catch (err) { console.error("Refresh error:", err); }
+    }
+  });
+  document.getElementById("balanceDisplay").textContent = totalBal.toFixed(2);
+  renderSummaryTable(mTotals, mHrs);
 }
 
 function renderSummaryTable(mTotals, totalHrs) {
-  let tbl = `<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>`;
+  let tbl = "<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>";
   classTypes.forEach(c => {
-    if(mTotals[c.key].q > 0)
-      tbl += `<tr><td>${c.name}</td><td>${mTotals[c.key].q}</td><td>${mTotals[c.key].h.toFixed(1)}</td></tr>`;
+    if(mTotals[c.key].q > 0) tbl += `<tr><td>${c.name}</td><td>${mTotals[c.key].q}</td><td>${mTotals[c.key].h.toFixed(1)}</td></tr>`;
   });
-  tbl += `<tr style="font-weight:bold; background:#f0f7ff"><td colspan="2">Total</td><td>${totalHrs.toFixed(1)}h</td></tr></table>`;
+  tbl += `<tr style='font-weight:bold; background:#f0f7ff'><td colspan="2">Total</td><td>${totalHrs.toFixed(1)}h</td></tr></table>`;
   document.getElementById("monthlySummaryContainer").innerHTML = tbl;
 }
 
-async function openModal(dateStr){
+async function openModal(dateStr) {
   selectedDate = dateStr;
   document.getElementById("modalDate").textContent = dateStr;
-  let tbl = "<tr><th>Type</th><th>Qty</th></tr>";
+  let html = "<table><tr><th>Type</th><th>Quantity</th></tr>";
   classTypes.forEach(c => {
-    let opt = ""; for(let i=0; i<=10; i++) opt += `<option value="${i}">${i}</option>`;
-    tbl += `<tr><td>${c.name}</td><td><select id="sel_${c.key}">${opt}</select></td></tr>`;
+    html += `<tr><td>${c.name}</td><td><input type="number" id="sel_${c.key}" value="0" min="0" style="width:60px; padding:5px;"></td></tr>`;
   });
-  document.getElementById("modalTable").innerHTML = tbl;
-  document.getElementById("inputOvertime").value = 0;
-  document.getElementById("inputTimeoff").value = 0;
-
-  // Ledger UI
-  const ledgerDiv = document.getElementById("ledgerInfo");
-  let lHtml = "";
-  if (globalOtStatus[dateStr] && globalOtStatus[dateStr].total > 0) {
-    let s = globalOtStatus[dateStr];
-    lHtml += `<strong>OT:</strong> ${s.total}h (${s.available}h left)<br>`;
-    s.usedBy.forEach(u => lHtml += `• ${u.amount}h on ${u.onDate}<br>`);
-  }
-  if (globalTimeoffSources[dateStr] && globalTimeoffSources[dateStr].length > 0) {
-    lHtml += `${lHtml?'<hr>':''}<strong>Used from:</strong><br>`;
-    globalTimeoffSources[dateStr].forEach(s => lHtml += `• ${s.amount}h from ${s.fromDate}<br>`);
-  }
-  ledgerDiv.innerHTML = lHtml;
-  ledgerDiv.style.display = lHtml ? "block" : "none";
+  html += "</table>";
+  document.getElementById("modalTable").innerHTML = html;
 
   const parts = dateStr.split('-');
-  const dStart = new Date(parts[0], parts[1]-1, parts[2]);
-  const dEnd = new Date(parts[0], parts[1]-1, parts[2], 23, 59, 59);
+  const dObj = new Date(parts[0], parts[1]-1, parts[2]);
+  const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
+  const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
+  const record = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first());
 
-  try {
-    const r = await new AV.Query(TeachingRecord).greaterThanOrEqualTo("date", dStart).lessThanOrEqualTo("date", dEnd).first();
-    if(r){
-      const cls = r.get("classes") || {};
-      classTypes.forEach(c => { if(document.getElementById(`sel_${c.key}`)) document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
-      document.getElementById("inputOvertime").value = r.get("overtime") || 0;
-      document.getElementById("inputTimeoff").value = r.get("timeoff") || 0;
-    }
-  } catch (e) { console.error("Load day error:", e); }
+  if(record) {
+    const cls = record.get("classes") || {};
+    classTypes.forEach(c => { document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
+    document.getElementById("inputOvertime").value = record.get("overtime") || 0;
+    document.getElementById("inputTimeoff").value = record.get("timeoff") || 0;
+  } else {
+    document.getElementById("inputOvertime").value = 0;
+    document.getElementById("inputTimeoff").value = 0;
+  }
   document.getElementById("editModal").style.display = "block";
 }
 
-async function saveDayData(){
-  const btn = document.getElementById("saveBtn");
-  btn.disabled = true; btn.textContent = "...";
-  try {
-    const cls = {};
-    classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
-    const otV = Number(document.getElementById("inputOvertime").value) || 0;
-    const toV = Number(document.getElementById("inputTimeoff").value) || 0;
+async function saveDayData() {
+  const cls = {};
+  classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
+  const parts = selectedDate.split('-');
+  const dObj = new Date(parts[0], parts[1]-1, parts[2]);
 
-    const parts = selectedDate.split('-');
-    const dStart = new Date(parts[0], parts[1]-1, parts[2]);
-    const dEnd = new Date(parts[0], parts[1]-1, parts[2], 23, 59, 59);
-
-    let r = await new AV.Query(TeachingRecord).greaterThanOrEqualTo("date", dStart).lessThanOrEqualTo("date", dEnd).first() || new TeachingRecord();
-    r.set("date", dStart);
-    r.set("classes", cls);
-    r.set("overtime", otV); 
-    r.set("timeoff", toV);
-    await r.save();
-    closeModal();
-    refreshData();
-  } catch (e) { alert("Save Error"); }
-  finally { btn.disabled = false; btn.textContent = "Save"; }
+  const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
+  const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
+  let r = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first()) || new TeachingRecord();
+  
+  r.set("date", dObj);
+  r.set("school", currentSchool);
+  r.set("classes", cls);
+  r.set("overtime", Number(document.getElementById("inputOvertime").value) || 0);
+  r.set("timeoff", Number(document.getElementById("inputTimeoff").value) || 0);
+  await r.save();
+  closeModal(); initApp();
 }
 
-function closeModal(){ document.getElementById("editModal").style.display="none"; }
-function changeMonth(d){ month += d; if(month<0){month=11;year--;} else if(month>11){month=0;year++;} renderCalendar(); }
-function formatDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-
+function closeModal() { document.getElementById("editModal").style.display="none"; }
+function changeMonth(d) { month += d; if(month<0){month=11;year--;} else if(month>11){month=0;year++;} renderCalendar(); }
 window.onload = initApp;
 </script>
 </body>
