@@ -2,221 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Manage Class Types</title>
+  <title>Manage Class Types - Multi-School</title>
   <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
   <style>
-    body { 
-      font-family: Arial; 
-      max-width: 600px; 
-      margin: 20px auto; 
-      padding: 0 15px; 
-    }
-    input, button { 
-      padding: 8px; 
-      margin: 6px; 
-    }
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin-top: 20px; 
-    }
-    th, td { 
-      border: 1px solid #ccc; 
-      padding: 10px; 
-      text-align: left; 
-    }
-    .error { color: red; }
-    .success { color: green; }
-    .form-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .form-row input {
-      flex: 1;
-    }
+    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
+    .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h2 { color: #2c3e50; margin-top: 0; }
+    input, button, select { padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; }
+    .form-row { display: grid; grid-template-columns: 1.5fr 2fr 1fr auto; gap: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+    th { background: #34495e; color: white; border-radius: 4px 4px 0 0; }
+    .tag-school { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: white; }
+    .School_A { background: #2a9d8f; }
+    .School_B { background: #e76f51; }
+    .btn-add { background: #2a9d8f; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .btn-del { background: #e63946; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
   </style>
 </head>
 <body>
-  <h2>Manage Class Types (Stored in LeanCloud)</h2>
-
-  <div id="status"></div>
-
+<div class="container">
+  <h2>Manage Class Types</h2>
   <form id="addClassForm">
     <div class="form-row">
-      <input type="text" id="className" placeholder="Class name (e.g., H189_Main)" required />
-      <input type="number" id="classHours" placeholder="Hours/session" step="0.25" min="0.25" required />
-      <button type="submit">Add Class Type</button>
+      <select id="classSchool">
+        <option value="School_A">School A (Existing)</option>
+        <option value="School_B">School B (New)</option>
+      </select>
+      <input type="text" id="className" placeholder="Class Name (e.g. Math 101)" required />
+      <input type="number" id="classHours" placeholder="Hrs" step="0.25" min="0.25" required />
+      <button type="submit" class="btn-add">Add Type</button>
     </div>
   </form>
 
   <table id="classTable">
-    <thead><tr><th>Class Type</th><th>Hours/Session</th><th>Action</th></tr></thead>
+    <thead>
+      <tr><th>School</th><th>Class Type</th><th>Hrs/Session</th><th>Action</th></tr>
+    </thead>
     <tbody></tbody>
   </table>
+</div>
 
-  <script>
-    // Initialize LeanCloud
-    AV.init({
-      appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz",
-      appKey: "SMx2RHGXoV82nuXnreLNzLhm",
-      serverURL: "https://qqgqwbks.lc-cn-n1-shared.com"
-    });
+<script>
+  AV.init({
+    appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz",
+    appKey: "SMx2RHGXoV82nuXnreLNzLhm",
+    serverURL: "https://qqgqwbks.lc-cn-n1-shared.com"
+  });
 
-    const ClassType = AV.Object.extend('ClassType');
-    let editingRowId = null;
+  const ClassType = AV.Object.extend('ClassType');
 
-    function showMessage(text, isError = false) {
-      const el = document.getElementById('status');
-      el.textContent = text;
-      el.className = isError ? 'error' : 'success';
-      setTimeout(() => el.textContent = '', 3000);
-    }
-
-    async function loadClassTypes() {
-      const query = new AV.Query(ClassType);
-      query.addAscending('name');
-      try {
-        const results = await query.find();
-        renderClassTable(results);
-      } catch (err) {
-        console.error("Load error:", err);
-        showMessage("Failed to load class types.", true);
-      }
-    }
-
-    function renderClassTable(objects) {
-      const tbody = document.querySelector('#classTable tbody');
-      tbody.innerHTML = '';
-      objects.forEach(obj => {
-        const tr = document.createElement('tr');
-        tr.dataset.id = obj.id;
-        tr.innerHTML = `
-          <td>${escapeHtml(obj.get('name'))}</td>
-          <td>${obj.get('hoursPerSession')}</td>
-          <td>
-            <button onclick="startEdit('${obj.id}', '${escapeHtml(obj.get('name'))}', ${obj.get('hoursPerSession')})">Edit</button>
-            <button onclick="deleteClass('${obj.id}')">Delete</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Start inline edit
-    function startEdit(objectId, name, hours) {
-      if (editingRowId) return; // Prevent multiple edits
-      editingRowId = objectId;
-
-      const row = document.querySelector(`tr[data-id="${objectId}"]`);
-      row.innerHTML = `
-        <td>
-          <input type="text" value="${escapeHtml(name)}" class="edit-name" required />
-        </td>
-        <td>
-          <input type="number" value="${hours}" step="0.25" min="0.25" class="edit-hours" required />
-        </td>
-        <td>
-          <button onclick="saveEdit('${objectId}')">Save</button>
-          <button onclick="cancelEdit('${objectId}')">Cancel</button>
-        </td>
+  async function loadClassTypes() {
+    const query = new AV.Query(ClassType);
+    query.addAscending('school').addAscending('name');
+    const results = await query.find();
+    const tbody = document.querySelector('#classTable tbody');
+    tbody.innerHTML = '';
+    
+    results.forEach(obj => {
+      const tr = document.createElement('tr');
+      const school = obj.get('school') || 'School_A'; 
+      tr.innerHTML = `
+        <td><span class="tag-school ${school}">${school.replace('_',' ')}</span></td>
+        <td><strong>${obj.get('name')}</strong></td>
+        <td>${obj.get('hoursPerSession')} h</td>
+        <td><button class="btn-del" onclick="deleteClass('${obj.id}')">Delete</button></td>
       `;
-    }
-
-    async function saveEdit(objectId) {
-      const row = document.querySelector(`tr[data-id="${objectId}"]`);
-      const nameInput = row.querySelector('.edit-name');
-      const hoursInput = row.querySelector('.edit-hours');
-
-      const name = nameInput.value.trim();
-      const hours = parseFloat(hoursInput.value);
-
-      if (!name || isNaN(hours) || hours <= 0) {
-        showMessage("Invalid input.", true);
-        return;
-      }
-
-      // Optional: check for duplicate names (excluding self)
-      const query = new AV.Query(ClassType);
-      query.equalTo('name', name);
-      const existing = await query.find();
-      const isDuplicate = existing.some(obj => obj.id !== objectId);
-      if (isDuplicate) {
-        showMessage("Another class type already uses this name!", true);
-        return;
-      }
-
-      try {
-        const obj = AV.Object.createWithoutData('ClassType', objectId);
-        obj.set('name', name);
-        obj.set('hoursPerSession', hours);
-        await obj.save();
-        showMessage("Updated successfully.");
-        editingRowId = null;
-        loadClassTypes(); // Refresh list
-      } catch (err) {
-        console.error("Update error:", err);
-        showMessage("Failed to update.", true);
-      }
-    }
-
-    function cancelEdit(objectId) {
-      editingRowId = null;
-      loadClassTypes(); // Re-render original view
-    }
-
-    async function deleteClass(objectId) {
-      if (!confirm("Delete this class type? This cannot be undone.")) return;
-      try {
-        const obj = AV.Object.createWithoutData('ClassType', objectId);
-        await obj.destroy();
-        showMessage("Deleted.");
-        loadClassTypes();
-      } catch (err) {
-        console.error("Delete error:", err);
-        showMessage("Failed to delete.", true);
-      }
-    }
-
-    document.getElementById('addClassForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const name = document.getElementById('className').value.trim();
-      const hours = parseFloat(document.getElementById('classHours').value);
-
-      if (!name || isNaN(hours) || hours <= 0) {
-        showMessage("Invalid input.", true);
-        return;
-      }
-
-      const query = new AV.Query(ClassType);
-      query.equalTo('name', name);
-      const existing = await query.find();
-      if (existing.length > 0) {
-        showMessage("Class type already exists!", true);
-        return;
-      }
-
-      try {
-        const obj = new ClassType();
-        obj.set('name', name);
-        obj.set('hoursPerSession', hours);
-        await obj.save();
-        showMessage("Class type added.");
-        loadClassTypes();
-        document.getElementById('addClassForm').reset();
-      } catch (err) {
-        console.error("Save error:", err);
-        showMessage("Failed to save.", true);
-      }
+      tbody.appendChild(tr);
     });
+  }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
+  document.getElementById('addClassForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const obj = new ClassType();
+    obj.set('school', document.getElementById('classSchool').value);
+    obj.set('name', document.getElementById('className').value.trim());
+    obj.set('hoursPerSession', parseFloat(document.getElementById('classHours').value));
+    await obj.save();
     loadClassTypes();
-  </script>
+    e.target.reset();
+  });
+
+  async function deleteClass(id) {
+    if (confirm("Permanently delete this class type?")) {
+      await AV.Object.createWithoutData('ClassType', id).destroy();
+      loadClassTypes();
+    }
+  }
+  loadClassTypes();
+</script>
 </body>
 </html>
