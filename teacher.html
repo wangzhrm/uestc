@@ -14,7 +14,7 @@
     max-width: 1000px; 
     margin: auto; 
     color: #333; 
-    transition: background-color 0.4s ease; /* Smooth transition for color change */
+    transition: background-color 0.4s ease;
   }
   .header-container { text-align: center; margin-bottom: 20px; }
   .ot-balance { font-size: 1.1rem; color: #2a9d8f; font-weight: bold; background: white; display: inline-block; padding: 8px 20px; border-radius: 50px; border: 2px solid #2a9d8f; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -25,7 +25,6 @@
   .date-cell:hover { border-color: #2a9d8f; background: #f0fdfa; }
   .date-number { font-weight: bold; font-size: 0.9em; color: #7f8c8d; margin-bottom: 4px; }
   
-  /* Class Color Tags */
   .tag { display: block; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; color: white; font-size: 0.75em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
   .tag-0 { background-color: #3498db; }
   .tag-1 { background-color: #9b59b6; }
@@ -34,14 +33,16 @@
   .tag-4 { background-color: #1abc9c; }
   .tag-default { background-color: #95a5a6; }
 
-  /* OT/TO Indicators */
   .ot-indicator { font-size: 0.7em; margin-top: auto; border-top: 1px solid #eee; padding-top: 2px; display: flex; justify-content: space-between; }
   .text-ot { color: #2a9d8f; font-weight: bold; margin-right: 4px; }
   .text-to { color: #e63946; font-weight: bold; }
+  .spent-ot { text-decoration: line-through; opacity: 0.4; }
 
   .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; padding: 15px; }
-  .modal-content { background: white; margin: auto; padding: 20px; max-width: 450px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+  .modal-content { background: white; margin: auto; padding: 20px; max-width: 450px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
   .btn-switch { background: #34495e; color: white; padding: 15px; border-radius: 8px; border: none; cursor: pointer; width: 100%; margin-top: 20px; font-weight: bold; font-size: 1rem; }
+  
+  .ledger-info { background: #e0f2f1; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.8rem; color: #004d40; border: 1px solid #b2dfdb; line-height: 1.4; }
   .summary-box { background: white; padding: 15px; border-radius: 12px; margin-top: 25px; border: 1px solid #ddd; }
   table { width: 100%; border-collapse: collapse; }
   th, td { padding: 8px; border: 1px solid #eee; text-align: center; }
@@ -72,13 +73,18 @@
 <div class="modal" id="editModal">
   <div class="modal-content">
     <h3 id="modalDate" style="margin-top:0; color:#2c3e50;"></h3>
-    <div id="modalTable" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;"></div>
+    <div id="modalTable" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px;"></div>
+    
     <div style="display:flex; gap:10px; background:#f9f9f9; padding:12px; border-radius:8px;">
       <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">OT (h)</label><input type="number" id="inputOvertime" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
       <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">TO (h)</label><input type="number" id="inputTimeoff" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
     </div>
+
+    <!-- Ledger Section -->
+    <div id="ledgerInfo" class="ledger-info" style="display:none;"></div>
+
     <div style="margin-top:20px; display:flex; gap:10px;">
-      <button onclick="saveDayData()" style="flex:1; background:#2a9d8f; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold;">Save Record</button>
+      <button onclick="saveDayData()" id="saveBtn" style="flex:1; background:#2a9d8f; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold;">Save Record</button>
       <button onclick="closeModal()" style="flex:1; background:#eee; padding:12px; border-radius:6px;">Cancel</button>
     </div>
   </div>
@@ -96,16 +102,13 @@ let month = new Date().getMonth();
 let classTypes = [];
 let selectedDate = "";
 
+// Tracking Objects
+let globalOtStatus = {}; 
+let globalTimeoffSources = {};
+
 function toggleSchool() {
   currentSchool = (currentSchool === "School_A") ? "School_B" : "School_A";
-  
-  // Apply background color based on school selection
-  if (currentSchool === "School_B") {
-    document.body.style.backgroundColor = "#e8f5e9"; // Light Green for School B
-  } else {
-    document.body.style.backgroundColor = "#f4f7f6"; // Default color for School A
-  }
-
+  document.body.style.backgroundColor = (currentSchool === "School_B") ? "#e8f5e9" : "#f4f7f6";
   document.getElementById("schoolTitle").textContent = currentSchool === "School_A" ? "School A (International)" : "School B (Second School)";
   initApp();
 }
@@ -153,21 +156,52 @@ async function refreshData() {
   query.limit(1000);
   
   const records = await query.find();
+  records.sort((a, b) => a.get("date") - b.get("date")); // Crucial for FIFO
+
   let totalBal = 0, mHrs = 0;
   const mTotals = {};
   classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
 
+  // Reset tracking
+  globalOtStatus = {};
+  globalTimeoffSources = {};
+  let otQueue = [];
+
+  // 1. Calculate Ledger (FIFO)
   records.forEach(r => {
     const d = r.get("date");
     if (!d) return;
+    const dateKey = formatDate(d);
     const ot = r.get("overtime") || 0;
     const to = r.get("timeoff") || 0;
+    
     totalBal += (ot - to);
 
+    if (ot > 0) {
+      globalOtStatus[dateKey] = { total: ot, available: ot, usedBy: [] };
+      otQueue.push({ date: dateKey, available: ot });
+    }
+
+    if (to > 0) {
+      globalTimeoffSources[dateKey] = [];
+      let remainingTo = to;
+      for (let i = 0; i < otQueue.length && remainingTo > 0; i++) {
+        if (otQueue[i].available > 0) {
+          let deduction = Math.min(otQueue[i].available, remainingTo);
+          otQueue[i].available -= deduction;
+          remainingTo -= deduction;
+          
+          globalTimeoffSources[dateKey].push({ fromDate: otQueue[i].date, amount: deduction });
+          globalOtStatus[otQueue[i].date].available -= deduction;
+          globalOtStatus[otQueue[i].date].usedBy.push({ onDate: dateKey, amount: deduction });
+        }
+      }
+    }
+
+    // 2. Render Calendar UI if in current view
     if (d.getMonth() === month && d.getFullYear() === year) {
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
       const cls = r.get("classes") || {};
-      const sEl = document.getElementById(`sum-${key}`);
+      const sEl = document.getElementById(`sum-${dateKey}`);
       if(sEl) {
         let hContent = "";
         classTypes.forEach((c, idx) => {
@@ -180,26 +214,26 @@ async function refreshData() {
         });
         sEl.innerHTML = hContent;
       }
-      const otEl = document.getElementById(`ot-${key}`);
+      
+      const otEl = document.getElementById(`ot-${dateKey}`);
       if(otEl) {
         let ih = "";
-        if(ot > 0) ih += `<span class="text-ot">+${ot}</span>`;
+        if(ot > 0) {
+          const isSpent = globalOtStatus[dateKey] && globalOtStatus[dateKey].available === 0;
+          ih += `<span class="text-ot ${isSpent ? 'spent-ot' : ''}">+${ot}</span>`;
+        }
         if(to > 0) ih += `<span class="text-to">-${to}</span>`;
         otEl.innerHTML = ih;
       }
     }
   });
+
   document.getElementById("balanceDisplay").textContent = totalBal.toFixed(2);
   renderSummaryTable(mTotals, mHrs);
 }
 
-function renderSummaryTable(mTotals, totalHrs) {
-  let tbl = "<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>";
-  classTypes.forEach(c => {
-    if(mTotals[c.key].q > 0) tbl += `<tr><td>${c.name}</td><td>${mTotals[c.key].q}</td><td>${mTotals[c.key].h.toFixed(1)}</td></tr>`;
-  });
-  tbl += `<tr style='font-weight:bold; background:#f0f7ff'><td colspan="2">Total</td><td>${totalHrs.toFixed(1)}h</td></tr></table>`;
-  document.getElementById("monthlySummaryContainer").innerHTML = tbl;
+function formatDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 async function openModal(dateStr) {
@@ -212,6 +246,21 @@ async function openModal(dateStr) {
   html += "</table>";
   document.getElementById("modalTable").innerHTML = html;
 
+  // Ledger Display logic
+  const ledgerDiv = document.getElementById("ledgerInfo");
+  let ledgerHtml = "";
+  if (globalOtStatus[dateStr] && globalOtStatus[dateStr].total > 0) {
+    let s = globalOtStatus[dateStr];
+    ledgerHtml += `<strong>OT:</strong> ${s.total}h (${s.available}h remaining)<br>`;
+    s.usedBy.forEach(u => ledgerHtml += `• ${u.amount}h used on ${u.onDate}<br>`);
+  }
+  if (globalTimeoffSources[dateStr] && globalTimeoffSources[dateStr].length > 0) {
+    ledgerHtml += `${ledgerHtml ? '<hr>' : ''}<strong>TO Source:</strong><br>`;
+    globalTimeoffSources[dateStr].forEach(s => ledgerHtml += `• ${s.amount}h from ${s.fromDate}<br>`);
+  }
+  ledgerDiv.innerHTML = ledgerHtml;
+  ledgerDiv.style.display = ledgerHtml ? "block" : "none";
+
   const parts = dateStr.split('-');
   const dObj = new Date(parts[0], parts[1]-1, parts[2]);
   const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
@@ -220,7 +269,7 @@ async function openModal(dateStr) {
 
   if(record) {
     const cls = record.get("classes") || {};
-    classTypes.forEach(c => { document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
+    classTypes.forEach(c => { if(document.getElementById(`sel_${c.key}`)) document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
     document.getElementById("inputOvertime").value = record.get("overtime") || 0;
     document.getElementById("inputTimeoff").value = record.get("timeoff") || 0;
   } else {
@@ -231,22 +280,39 @@ async function openModal(dateStr) {
 }
 
 async function saveDayData() {
-  const cls = {};
-  classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
-  const parts = selectedDate.split('-');
-  const dObj = new Date(parts[0], parts[1]-1, parts[2]);
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true; btn.textContent = "...";
+  try {
+    const cls = {};
+    classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
+    const parts = selectedDate.split('-');
+    const dObj = new Date(parts[0], parts[1]-1, parts[2]);
 
-  const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
-  const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
-  let r = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first()) || new TeachingRecord();
-  
-  r.set("date", dObj);
-  r.set("school", currentSchool);
-  r.set("classes", cls);
-  r.set("overtime", Number(document.getElementById("inputOvertime").value) || 0);
-  r.set("timeoff", Number(document.getElementById("inputTimeoff").value) || 0);
-  await r.save();
-  closeModal(); initApp();
+    const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
+    const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
+    let r = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first()) || new TeachingRecord();
+    
+    r.set("date", dObj);
+    r.set("school", currentSchool);
+    r.set("classes", cls);
+    r.set("overtime", Number(document.getElementById("inputOvertime").value) || 0);
+    r.set("timeoff", Number(document.getElementById("inputTimeoff").value) || 0);
+    await r.save();
+    closeModal(); initApp();
+  } catch (e) {
+    alert("Save Error");
+  } finally {
+    btn.disabled = false; btn.textContent = "Save Record";
+  }
+}
+
+function renderSummaryTable(mTotals, totalHrs) {
+  let tbl = "<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>";
+  classTypes.forEach(c => {
+    if(mTotals[c.key].q > 0) tbl += `<tr><td>${c.name}</td><td>${mTotals[c.key].q}</td><td>${mTotals[c.key].h.toFixed(1)}</td></tr>`;
+  });
+  tbl += `<tr style='font-weight:bold; background:#f0f7ff'><td colspan="2">Total</td><td>${totalHrs.toFixed(1)}h</td></tr></table>`;
+  document.getElementById("monthlySummaryContainer").innerHTML = tbl;
 }
 
 function closeModal() { document.getElementById("editModal").style.display="none"; }
