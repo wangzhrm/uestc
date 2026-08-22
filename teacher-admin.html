@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Manage Class Types - Multi-School</title>
-  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
     .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -34,7 +34,6 @@
       <button type="submit" class="btn-add">Add Type</button>
     </div>
   </form>
-
   <table id="classTable">
     <thead>
       <tr><th>School</th><th>Class Type</th><th>Hrs/Session</th><th>Action</th></tr>
@@ -42,31 +41,40 @@
     <tbody></tbody>
   </table>
 </div>
-
 <script>
-  AV.init({
-    appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz",
-    appKey: "SMx2RHGXoV82nuXnreLNzLhm",
-    serverURL: "https://qqgqwbks.lc-cn-n1-shared.com"
-  });
+(function () {
+  // ============================================
+  // Supabase setup (replaces AV.init)
+  // ============================================
+  const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const ClassType = AV.Object.extend('ClassType');
+  const CLASS_TYPES_TABLE = "teacher_class_types";
 
   async function loadClassTypes() {
-    const query = new AV.Query(ClassType);
-    query.addAscending('school').addAscending('name');
-    const results = await query.find();
+    const { data: results, error } = await sb
+      .from(CLASS_TYPES_TABLE)
+      .select("*")
+      .order("school", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error loading class types:", error);
+      return;
+    }
+
     const tbody = document.querySelector('#classTable tbody');
     tbody.innerHTML = '';
-    
-    results.forEach(obj => {
+
+    (results || []).forEach(obj => {
       const tr = document.createElement('tr');
-      const school = obj.get('school') || 'School_A'; 
+      const school = obj.school || 'School_A';
       tr.innerHTML = `
         <td><span class="tag-school ${school}">${school.replace('_',' ')}</span></td>
-        <td><strong>${obj.get('name')}</strong></td>
-        <td>${obj.get('hoursPerSession')} h</td>
-        <td><button class="btn-del" onclick="deleteClass('${obj.id}')">Delete</button></td>
+        <td><strong>${obj.name}</strong></td>
+        <td>${obj.hours_per_session} h</td>
+        <td><button class="btn-del" onclick="deleteClass(${obj.id})">Delete</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -74,22 +82,39 @@
 
   document.getElementById('addClassForm').addEventListener('submit', async e => {
     e.preventDefault();
-    const obj = new ClassType();
-    obj.set('school', document.getElementById('classSchool').value);
-    obj.set('name', document.getElementById('className').value.trim());
-    obj.set('hoursPerSession', parseFloat(document.getElementById('classHours').value));
-    await obj.save();
+    const payload = {
+      school: document.getElementById('classSchool').value,
+      name: document.getElementById('className').value.trim(),
+      hours_per_session: parseFloat(document.getElementById('classHours').value)
+    };
+
+    const { error } = await sb.from(CLASS_TYPES_TABLE).insert(payload);
+    if (error) {
+      console.error(error);
+      alert("Error adding class type");
+      return;
+    }
     loadClassTypes();
     e.target.reset();
   });
 
   async function deleteClass(id) {
     if (confirm("Permanently delete this class type?")) {
-      await AV.Object.createWithoutData('ClassType', id).destroy();
+      const { error } = await sb.from(CLASS_TYPES_TABLE).delete().eq('id', id);
+      if (error) {
+        console.error(error);
+        alert("Error deleting class type");
+        return;
+      }
       loadClassTypes();
     }
   }
+
+  // Expose to global scope since it's called from an inline onclick="..."
+  window.deleteClass = deleteClass;
+
   loadClassTypes();
+})();
 </script>
 </body>
 </html>
