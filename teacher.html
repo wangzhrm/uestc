@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Teaching Calendar & OT Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.2/dist/av-min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -91,10 +91,16 @@
 </div>
 
 <script>
-AV.init({ appId: "qqGQwbksBnwD2Dbdajp1jLZY-gzGzoHsz", appKey: "SMx2RHGXoV82nuXnreLNzLhm", serverURL: "https://qqgqwbks.lc-cn-n1-shared.com" });
+(function () {
+// ============================================
+// Supabase setup (replaces AV.init)
+// ============================================
+const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const TeachingRecord = AV.Object.extend("TeachingRecord");
-const ClassType = AV.Object.extend("ClassType");
+const RECORDS_TABLE = "teacher_records";
+const CLASS_TYPES_TABLE = "teacher_class_types";
 
 let currentSchool = "School_A";
 let year = new Date().getFullYear();
@@ -102,7 +108,6 @@ let month = new Date().getMonth();
 let classTypes = [];
 let selectedDate = "";
 
-// Tracking Objects
 let globalOtStatus = {}; 
 let globalTimeoffSources = {};
 
@@ -114,19 +119,23 @@ function toggleSchool() {
 }
 
 async function initApp() {
-  const query = new AV.Query(ClassType);
-  if (currentSchool === "School_A") {
-    const q1 = new AV.Query(ClassType).equalTo("school", "School_A");
-    const q2 = new AV.Query(ClassType).doesNotExist("school");
-    classTypes = (await AV.Query.or(q1, q2).find()).map(parseType);
+  const { data, error } = await sb
+    .from(CLASS_TYPES_TABLE)
+    .select("*")
+    .eq("school", currentSchool)
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Error loading class types:", error);
+    classTypes = [];
   } else {
-    classTypes = (await query.equalTo("school", "School_B").find()).map(parseType);
+    classTypes = (data || []).map(parseType);
   }
   renderCalendar();
 }
 
 function parseType(o) {
-  return { name: o.get("name"), key: o.get("name").replace(/\W/g,"_"), hours: o.get("hoursPerSession") };
+  return { name: o.name, key: o.name.replace(/\W/g,"_"), hours: Number(o.hours_per_session) };
 }
 
 function renderCalendar() {
@@ -149,31 +158,37 @@ function renderCalendar() {
   refreshData();
 }
 
+function parseDateStr(str) {
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 async function refreshData() {
-  const q1 = new AV.Query(TeachingRecord).equalTo("school", currentSchool);
-  const q2 = new AV.Query(TeachingRecord).doesNotExist("school");
-  const query = (currentSchool === "School_A") ? AV.Query.or(q1, q2) : q1;
-  query.limit(1000);
-  
-  const records = await query.find();
-  records.sort((a, b) => a.get("date") - b.get("date")); // Crucial for FIFO
+  const { data: records, error } = await sb
+    .from(RECORDS_TABLE)
+    .select("*")
+    .eq("school", currentSchool)
+    .order("date", { ascending: true });
+
+  if (error) {
+    console.error("Error loading records:", error);
+    return;
+  }
 
   let totalBal = 0, mHrs = 0;
   const mTotals = {};
   classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
 
-  // Reset tracking
   globalOtStatus = {};
   globalTimeoffSources = {};
   let otQueue = [];
 
-  // 1. Calculate Ledger (FIFO)
-  records.forEach(r => {
-    const d = r.get("date");
-    if (!d) return;
+  (records || []).forEach(r => {
+    if (!r.date) return;
+    const d = parseDateStr(r.date);
     const dateKey = formatDate(d);
-    const ot = r.get("overtime") || 0;
-    const to = r.get("timeoff") || 0;
+    const ot = Number(r.overtime) || 0;
+    const to = Number(r.timeoff) || 0;
     
     totalBal += (ot - to);
 
@@ -198,9 +213,8 @@ async function refreshData() {
       }
     }
 
-    // 2. Render Calendar UI if in current view
     if (d.getMonth() === month && d.getFullYear() === year) {
-      const cls = r.get("classes") || {};
+      const cls = r.classes || {};
       const sEl = document.getElementById(`sum-${dateKey}`);
       if(sEl) {
         let hContent = "";
@@ -246,7 +260,6 @@ async function openModal(dateStr) {
   html += "</table>";
   document.getElementById("modalTable").innerHTML = html;
 
-  // Ledger Display logic
   const ledgerDiv = document.getElementById("ledgerInfo");
   let ledgerHtml = "";
   if (globalOtStatus[dateStr] && globalOtStatus[dateStr].total > 0) {
@@ -261,17 +274,20 @@ async function openModal(dateStr) {
   ledgerDiv.innerHTML = ledgerHtml;
   ledgerDiv.style.display = ledgerHtml ? "block" : "none";
 
-  const parts = dateStr.split('-');
-  const dObj = new Date(parts[0], parts[1]-1, parts[2]);
-  const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
-  const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
-  const record = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first());
+  const { data: record, error } = await sb
+    .from(RECORDS_TABLE)
+    .select("*")
+    .eq("date", dateStr)
+    .eq("school", currentSchool)
+    .maybeSingle();
+
+  if (error) console.error("Error loading day record:", error);
 
   if(record) {
-    const cls = record.get("classes") || {};
+    const cls = record.classes || {};
     classTypes.forEach(c => { if(document.getElementById(`sel_${c.key}`)) document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
-    document.getElementById("inputOvertime").value = record.get("overtime") || 0;
-    document.getElementById("inputTimeoff").value = record.get("timeoff") || 0;
+    document.getElementById("inputOvertime").value = record.overtime || 0;
+    document.getElementById("inputTimeoff").value = record.timeoff || 0;
   } else {
     document.getElementById("inputOvertime").value = 0;
     document.getElementById("inputTimeoff").value = 0;
@@ -285,21 +301,24 @@ async function saveDayData() {
   try {
     const cls = {};
     classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
-    const parts = selectedDate.split('-');
-    const dObj = new Date(parts[0], parts[1]-1, parts[2]);
 
-    const q1 = new AV.Query(TeachingRecord).equalTo("date", dObj).equalTo("school", currentSchool);
-    const q2 = new AV.Query(TeachingRecord).equalTo("date", dObj).doesNotExist("school");
-    let r = await ((currentSchool === "School_A") ? AV.Query.or(q1, q2).first() : q1.first()) || new TeachingRecord();
-    
-    r.set("date", dObj);
-    r.set("school", currentSchool);
-    r.set("classes", cls);
-    r.set("overtime", Number(document.getElementById("inputOvertime").value) || 0);
-    r.set("timeoff", Number(document.getElementById("inputTimeoff").value) || 0);
-    await r.save();
+    const payload = {
+      date: selectedDate,
+      school: currentSchool,
+      classes: cls,
+      overtime: Number(document.getElementById("inputOvertime").value) || 0,
+      timeoff: Number(document.getElementById("inputTimeoff").value) || 0
+    };
+
+    const { error } = await sb
+      .from(RECORDS_TABLE)
+      .upsert(payload, { onConflict: "date,school" });
+
+    if (error) throw error;
+
     closeModal(); initApp();
   } catch (e) {
+    console.error(e);
     alert("Save Error");
   } finally {
     btn.disabled = false; btn.textContent = "Save Record";
@@ -317,7 +336,15 @@ function renderSummaryTable(mTotals, totalHrs) {
 
 function closeModal() { document.getElementById("editModal").style.display="none"; }
 function changeMonth(d) { month += d; if(month<0){month=11;year--;} else if(month>11){month=0;year++;} renderCalendar(); }
+
+window.toggleSchool = toggleSchool;
+window.changeMonth = changeMonth;
+window.saveDayData = saveDayData;
+window.closeModal = closeModal;
+
 window.onload = initApp;
+
+})();
 </script>
 </body>
 </html>
