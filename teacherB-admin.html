@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Manage Class Types - Multi-School</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
+    .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h2 { color: #2c3e50; margin-top: 0; }
+    input, button, select { padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; }
+    .form-row { display: grid; grid-template-columns: 1.5fr 2fr 1fr auto; gap: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+    th { background: #34495e; color: white; border-radius: 4px 4px 0 0; }
+    .tag-school { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: white; }
+    .School_A { background: #2a9d8f; }
+    .School_B { background: #e76f51; }
+    .btn-add { background: #2a9d8f; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .btn-del { background: #e63946; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>Manage Class Types</h2>
+  <form id="addClassForm">
+    <div class="form-row">
+      <select id="classSchool">
+        <option value="School_A">School A (Existing)</option>
+        <option value="School_B">School B (New)</option>
+      </select>
+      <input type="text" id="className" placeholder="Class Name (e.g. Math 101)" required />
+      <input type="number" id="classHours" placeholder="Hrs" step="0.25" min="0.25" required />
+      <button type="submit" class="btn-add">Add Type</button>
+    </div>
+  </form>
+  <table id="classTable">
+    <thead>
+      <tr><th>School</th><th>Class Type</th><th>Hrs/Session</th><th>Action</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+<script>
+(function () {
+  // ============================================
+  // Supabase setup (replaces AV.init)
+  // ============================================
+  const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const CLASS_TYPES_TABLE = "teacher_class_types";
+
+  async function loadClassTypes() {
+    const { data: results, error } = await sb
+      .from(CLASS_TYPES_TABLE)
+      .select("*")
+      .order("school", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error loading class types:", error);
+      return;
+    }
+
+    const tbody = document.querySelector('#classTable tbody');
+    tbody.innerHTML = '';
+
+    (results || []).forEach(obj => {
+      const tr = document.createElement('tr');
+      const school = obj.school || 'School_A';
+      tr.innerHTML = `
+        <td><span class="tag-school ${school}">${school.replace('_',' ')}</span></td>
+        <td><strong>${obj.name}</strong></td>
+        <td>${obj.hours_per_session} h</td>
+        <td><button class="btn-del" onclick="deleteClass(${obj.id})">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('addClassForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const payload = {
+      school: document.getElementById('classSchool').value,
+      name: document.getElementById('className').value.trim(),
+      hours_per_session: parseFloat(document.getElementById('classHours').value)
+    };
+
+    const { error } = await sb.from(CLASS_TYPES_TABLE).insert(payload);
+    if (error) {
+      console.error(error);
+      alert("Error adding class type");
+      return;
+    }
+    loadClassTypes();
+    e.target.reset();
+  });
+
+  async function deleteClass(id) {
+    if (confirm("Permanently delete this class type?")) {
+      const { error } = await sb.from(CLASS_TYPES_TABLE).delete().eq('id', id);
+      if (error) {
+        console.error(error);
+        alert("Error deleting class type");
+        return;
+      }
+      loadClassTypes();
+    }
+  }
+
+  // Expose to global scope since it's called from an inline onclick="..."
+  window.deleteClass = deleteClass;
+
+  loadClassTypes();
+})();
+</script>
+</body>
+</html>
