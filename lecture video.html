@@ -29,6 +29,10 @@
         
         .sortable-ghost { opacity: 0.3; background: #6366f1; }
         .video-box { background: #ffffff; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e5e7eb; margin-bottom: 2rem; cursor: pointer; }
+
+        /* NEW: New Lecture button */
+        .new-lecture-btn { margin-top: 0.5rem; width: 100%; padding: 0.5rem 0; font-size: 0.75rem; font-weight: 700; color: #4f46e5; border: 1px dashed #c7d2fe; border-radius: 0.5rem; background: rgba(255,255,255,0.6); }
+        .new-lecture-btn:hover { background: white; }
     </style>
 </head>
 <body class="p-4 md:p-12">
@@ -194,6 +198,16 @@
                     btn.onclick = () => { utils.haptic(); window.ui.selectAdminLecture(unitId, l.id); };
                     list.appendChild(btn);
                 });
+
+                /* FIX: button to add a new lecture to the currently selected unit.
+                   Previously there was no way to trigger openForm('LECTURE', ...) for
+                   a brand-new lecture, so units with zero lectures were stuck. */
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.className = 'new-lecture-btn';
+                addBtn.innerText = '+ New Lecture';
+                addBtn.onclick = () => window.ui.openForm('LECTURE', '', unitId);
+                list.appendChild(addBtn);
             },
             selectAdminLecture(unitId, lectureId) {
                 activeLectureId = lectureId;
@@ -219,16 +233,33 @@
                     const row = document.createElement('div');
                     row.className = "clickable-card";
                     row.dataset.id = v.id;
-                    row.innerHTML = `
-                        <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
-                        <div class="card-main" onclick="utils.openInYouTube(utils.extractVideoId('${v.embed.replace(/'/g, "\\'")}'))">
-                            <i class="fab fa-youtube text-red-600 mr-3"></i>
-                            <span class="text-sm font-bold text-slate-700">${v.name}</span>
-                        </div>
-                        <div class="card-action" onclick="event.stopPropagation(); window.ui.openForm('VIDEO', '${v.id}', '${lectureId}', '${v.name.replace(/'/g, "\\'")}', '${v.embed.replace(/'/g, "\\'")}')">
-                            <i class="fas fa-cog"></i>
-                        </div>
-                    `;
+
+                    /* FIX: build the row with DOM nodes / addEventListener instead of
+                       interpolating v.name and v.embed into an inline onclick="..." string.
+                       Multi-line titles (or titles containing quotes) broke the old inline
+                       string-based onclick because a raw newline inside a single-quoted JS
+                       string literal is invalid syntax, silently killing the handler. */
+                    const mainDiv = document.createElement('div');
+                    mainDiv.className = 'card-main';
+                    mainDiv.innerHTML = `<i class="fab fa-youtube text-red-600 mr-3"></i><span class="text-sm font-bold text-slate-700"></span>`;
+                    mainDiv.querySelector('span').innerText = v.name;
+                    mainDiv.addEventListener('click', () => utils.openInYouTube(utils.extractVideoId(v.embed)));
+
+                    const actionDiv = document.createElement('div');
+                    actionDiv.className = 'card-action';
+                    actionDiv.innerHTML = `<i class="fas fa-cog"></i>`;
+                    actionDiv.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        window.ui.openForm('VIDEO', v.id, lectureId, v.name, v.embed);
+                    });
+
+                    const handleDiv = document.createElement('div');
+                    handleDiv.className = 'drag-handle';
+                    handleDiv.innerHTML = `<i class="fas fa-grip-vertical"></i>`;
+
+                    row.appendChild(handleDiv);
+                    row.appendChild(mainDiv);
+                    row.appendChild(actionDiv);
                     vList.appendChild(row);
                 });
 
