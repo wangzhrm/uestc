@@ -58,6 +58,8 @@
         .zone-label { font-size: 9px; font-weight: bold; color: #999; margin-bottom: 5px; text-transform: uppercase; }
         .tag-container { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; padding: 10px; background: #fafafa; border-radius: 8px; border: 1px dashed #ddd; }
         .mini-tag { background: white; border: 1px solid #ccc; padding: 4px 10px; border-radius: 6px; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: grab; }
+        .mini-tag span[onclick] { cursor: pointer; color: #999; font-weight: bold; padding: 0 2px; }
+        .mini-tag span[onclick]:hover { color: #d32f2f; }
         .deadline-popup { position: fixed; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none; transform: translate(-50%, -130%); }
     </style>
 </head>
@@ -324,12 +326,11 @@
     }
 
     async function deleteUnit(id) {
-        if(confirm("Are you sure?")) { 
-            const { error } = await client.from('units').delete().eq('id', id); 
-            if (error) { alert("Delete failed: " + error.message); return; }
-            init(); 
-            loadMgr();
-        }
+        if(!confirm("Are you sure you want to delete this unit? This will also remove its tabs, resources, and group access links.")) return;
+        const { error } = await client.from('units').delete().eq('id', id);
+        if (error) { alert("Delete failed: " + error.message); return; }
+        init();
+        loadMgr();
     }
 
     function createNewUnit() {
@@ -600,7 +601,7 @@
 
             document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
             document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
-            document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name}</div>`).join('');
+            document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name} <span onclick="deleteUnit('${u.id}')">×</span></div>`).join('');
             
             const grid = document.getElementById('mgr-groups');
             grid.innerHTML = (groups || []).map(g => {
@@ -736,8 +737,27 @@
     async function addTeacher() { const u = document.getElementById('t-name').value, p = document.getElementById('t-pass').value; if(u && p) { await client.from('teacher_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     async function addUser() { const u = document.getElementById('u-name').value, p = document.getElementById('u-pass').value; if(u && p) { await client.from('student_accounts').insert([{ username: u, password: p }]); loadMgr(); } }
     
-    async function deleteTeacher(id) { await client.from('teacher_accounts').delete().eq('id', id); loadMgr(); }
-    async function deleteUser(id) { await client.from('student_accounts').delete().eq('id', id); loadMgr(); }
+    async function deleteTeacher(id) {
+        if(!confirm("Are you sure you want to delete this teacher account? This cannot be undone.")) return;
+        const { error } = await client.from('teacher_accounts').delete().eq('id', id);
+        if (error) {
+            console.error("Delete teacher error:", error);
+            alert("Failed to delete teacher: " + error.message + "\n\nThis usually means the teacher is still assigned to a group. Remove them from any groups first, then try again.");
+            return;
+        }
+        loadMgr();
+    }
+
+    async function deleteUser(id) {
+        if(!confirm("Are you sure you want to delete this student account? This cannot be undone.")) return;
+        const { error } = await client.from('student_accounts').delete().eq('id', id);
+        if (error) {
+            console.error("Delete student error:", error);
+            alert("Failed to delete student: " + error.message + "\n\nThis usually means the student is still assigned to a group or has progress records. Remove them from any groups first, then try again.");
+            return;
+        }
+        loadMgr();
+    }
     
     async function removeTeacherLink(gid, tid) { await client.from('teacher_group_membership').delete().eq('group_id', gid).eq('teacher_id', tid); loadMgr(); }
     async function removeUserLink(gid, uid) { await client.from('user_group_membership').delete().eq('group_id', gid).eq('user_id', uid); loadMgr(); }
