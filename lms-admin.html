@@ -327,6 +327,17 @@
 
     async function deleteUnit(id) {
         if(!confirm("Are you sure you want to delete this unit? This will also remove its tabs, resources, and group access links.")) return;
+
+        // Clean up dependent rows first so FK constraints don't block the delete
+        const { error: resErr } = await client.from('resources').delete().eq('unit_id', id);
+        if (resErr) { alert("Failed to remove unit's resources: " + resErr.message); return; }
+
+        const { error: lecErr } = await client.from('lectures').delete().eq('unit_id', id);
+        if (lecErr) { alert("Failed to remove unit's tabs: " + lecErr.message); return; }
+
+        const { error: accessErr } = await client.from('unit_group_access').delete().eq('unit_id', id);
+        if (accessErr) { alert("Failed to remove unit's group access links: " + accessErr.message); return; }
+
         const { error } = await client.from('units').delete().eq('id', id);
         if (error) { alert("Delete failed: " + error.message); return; }
         init();
@@ -739,10 +750,19 @@
     
     async function deleteTeacher(id) {
         if(!confirm("Are you sure you want to delete this teacher account? This cannot be undone.")) return;
+
+        // Clean up dependent rows first so the FK constraint on teacher_accounts doesn't block the delete
+        const { error: linkErr } = await client.from('teacher_group_membership').delete().eq('teacher_id', id);
+        if (linkErr) {
+            console.error("Delete teacher group links error:", linkErr);
+            alert("Failed to remove teacher's group assignments: " + linkErr.message);
+            return;
+        }
+
         const { error } = await client.from('teacher_accounts').delete().eq('id', id);
         if (error) {
             console.error("Delete teacher error:", error);
-            alert("Failed to delete teacher: " + error.message + "\n\nThis usually means the teacher is still assigned to a group. Remove them from any groups first, then try again.");
+            alert("Failed to delete teacher: " + error.message);
             return;
         }
         loadMgr();
@@ -750,10 +770,26 @@
 
     async function deleteUser(id) {
         if(!confirm("Are you sure you want to delete this student account? This cannot be undone.")) return;
+
+        // Clean up dependent rows first so the FK constraints on student_accounts don't block the delete
+        const { error: progressErr } = await client.from('student_progress').delete().eq('user_id', id);
+        if (progressErr) {
+            console.error("Delete student progress error:", progressErr);
+            alert("Failed to remove student's progress records: " + progressErr.message);
+            return;
+        }
+
+        const { error: linkErr } = await client.from('user_group_membership').delete().eq('user_id', id);
+        if (linkErr) {
+            console.error("Delete student group links error:", linkErr);
+            alert("Failed to remove student's group assignments: " + linkErr.message);
+            return;
+        }
+
         const { error } = await client.from('student_accounts').delete().eq('id', id);
         if (error) {
             console.error("Delete student error:", error);
-            alert("Failed to delete student: " + error.message + "\n\nThis usually means the student is still assigned to a group or has progress records. Remove them from any groups first, then try again.");
+            alert("Failed to delete student: " + error.message);
             return;
         }
         loadMgr();
