@@ -85,7 +85,7 @@
 
 <div id="login-overlay">
     <div class="login-card">
-        <h2 style="color:var(--primary); margin:0 0 20px 0;">Student Access</h2>
+        <h2 style="color:var(--primary); margin:0 0 20px 0;">Portal Access</h2>
         <input type="text" id="username" placeholder="Username" autocomplete="off">
         <input type="password" id="password" placeholder="Password" autocomplete="off">
         <button class="login-btn" id="login-btn" onclick="handleLogin()">Login</button>
@@ -130,6 +130,7 @@
     let currentOffset = 0;
     let globalDeadlines = [];
     let currentUser = null;
+    let currentRole = null; // 'student' or 'teacher'
     let completedLectures = new Set();
 
     async function handleLogin() {
@@ -140,27 +141,56 @@
 
         if (!u || !p) { err.innerText = "Enter credentials"; return; }
         btn.innerText = "Verifying..."; btn.disabled = true;
+        err.innerText = "";
 
         try {
-            const { data: user, error: userErr } = await client.from('student_accounts')
+            // Check student accounts first
+            const { data: student, error: studentErr } = await client.from('student_accounts')
                 .select('id, username').eq('username', u).eq('password', p).maybeSingle();
+            if (studentErr) throw new Error("Connection Error");
 
-            if (userErr) throw new Error("Connection Error");
+            let user = student;
+            let role = student ? 'student' : null;
+
+            // If no student match, check teacher accounts
+            if (!user) {
+                const { data: teacher, error: teacherErr } = await client.from('teacher_accounts')
+                    .select('id, username').eq('username', u).eq('password', p).maybeSingle();
+                if (teacherErr) throw new Error("Connection Error");
+                if (teacher) { user = teacher; role = 'teacher'; }
+            }
+
             if (!user) throw new Error("Invalid credentials");
 
             currentUser = user;
-            
-            // Set the username in the header
-            document.getElementById('user-display').innerText = `Hello, ${user.username}`;
+            currentRole = role;
 
-            const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
-            completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
+            document.getElementById('user-display').innerText =
+                `Hello, ${user.username}${role === 'teacher' ? ' (Teacher)' : ''}`;
 
-            const { data: memberships } = await client.from('user_group_membership').select('group_id').eq('user_id', user.id);
-            const groupIds = memberships ? memberships.map(m => m.group_id) : [];
+            if (role === 'student') {
+                const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
+                completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
 
-            const { data: access } = await client.from('unit_group_access').select('unit_id').in('group_id', groupIds);
-            allowedUnitIds = access ? [...new Set(access.map(a => a.unit_id))] : [];
+                const { data: memberships } = await client.from('user_group_membership').select('group_id').eq('user_id', user.id);
+                const groupIds = memberships ? memberships.map(m => m.group_id) : [];
+
+                const { data: access } = groupIds.length
+                    ? await client.from('unit_group_access').select('unit_id').in('group_id', groupIds)
+                    : { data: [] };
+                allowedUnitIds = access ? [...new Set(access.map(a => a.unit_id))] : [];
+            } else {
+                // Teacher: resolve access via teacher_group_membership -> groups -> unit_group_access
+                completedLectures = new Set(); // teachers have no personal progress
+
+                const { data: memberships } = await client.from('teacher_group_membership').select('group_id').eq('teacher_id', user.id);
+                const groupIds = memberships ? memberships.map(m => m.group_id) : [];
+
+                const { data: access } = groupIds.length
+                    ? await client.from('unit_group_access').select('unit_id').in('group_id', groupIds)
+                    : { data: [] };
+                allowedUnitIds = access ? [...new Set(access.map(a => a.unit_id))] : [];
+            }
 
             document.getElementById('login-overlay').classList.add('hidden');
             initPortal();
@@ -169,11 +199,15 @@
     }
 
     async function initPortal() {
-        const { data: units } = await client.from('units').select('*').in('id', allowedUnitIds).order('name');
-        const { data: deadlines } = await client.from('lectures')
-            .select('id, deadline, name, units(name)')
-            .in('unit_id', allowedUnitIds)
-            .not('deadline', 'is', null);
+        const { data: units } = allowedUnitIds.length
+            ? await client.from('units').select('*').in('id', allowedUnitIds).order('name')
+            : { data: [] };
+        const { data: deadlines } = allowedUnitIds.length
+            ? await client.from('lectures')
+                .select('id, deadline, name, units(name)')
+                .in('unit_id', allowedUnitIds)
+                .not('deadline', 'is', null)
+            : { data: [] };
 
         globalDeadlines = deadlines || [];
         renderUnits(units || []);
@@ -222,9 +256,10 @@
     }
 
     function renderUnits(units) {
+        // Units store their card image in the "image_url" column (matches the admin portal)
         document.getElementById('unit-grid').innerHTML = units.map(u => `
             <div class="card" onclick="openUnit('${u.id}', '${u.name}')">
-                <img src="${u.header_image_url || 'https://via.placeholder.com/400x200'}">
+                <img src="${u.image_url || 'https://via.placeholder.com/400x200'}">
                 <div class="card-info">${u.name}</div>
             </div>
         `).join('');
@@ -238,10 +273,18 @@
         document.getElementById('view-unit-name').dataset.unitId = unitId;
 
         const { data: genRes } = await client.from('resources').select('*').eq('unit_id', unitId).is('lecture_id', null).eq('is_hidden', false).order('sort_order');
-        const { data: tabs } = await client.from('lectures').select('*, resources(*)').eq('unit_id', unitId).order('sort_order');
+        const { data: tabs } = await client.from('lectures').select('*').eq('unit_id', unitId).order('sort_order');
+
+        // Fetch all resources for the unit separately and merge in JS, rather than relying on a
+        // nested Supabase embed (resources(*)) which can silently miss rows if the FK relationship
+        // between resources.lecture_id and lectures.id is ambiguous to PostgREST.
+        const { data: allRes } = await client.from('resources').select('*').eq('unit_id', unitId).eq('is_hidden', false);
 
         const processedTabs = (tabs || []).map(t => ({
-            ...t, resources: (t.resources || []).filter(r => !r.is_hidden).sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0))
+            ...t,
+            resources: (allRes || [])
+                .filter(r => r.lecture_id === t.id)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
         }));
         renderDetails(genRes || [], processedTabs);
     }
@@ -269,12 +312,16 @@
                 }
             }
 
+            // "Mark Done" progress tracking only applies to students; teachers have no
+            // student_progress row to write to.
+            const showMarkDone = isAssessment && currentRole === 'student';
+
             return `
             <div class="tab-block">
                 <div class="tab-header ${statusClass}" onclick="const c = this.nextElementSibling; c.style.display = c.style.display === 'block' ? 'none' : 'block'">
                     <span>${isDone ? '✅ ' : ''}${t.name} ${t.deadline ? `<br><small style="color:#d32f2f">Due: ${t.deadline}</small>` : ''}</span>
                     
-                    ${isAssessment ? `
+                    ${showMarkDone ? `
                         <button class="header-btn" style="background:${isDone ? '#666' : '#2e7d32'}" 
                             onclick="event.stopPropagation(); toggleComplete('${t.id}')">
                             ${isDone ? 'Unmark' : 'Mark Done'}
@@ -290,6 +337,7 @@
     }
 
     async function toggleComplete(lectureId) {
+        if (currentRole !== 'student') return; // safety guard
         const isDone = completedLectures.has(lectureId);
         try {
             if (isDone) {
