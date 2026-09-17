@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --teacher-green: #e8f5e9; --glass: rgba(255, 255, 255, 0.9); }
+        :root { --primary: #003399; --bg: #f4f4f9; --asmt-yellow: #fff9c4; --asmt-urgent: #ffcdd2; --teacher-green: #e8f5e9; --glass: rgba(255, 255, 255, 0.9); --trading-amber: #fff3cd; --trading-border: #e0a800; }
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); margin: 0; overflow-x: hidden; }
         
         /* LOGIN STYLES */
@@ -61,6 +61,14 @@
         .mini-tag span[onclick] { cursor: pointer; color: #999; font-weight: bold; padding: 0 2px; }
         .mini-tag span[onclick]:hover { color: #d32f2f; }
         .deadline-popup { position: fixed; background: rgba(0,0,0,0.85); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; z-index: 9999; pointer-events: none; transform: translate(-50%, -130%); }
+
+        /* --- Trading-sim sourced students: visually distinct + non-deletable here --- */
+        .mini-tag.trading-source { background: var(--trading-amber); border: 1px solid var(--trading-border); }
+        .mini-tag.trading-source .src-badge { font-size: 9px; background: var(--trading-border); color: #4a3800; padding: 1px 5px; border-radius: 4px; font-weight: bold; }
+        .mini-tag.trading-source span[onclick] { color: #8a6d00; }
+        .mini-tag.trading-source span[onclick]:hover { color: #d32f2f; }
+        .lib-legend { font-size: 11px; color: #888; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: var(--trading-amber); border: 1px solid var(--trading-border); flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -108,6 +116,7 @@
             </div>
         </div>
         <div id="lib-students" class="tag-container" style="margin-top:15px;"></div>
+        <div class="lib-legend"><span class="legend-swatch"></span> Created in the Trading Simulation admin page. You can assign/remove them from groups and units here, but they can only be deleted from that page.</div>
     </div>
 
     <div style="background:#f8f9fa; padding:15px; border-radius:12px; border:1px solid #ddd; margin-bottom:20px;">
@@ -605,13 +614,23 @@
             const { data: uLinks } = await client.from('user_group_membership').select('*');
             const { data: tLinks } = await client.from('teacher_group_membership').select('*'); 
             const { data: gLinks } = await client.from('unit_group_access').select('*');
+
+            // Students created via the Trading Simulation admin page (separate table).
+            // Read-only here: shown for group/unit assignment, but not deletable from this page.
+            const { data: tradingStudents } = await client.from('trading_students').select('id, username').order('username');
+            const { data: tradingGroupLinks } = await client.from('trading_student_group_membership').select('*');
             
             const userMap = {}; (users||[]).forEach(u => userMap[u.id] = u.username);
             const teacherMap = {}; (teachers||[]).forEach(t => teacherMap[t.id] = t.username);
             const unitMap = {}; (units||[]).forEach(u => unitMap[u.id] = u.name);
+            const tradingStudentMap = {}; (tradingStudents||[]).forEach(t => tradingStudentMap[t.id] = t.username);
 
             document.getElementById('lib-teachers').innerHTML = (teachers || []).map(t => `<div class="mini-tag" data-id="${t.id}" data-type="teacher">${t.username} <span onclick="deleteTeacher('${t.id}')">×</span></div>`).join('');
-            document.getElementById('lib-students').innerHTML = (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('');
+
+            document.getElementById('lib-students').innerHTML =
+                (users || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="student">${u.username} <span onclick="deleteUser('${u.id}')">×</span></div>`).join('')
+                + (tradingStudents || []).map(t => `<div class="mini-tag trading-source" data-id="${t.id}" data-type="student" data-source="trading">${t.username} <span class="src-badge">Trading Sim</span> <span onclick="blockedDeleteTradingStudent('${t.username.replace(/'/g, "\\'")}')">×</span></div>`).join('');
+
             document.getElementById('lib-units').innerHTML = (units || []).map(u => `<div class="mini-tag" data-id="${u.id}" data-type="unit">${u.name} <span onclick="deleteUnit('${u.id}')">×</span></div>`).join('');
             
             const grid = document.getElementById('mgr-groups');
@@ -619,6 +638,7 @@
                 const gUsers = (uLinks || []).filter(l => l.group_id === g.id);
                 const gTeachers = (tLinks || []).filter(l => l.group_id === g.id); 
                 const gUnits = (gLinks || []).filter(l => l.group_id === g.id);
+                const gTradingUsers = (tradingGroupLinks || []).filter(l => l.group_id === g.id);
                 
                 return `<div class="group-card" id="g-card-${g.id}">
                     <div class="group-header" id="g-header-${g.id}">
@@ -631,7 +651,7 @@
                     </div>
                     <div class="zone" data-group-id="${g.id}" data-zone-type="unit"><div class="zone-label">Units</div><div class="tag-container drop-zone">${gUnits.map(ul => `<div class="mini-tag">${unitMap[ul.unit_id] || 'Unknown'} <span onclick="removeUnitLink('${g.id}','${ul.unit_id}')">×</span></div>`).join('')}</div></div>
                     <div class="zone" data-group-id="${g.id}" data-zone-type="teacher"><div class="zone-label" style="color:#2e7d32;">Teachers</div><div class="tag-container drop-zone">${gTeachers.map(tl => `<div class="mini-tag">${teacherMap[tl.teacher_id] || 'Unknown'} <span onclick="removeTeacherLink('${g.id}','${tl.teacher_id}')">×</span></div>`).join('')}</div></div>
-                    <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="zone-label">Students</div><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${userMap[ul.user_id] || 'Unknown'} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}</div></div>
+                    <div class="zone" data-group-id="${g.id}" data-zone-type="student"><div class="zone-label">Students</div><div class="tag-container drop-zone">${gUsers.map(ul => `<div class="mini-tag">${userMap[ul.user_id] || 'Unknown'} <span onclick="removeUserLink('${g.id}','${ul.user_id}')">×</span></div>`).join('')}${gTradingUsers.map(tl => `<div class="mini-tag trading-source">${tradingStudentMap[tl.trading_student_id] || 'Unknown'} <span class="src-badge">Trading Sim</span> <span onclick="removeTradingUserLink('${g.id}','${tl.trading_student_id}')">×</span></div>`).join('')}</div></div>
                 </div>`;
             }).join('');
             setupDrag();
@@ -653,13 +673,19 @@
                 group: 'shared', 
                 onAdd: async (evt) => {
                     const id = evt.item.dataset.id;
+                    const source = evt.item.dataset.source; // 'trading' for trading-sim students, undefined otherwise
                     if (evt.item.dataset.type !== zType) { 
                         evt.item.remove(); 
                         return; 
                     }
                     
                     let error = null;
-                    if (zType === 'student') {
+                    if (zType === 'student' && source === 'trading') {
+                        // Trading-sim student: link via the dedicated junction table (trading_students uses a
+                        // bigint id, not a uuid, so it can't go into user_group_membership directly).
+                        const res = await client.from('trading_student_group_membership').upsert({ group_id: gid, trading_student_id: id }, { onConflict: ['group_id', 'trading_student_id'] });
+                        error = res.error;
+                    } else if (zType === 'student') {
                         const res = await client.from('user_group_membership').upsert({ group_id: gid, user_id: id }, { onConflict: ['group_id', 'user_id'] });
                         error = res.error;
                     } else if (zType === 'teacher') {
@@ -792,6 +818,24 @@
             alert("Failed to delete student: " + error.message);
             return;
         }
+        loadMgr();
+    }
+
+    // Trading-sim students are owned by the Trading Simulation admin page's `trading_students`
+    // table, not this app's `student_accounts` table. This page can assign/unassign them from
+    // groups (see removeTradingUserLink + the drag-drop handler in setupDrag), but intentionally
+    // does not offer account deletion, so the two admin pages don't race to delete/recreate the
+    // same row out from under each other.
+    function blockedDeleteTradingStudent(username) {
+        alert(
+            `"${username}" was created in the Trading Simulation admin page, not here.\n\n` +
+            `To delete this account, open the Trading Simulation admin page and remove it from there.\n\n` +
+            `You can still drag this student into or out of groups/units here — that assignment is stored separately and isn't affected by deleting from the other page.`
+        );
+    }
+
+    async function removeTradingUserLink(gid, tradingStudentId) {
+        await client.from('trading_student_group_membership').delete().eq('group_id', gid).eq('trading_student_id', tradingStudentId);
         loadMgr();
     }
     
