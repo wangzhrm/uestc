@@ -130,7 +130,7 @@
     let currentOffset = 0;
     let globalDeadlines = [];
     let currentUser = null;
-    let currentRole = null; // 'student' or 'teacher'
+    let currentRole = null; // 'student' | 'teacher' | 'trading_student'
     let completedLectures = new Set();
 
     async function handleLogin() {
@@ -160,19 +160,41 @@
                 if (teacher) { user = teacher; role = 'teacher'; }
             }
 
+            // If still no match, check trading-simulation students. These accounts live in a
+            // separate table (created via the Trading Simulation admin page) and use a bigint id
+            // rather than a uuid, so their group membership and progress are tracked through
+            // separate trading_student_* tables rather than user_group_membership / student_progress.
+            if (!user) {
+                const { data: tradingStudent, error: tradingErr } = await client.from('trading_students')
+                    .select('id, username').eq('username', u).eq('password', p).maybeSingle();
+                if (tradingErr) throw new Error("Connection Error");
+                if (tradingStudent) { user = tradingStudent; role = 'trading_student'; }
+            }
+
             if (!user) throw new Error("Invalid credentials");
 
             currentUser = user;
             currentRole = role;
 
-            document.getElementById('user-display').innerText =
-                `Hello, ${user.username}${role === 'teacher' ? ' (Teacher)' : ''}`;
+            const roleLabel = role === 'teacher' ? ' (Teacher)' : (role === 'trading_student' ? ' (Trading Sim)' : '');
+            document.getElementById('user-display').innerText = `Hello, ${user.username}${roleLabel}`;
 
             if (role === 'student') {
                 const { data: progress } = await client.from('student_progress').select('lecture_id').eq('user_id', user.id);
                 completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
 
                 const { data: memberships } = await client.from('user_group_membership').select('group_id').eq('user_id', user.id);
+                const groupIds = memberships ? memberships.map(m => m.group_id) : [];
+
+                const { data: access } = groupIds.length
+                    ? await client.from('unit_group_access').select('unit_id').in('group_id', groupIds)
+                    : { data: [] };
+                allowedUnitIds = access ? [...new Set(access.map(a => a.unit_id))] : [];
+            } else if (role === 'trading_student') {
+                const { data: progress } = await client.from('trading_student_progress').select('lecture_id').eq('trading_student_id', user.id);
+                completedLectures = new Set(progress ? progress.map(p => p.lecture_id) : []);
+
+                const { data: memberships } = await client.from('trading_student_group_membership').select('group_id').eq('trading_student_id', user.id);
                 const groupIds = memberships ? memberships.map(m => m.group_id) : [];
 
                 const { data: access } = groupIds.length
@@ -312,9 +334,9 @@
                 }
             }
 
-            // "Mark Done" progress tracking only applies to students; teachers have no
-            // student_progress row to write to.
-            const showMarkDone = isAssessment && currentRole === 'student';
+            // "Mark Done" progress tracking applies to both regular students and trading-sim
+            // students (each writes to its own progress table); teachers have neither.
+            const showMarkDone = isAssessment && (currentRole === 'student' || currentRole === 'trading_student');
 
             return `
             <div class="tab-block">
@@ -337,15 +359,25 @@
     }
 
     async function toggleComplete(lectureId) {
-        if (currentRole !== 'student') return; // safety guard
+        if (currentRole !== 'student' && currentRole !== 'trading_student') return; // safety guard
         const isDone = completedLectures.has(lectureId);
         try {
-            if (isDone) {
-                await client.from('student_progress').delete().eq('user_id', currentUser.id).eq('lecture_id', lectureId);
-                completedLectures.delete(lectureId);
+            if (currentRole === 'trading_student') {
+                if (isDone) {
+                    await client.from('trading_student_progress').delete().eq('trading_student_id', currentUser.id).eq('lecture_id', lectureId);
+                    completedLectures.delete(lectureId);
+                } else {
+                    await client.from('trading_student_progress').upsert({ trading_student_id: currentUser.id, lecture_id: lectureId, is_completed: true }, { onConflict: ['trading_student_id', 'lecture_id'] });
+                    completedLectures.add(lectureId);
+                }
             } else {
-                await client.from('student_progress').upsert({ user_id: currentUser.id, lecture_id: lectureId, is_completed: true });
-                completedLectures.add(lectureId);
+                if (isDone) {
+                    await client.from('student_progress').delete().eq('user_id', currentUser.id).eq('lecture_id', lectureId);
+                    completedLectures.delete(lectureId);
+                } else {
+                    await client.from('student_progress').upsert({ user_id: currentUser.id, lecture_id: lectureId, is_completed: true });
+                    completedLectures.add(lectureId);
+                }
             }
             const uId = document.getElementById('view-unit-name').dataset.unitId;
             const uName = document.getElementById('view-unit-name').innerText;
