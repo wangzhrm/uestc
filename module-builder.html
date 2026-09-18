@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module Builder (Copy)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+
+<style>
+  :root{
+    --paper:#FAF7EF;
+    --paper-raised:#FFFFFF;
+    --ink:#252119;
+    --ink-soft:#5B5548;
+    --rule:#E4DCC8;
+    --rule-strong:#CFC4A6;
+    --teal:#1F5C54;
+    --teal-deep:#153E38;
+    --ochre:#B8863B;
+    --rust:#B3492F;
+    --rust-bg:#F7E9E4;
+  }
+  :root:not([data-theme="light"]){
+    /* keep light paper aesthetic even under system dark mode, since this is a document tool */
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1C1A16;
+      --paper-raised:#252220;
+      --ink:#EDE7D9;
+      --ink-soft:#B4AB97;
+      --rule:#3A362C;
+      --rule-strong:#4C4738;
+      --teal:#5FBBAE;
+      --teal-deep:#3E8B7F;
+      --ochre:#D9A857;
+      --rust:#E07655;
+      --rust-bg:#3A2620;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1C1A16;
+    --paper-raised:#252220;
+    --ink:#EDE7D9;
+    --ink-soft:#B4AB97;
+    --rule:#3A362C;
+    --rule-strong:#4C4738;
+    --teal:#5FBBAE;
+    --teal-deep:#3E8B7F;
+    --ochre:#D9A857;
+    --rust:#E07655;
+    --rust-bg:#3A2620;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Inter",sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:780px;
+    margin:0 auto;
+    padding:48px 20px 120px;
+  }
+
+  /* ---- header ---- */
+  .masthead{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:22px;
+    margin-bottom:36px;
+  }
+  .masthead .kicker{
+    font-size:12.5px;
+    letter-spacing:.02em;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  input.module-name{
+    width:100%;
+    border:none;
+    background:transparent;
+    font-family:"Source Serif 4",serif;
+    font-weight:700;
+    font-size:clamp(28px,5vw,40px);
+    color:var(--ink);
+    padding:2px 0;
+    outline:none;
+  }
+  input.module-name::placeholder{ color:var(--rule-strong); }
+  input.module-name:focus{ color:var(--teal-deep); }
+
+  /* ---- generic card ---- */
+  .knowledge-block{
+    margin-bottom:40px;
+  }
+  .k-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .k-num{
+    font-family:"Source Serif 4",serif;
+    font-size:22px;
+    font-weight:700;
+    color:var(--teal);
+    white-space:nowrap;
+  }
+  .k-label-edit{
+    flex:1;
+    border:none;
+    background:transparent;
+    font-family:"Source Serif 4",serif;
+    font-size:22px;
+    font-weight:700;
+    color:var(--ink);
+    outline:none;
+    min-width:0;
+  }
+  .k-label-edit::placeholder{ color:var(--rule-strong); }
+
+  .field{
+    border:1px solid var(--rule);
+    border-radius:3px;
+    background:var(--paper-raised);
+    overflow:hidden;
+  }
+  .field + .field{ margin-top:14px; }
+  .field-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px 12px;
+    background:var(--paper);
+    border-bottom:1px solid var(--rule);
+  }
+  .field-bar .tag{
+    font-size:11px;
+    letter-spacing:.03em;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  textarea{
+    width:100%;
+    border:none;
+    resize:vertical;
+    background:transparent;
+    color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:13.5px;
+    line-height:1.55;
+    padding:12px;
+    outline:none;
+    min-height:70px;
+    display:block;
+  }
+  .preview{
+    padding:14px 16px;
+    border-top:1px dashed var(--rule);
+    font-family:"Source Serif 4",serif;
+    font-size:15.5px;
+    color:var(--ink);
+    min-height:22px;
+  }
+  .preview:empty::before{
+    content:"Preview appears here";
+    font-family:"Inter",sans-serif;
+    font-size:12.5px;
+    color:var(--rule-strong);
+    font-style:italic;
+  }
+  .preview p{ margin:0 0 10px; }
+  .preview p:last-child{ margin-bottom:0; }
+  .preview ul,.preview ol{ margin:0 0 10px; padding-left:22px; }
+  .preview code{ background:var(--rust-bg); padding:1px 5px; border-radius:3px; font-size:.9em; }
+  .preview pre{ background:var(--rust-bg); padding:10px 12px; border-radius:4px; overflow-x:auto; }
+  .preview img{ max-width:100%; }
+
+  /* ---- questions ---- */
+  .questions{ margin-top:18px; padding-left:22px; border-left:2px solid var(--rule); }
+  .question-block{ margin-bottom:26px; }
+  .question-block:last-child{ margin-bottom:0; }
+  .q-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .q-num{
+    font-family:"Source Serif 4",serif;
+    font-weight:600;
+    font-size:16px;
+    color:var(--ochre);
+    white-space:nowrap;
+  }
+  .q-spacer{ flex:1; }
+
+  .graph-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    flex-wrap:wrap;
+  }
+  .graph-row input[type="file"]{ font-size:12.5px; color:var(--ink-soft); max-width:100%; }
+  .graph-thumb{
+    display:none;
+    align-items:center;
+    gap:10px;
+  }
+  .graph-thumb img{
+    height:52px;
+    border:1px solid var(--rule);
+    border-radius:3px;
+    background:var(--paper);
+  }
+  .graph-thumb .fname{ font-size:12px; color:var(--ink-soft); word-break:break-all; }
+
+  /* ---- buttons ---- */
+  button{
+    font-family:"Inter",sans-serif;
+    cursor:pointer;
+    border:none;
+  }
+  .btn{
+    padding:9px 16px;
+    border-radius:3px;
+    font-size:13px;
+    font-weight:600;
+    background:transparent;
+    border:1px solid var(--rule-strong);
+    color:var(--ink);
+    transition:background .12s ease, border-color .12s ease;
+  }
+  .btn:hover{ border-color:var(--teal); color:var(--teal-deep); }
+  .btn.primary{
+    background:var(--teal);
+    border-color:var(--teal);
+    color:#FAF7EF;
+  }
+  .btn.primary:hover{ background:var(--teal-deep); border-color:var(--teal-deep); color:#FAF7EF; }
+  .btn.ghost-add{
+    background:transparent;
+    border:1px dashed var(--rule-strong);
+    color:var(--ink-soft);
+  }
+  .btn.ghost-add:hover{ border-color:var(--teal); color:var(--teal-deep); }
+  .btn.small{ padding:5px 10px; font-size:11.5px; }
+  .btn.danger{ border-color:var(--rust); color:var(--rust); background:transparent; }
+  .btn.danger:hover{ background:var(--rust-bg); }
+  .icon-x{
+    width:26px; height:26px; border-radius:3px;
+    display:flex; align-items:center; justify-content:center;
+    background:transparent; border:1px solid var(--rule);
+    color:var(--ink-soft); font-size:14px; line-height:1; flex:0 0 auto;
+  }
+  .icon-x:hover{ border-color:var(--rust); color:var(--rust); background:var(--rust-bg); }
+
+  .add-q-row{ margin-top:4px; }
+  .add-k-row{ margin:36px 0 44px; text-align:center; }
+  .add-k-row .btn{ width:100%; padding:14px; }
+
+  hr.rule{ border:none; border-top:1px solid var(--rule); margin:40px 0; }
+
+  /* ---- output bar ---- */
+  .output-bar{
+    position:sticky;
+    bottom:0;
+    margin:0 -20px -120px;
+    padding:16px 20px calc(16px + env(safe-area-inset-bottom));
+    background:var(--paper-raised);
+    border-top:1px solid var(--rule);
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+  .output-bar .status{
+    flex:1;
+    font-size:12px;
+    color:var(--ink-soft);
+    align-self:center;
+    min-width:120px;
+  }
+
+  /* ---- toolbar ---- */
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .toolbar .left{ font-size:12px; color:var(--ink-soft); }
+
+  /* ---- overlay full preview ---- */
+  #previewOverlay{
+    display:none;
+    position:fixed; inset:0;
+    background:var(--paper);
+    z-index:50;
+    overflow-y:auto;
+  }
+  #previewOverlay.show{ display:block; }
+  .po-bar{
+    position:sticky; top:0;
+    background:var(--paper-raised);
+    border-bottom:1px solid var(--rule);
+    padding:14px 20px;
+    display:flex; justify-content:space-between; align-items:center;
+    z-index:2;
+  }
+  .po-content{ max-width:720px; margin:0 auto; padding:36px 20px 100px; }
+  .po-content h1{ font-family:"Source Serif 4",serif; font-size:34px; margin:0 0 30px; padding-bottom:16px; border-bottom:2px solid var(--ink); }
+  .po-content .k-title{ font-family:"Source Serif 4",serif; font-size:22px; font-weight:700; color:var(--teal); margin:34px 0 10px; }
+  .po-content .k-body{ font-family:"Source Serif 4",serif; font-size:16px; margin-bottom:16px; }
+  .po-content .q-title{ font-family:"Source Serif 4",serif; font-size:16.5px; font-weight:600; color:var(--ochre); margin:20px 0 6px; }
+  .po-content .q-body{ font-family:"Source Serif 4",serif; font-size:15.5px; margin-bottom:8px; }
+  .po-content .s-title{ font-size:11.5px; letter-spacing:.03em; color:var(--ink-soft); font-weight:700; margin:10px 0 4px; }
+  .po-content .q-graph img{ max-width:100%; margin:10px 0; border:1px solid var(--rule); border-radius:4px; }
+  .po-content p{ margin:0 0 10px; }
+  .po-content img{ max-width:100%; }
+  .po-content code{ background:var(--rust-bg); padding:1px 5px; border-radius:3px; font-size:.9em; }
+  .po-content pre{ background:var(--rust-bg); padding:10px 12px; border-radius:4px; overflow-x:auto; }
+
+  .solution-details{ margin-top:10px; }
+  .solution-details > summary{
+    cursor:pointer;
+    display:inline-block;
+    list-style:none;
+    font-family:"Inter",sans-serif;
+    font-size:11.5px;
+    letter-spacing:.03em;
+    font-weight:700;
+    color:var(--ink-soft);
+    background:var(--paper);
+    border:1px solid var(--rule-strong);
+    border-radius:3px;
+    padding:5px 10px;
+  }
+  .solution-details > summary::-webkit-details-marker{ display:none; }
+  .solution-details > summary::marker{ content:""; }
+  .solution-details > summary:hover{ border-color:var(--teal); color:var(--teal-deep); }
+  .solution-details[open] > summary{ margin-bottom:10px; }
+  .solution-details .s-title{ margin-top:0; }
+
+  ::selection{ background:var(--ochre); color:#fff; }
+  :focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+
+  @media (max-width:520px){
+    .questions{ padding-left:14px; }
+    .output-bar{ justify-content:stretch; }
+    .output-bar .btn{ flex:1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="kicker">MODULE BUILDER — fill in, preview, export</div>
+    <input class="module-name" id="moduleName" placeholder="Name of module" />
+  </div>
+
+  <div class="toolbar">
+    <div class="left" id="autosaveNote">Draft saves automatically in this browser</div>
+    <button class="btn small" id="clearAllBtn">Clear everything</button>
+  </div>
+
+  <div id="sections"></div>
+
+  <div class="add-k-row">
+    <button class="btn ghost-add" id="addKnowledgeBtn">+ Add a knowledge section</button>
+  </div>
+</div>
+
+<div class="output-bar">
+  <div class="status" id="statusText"></div>
+  <button class="btn" id="previewBtn">Preview document</button>
+  <button class="btn" id="exportHtmlBtn">Download HTML</button>
+  <button class="btn primary" id="exportPdfBtn">Download PDF</button>
+</div>
+
+<div id="previewOverlay">
+  <div class="po-bar">
+    <strong style="font-family:'Source Serif 4',serif;">Document preview</strong>
+    <button class="btn small" id="closePreviewBtn">Close</button>
+  </div>
+  <div class="po-content" id="poContent"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  marked.setOptions({ breaks:true, gfm:true });
+
+  // ---------------- state ----------------
+  var state = {
+    moduleName:"",
+    sections:[]
+  };
+
+  function uid(){ return Math.random().toString(36).slice(2,10); }
+
+  function newSection(){
+    return { id: uid(), title:"", knowledge:"", questions:[ newQuestion() ] };
+  }
+  function newQuestion(){
+    return { id: uid(), question:"", solution:"", graphData:null, graphName:null };
+  }
+
+  // ---------------- persistence ----------------
+  var saveTimer=null;
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(function(){
+      try{
+        localStorage.setItem("module-builder-draft", JSON.stringify(state));
+        document.getElementById("autosaveNote").textContent = "Draft saved " + new Date().toLocaleTimeString();
+      }catch(e){ /* storage unavailable — ignore, editing still works this session */ }
+    }, 400);
+  }
+  function loadDraft(){
+    try{
+      var raw = localStorage.getItem("module-builder-draft");
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed && typeof parsed === "object"){
+          state.moduleName = parsed.moduleName || "";
+          state.sections = Array.isArray(parsed.sections) && parsed.sections.length ? parsed.sections : [newSection()];
+          state.sections.forEach(function(s){
+            if(!Array.isArray(s.questions) || !s.questions.length) s.questions=[newQuestion()];
+          });
+          return true;
+        }
+      }
+    }catch(e){}
+    return false;
+  }
+
+  // ---------------- math + markdown rendering ----------------
+  function renderInto(el, mdText){
+    el.innerHTML = mdText && mdText.trim() ? marked.parse(mdText) : "";
+    try{
+      if(window.renderMathInElement){
+        renderMathInElement(el, {
+          delimiters:[
+            {left:"$$", right:"$$", display:true},
+            {left:"\\[", right:"\\]", display:true},
+            {left:"$", right:"$", display:false},
+            {left:"\\(", right:"\\)", display:false}
+          ],
+          throwOnError:false
+        });
+      }
+    }catch(e){}
+  }
+
+  // ---------------- DOM builders ----------------
+  var sectionsEl = document.getElementById("sections");
+
+  function renumber(){
+    var sectionEls = sectionsEl.querySelectorAll(".knowledge-block");
+    sectionEls.forEach(function(secEl, si){
+      secEl.querySelector(".k-num").textContent = "Knowledge " + (si+1);
+      var qEls = secEl.querySelectorAll(".question-block");
+      qEls.forEach(function(qEl, qi){
+        qEl.querySelector(".q-num").textContent = "Question " + (si+1) + "." + (qi+1);
+      });
+    });
+  }
+
+  function buildQuestionEl(section, q){
+    var wrap = document.createElement("div");
+    wrap.className = "question-block";
+    wrap.dataset.qid = q.id;
+
+    var head = document.createElement("div");
+    head.className = "q-head";
+    var num = document.createElement("span");
+    num.className = "q-num";
+    num.textContent = "Question";
+    var spacer = document.createElement("div");
+    spacer.className = "q-spacer";
+    var del = document.createElement("button");
+    del.className = "icon-x";
+    del.title = "Remove question";
+    del.textContent = "×";
+    del.addEventListener("click", function(){
+      var idx = section.questions.findIndex(function(x){return x.id===q.id;});
+      if(idx>-1) section.questions.splice(idx,1);
+      if(section.questions.length===0){
+        var nq = newQuestion();
+        section.questions.push(nq);
+        wrap.replaceWith(buildQuestionEl(section, nq));
+      } else {
+        wrap.remove();
+      }
+      renumber();
+      scheduleSave();
+    });
+    head.appendChild(num); head.appendChild(spacer); head.appendChild(del);
+    wrap.appendChild(head);
+
+    // question field
+    var qField = document.createElement("div");
+    qField.className = "field";
+    var qBar = document.createElement("div");
+    qBar.className = "field-bar";
+    qBar.innerHTML = '<span class="tag">QUESTION — markdown</span>';
+    var qTa = document.createElement("textarea");
+    qTa.placeholder = "Write the question in markdown...";
+    qTa.value = q.question;
+    var qPrev = document.createElement("div");
+    qPrev.className = "preview";
+    qField.appendChild(qBar); qField.appendChild(qTa); qField.appendChild(qPrev);
+    wrap.appendChild(qField);
+    renderInto(qPrev, q.question);
+    qTa.addEventListener("input", function(){
+      q.question = qTa.value;
+      renderInto(qPrev, q.question);
+      scheduleSave();
+    });
+
+    // graph field
+    var gField = document.createElement("div");
+    gField.className = "field";
+    var gBar = document.createElement("div");
+    gBar.className = "field-bar";
+    gBar.innerHTML = '<span class="tag">GRAPH / DIAGRAM — optional</span>';
+    var gRow = document.createElement("div");
+    gRow.className = "graph-row";
+    var gInput = document.createElement("input");
+    gInput.type = "file";
+    gInput.accept = "image/*";
+    var gThumb = document.createElement("div");
+    gThumb.className = "graph-thumb";
+    var gImg = document.createElement("img");
+    var gName = document.createElement("span");
+    gName.className = "fname";
+    var gRemove = document.createElement("button");
+    gRemove.className = "btn small danger";
+    gRemove.textContent = "Remove image";
+    gThumb.appendChild(gImg); gThumb.appendChild(gName); gThumb.appendChild(gRemove);
+    gRow.appendChild(gInput); gRow.appendChild(gThumb);
+    gField.appendChild(gBar); gField.appendChild(gRow);
+    wrap.appendChild(gField);
+
+    function showThumb(){
+      if(q.graphData){
+        gInput.style.display="none";
+        gThumb.style.display="flex";
+        gImg.src = q.graphData;
+        gName.textContent = q.graphName || "image";
+      } else {
+        gInput.style.display="block";
+        gThumb.style.display="none";
+        gInput.value = "";
+      }
+    }
+    showThumb();
+    gInput.addEventListener("change", function(){
+      var file = gInput.files && gInput.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        q.graphData = reader.result;
+        q.graphName = file.name;
+        showThumb();
+        scheduleSave();
+      };
+      reader.readAsDataURL(file);
+    });
+    gRemove.addEventListener("click", function(){
+      q.graphData = null; q.graphName = null;
+      showThumb();
+      scheduleSave();
+    });
+
+    // solution field
+    var sField = document.createElement("div");
+    sField.className = "field";
+    var sBar = document.createElement("div");
+    sBar.className = "field-bar";
+    sBar.innerHTML = '<span class="tag">SOLUTION — markdown, optional</span>';
+    var sTa = document.createElement("textarea");
+    sTa.placeholder = "Write the solution in markdown (leave blank if none)...";
+    sTa.value = q.solution;
+    var sPrev = document.createElement("div");
+    sPrev.className = "preview";
+    sField.appendChild(sBar); sField.appendChild(sTa); sField.appendChild(sPrev);
+    wrap.appendChild(sField);
+    renderInto(sPrev, q.solution);
+    sTa.addEventListener("input", function(){
+      q.solution = sTa.value;
+      renderInto(sPrev, q.solution);
+      scheduleSave();
+    });
+
+    return wrap;
+  }
+
+  function buildSectionEl(section){
+    var wrap = document.createElement("div");
+    wrap.className = "knowledge-block";
+    wrap.dataset.sid = section.id;
+
+    var head = document.createElement("div");
+    head.className = "k-head";
+    var num = document.createElement("span");
+    num.className = "k-num";
+    num.textContent = "Knowledge";
+    var titleInput = document.createElement("input");
+    titleInput.className = "k-label-edit";
+    titleInput.placeholder = "Section title (optional)";
+    titleInput.value = section.title;
+    titleInput.addEventListener("input", function(){
+      section.title = titleInput.value;
+      scheduleSave();
+    });
+    var del = document.createElement("button");
+    del.className = "icon-x";
+    del.title = "Remove section";
+    del.textContent = "×";
+    del.addEventListener("click", function(){
+      var idx = state.sections.findIndex(function(x){return x.id===section.id;});
+      if(idx>-1) state.sections.splice(idx,1);
+      if(state.sections.length===0){
+        var ns = newSection();
+        state.sections.push(ns);
+        wrap.replaceWith(buildSectionEl(ns));
+      } else {
+        wrap.remove();
+      }
+      renumber();
+      scheduleSave();
+    });
+    head.appendChild(num); head.appendChild(titleInput); head.appendChild(del);
+    wrap.appendChild(head);
+
+    var kField = document.createElement("div");
+    kField.className = "field";
+    var kBar = document.createElement("div");
+    kBar.className = "field-bar";
+    kBar.innerHTML = '<span class="tag">KNOWLEDGE — markdown</span>';
+    var kTa = document.createElement("textarea");
+    kTa.placeholder = "Write the knowledge content in markdown...";
+    kTa.value = section.knowledge;
+    kTa.style.minHeight = "110px";
+    var kPrev = document.createElement("div");
+    kPrev.className = "preview";
+    kField.appendChild(kBar); kField.appendChild(kTa); kField.appendChild(kPrev);
+    wrap.appendChild(kField);
+    renderInto(kPrev, section.knowledge);
+    kTa.addEventListener("input", function(){
+      section.knowledge = kTa.value;
+      renderInto(kPrev, section.knowledge);
+      scheduleSave();
+    });
+
+    var qWrap = document.createElement("div");
+    qWrap.className = "questions";
+    section.questions.forEach(function(q){
+      qWrap.appendChild(buildQuestionEl(section, q));
+    });
+    wrap.appendChild(qWrap);
+
+    var addQRow = document.createElement("div");
+    addQRow.className = "add-q-row";
+    var addQBtn = document.createElement("button");
+    addQBtn.className = "btn ghost-add small";
+    addQBtn.textContent = "+ Add a practice question";
+    addQBtn.addEventListener("click", function(){
+      var q = newQuestion();
+      section.questions.push(q);
+      qWrap.appendChild(buildQuestionEl(section, q));
+      renumber();
+      scheduleSave();
+    });
+    addQRow.appendChild(addQBtn);
+    wrap.appendChild(addQRow);
+
+    return wrap;
+  }
+
+  function renderAll(){
+    document.getElementById("moduleName").value = state.moduleName;
+    sectionsEl.innerHTML = "";
+    state.sections.forEach(function(s){
+      sectionsEl.appendChild(buildSectionEl(s));
+    });
+    renumber();
+  }
+
+  // ---------------- top-level events ----------------
+  document.getElementById("moduleName").addEventListener("input", function(e){
+    state.moduleName = e.target.value;
+    scheduleSave();
+  });
+
+  document.getElementById("addKnowledgeBtn").addEventListener("click", function(){
+    var s = newSection();
+    state.sections.push(s);
+    sectionsEl.appendChild(buildSectionEl(s));
+    renumber();
+    scheduleSave();
+    sectionsEl.lastElementChild.querySelector(".k-label-edit").focus();
+  });
+
+  document.getElementById("clearAllBtn").addEventListener("click", function(){
+    if(!confirm("Clear the module name and every section? This can't be undone.")) return;
+    state = { moduleName:"", sections:[newSection()] };
+    renderAll();
+    scheduleSave();
+  });
+
+  // ---------------- document assembly (shared by preview / html export / pdf export) ----------------
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function buildDocumentHTML(opts){
+    opts = opts || {};
+    var openSolutions = !!opts.openSolutions;
+    var title = state.moduleName.trim() || "Untitled module";
+    var html = '<h1>' + escapeHtml(title) + '</h1>';
+    state.sections.forEach(function(s, si){
+      var kTitle = s.title.trim() ? escapeHtml(s.title.trim()) : ("Knowledge " + (si+1));
+      html += '<div class="k-title">' + (si+1) + '. ' + kTitle + '</div>';
+      if(s.knowledge.trim()) html += '<div class="k-body">' + marked.parse(s.knowledge) + '</div>';
+      s.questions.forEach(function(q, qi){
+        if(!q.question.trim() && !q.solution.trim() && !q.graphData) return;
+        html += '<div class="q-title">Question ' + (si+1) + '.' + (qi+1) + '</div>';
+        if(q.question.trim()) html += '<div class="q-body">' + marked.parse(q.question) + '</div>';
+        if(q.graphData) html += '<div class="q-graph"><img src="' + q.graphData + '" alt="Graph for question ' + (si+1) + '.' + (qi+1) + '"></div>';
+        if(q.solution.trim()){
+          html += '<details class="solution-details"' + (openSolutions ? ' open' : '') + '>' +
+            '<summary>' + (openSolutions ? 'Solution' : 'Show solution') + '</summary>' +
+            '<div class="s-title">SOLUTION</div><div class="q-body">' + marked.parse(q.solution) + '</div>' +
+            '</details>';
+        }
+      });
+    });
+    return html;
+  }
+
+  function wireSolutionToggles(root){
+    root.querySelectorAll(".solution-details").forEach(function(d){
+      var sum = d.querySelector("summary");
+      if(!sum) return;
+      d.addEventListener("toggle", function(){
+        sum.textContent = d.open ? "Hide solution" : "Show solution";
+      });
+    });
+  }
+
+  // ---------------- full preview overlay ----------------
+  var overlay = document.getElementById("previewOverlay");
+  var poContent = document.getElementById("poContent");
+  document.getElementById("previewBtn").addEventListener("click", function(){
+    poContent.innerHTML = buildDocumentHTML();
+    wireSolutionToggles(poContent);
+    try{
+      if(window.renderMathInElement){
+        renderMathInElement(poContent, {
+          delimiters:[
+            {left:"$$", right:"$$", display:true},
+            {left:"\\[", right:"\\]", display:true},
+            {left:"$", right:"$", display:false},
+            {left:"\\(", right:"\\)", display:false}
+          ],
+          throwOnError:false
+        });
+      }
+    }catch(e){}
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+  });
+  document.getElementById("closePreviewBtn").addEventListener("click", function(){
+    overlay.classList.remove("show");
+    document.body.style.overflow = "";
+  });
+
+  // ---------------- downloads capability ----------------
+  var downloadsNS = null;
+  (function initDownloads(){
+    if(window.claude && typeof window.claude.use === "function"){
+      window.claude.use("downloads").then(function(ns){ downloadsNS = ns; }).catch(function(){ downloadsNS = null; });
+    }
+  })();
+
+  function setStatus(msg){
+    document.getElementById("statusText").textContent = msg || "";
+  }
+
+  function slugify(s){
+    return (s||"module").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"") || "module";
+  }
+
+  async function offerDownload(filename, blobOrString){
+    if(!downloadsNS){
+      // fallback: try again once, in case it resolves late
+      try{
+        if(window.claude && typeof window.claude.use === "function"){
+          downloadsNS = await window.claude.use("downloads");
+        }
+      }catch(e){}
+    }
+    if(!downloadsNS){
+      setStatus("Downloads aren't available in this view.");
+      return;
+    }
+    try{
+      var res = await downloadsNS.save({ filename: filename, data: blobOrString });
+      setStatus(res && res.status === "saved" ? "Saved." : "Sent to your device.");
+    }catch(err){
+      if(err && err.code === "declined"){
+        setStatus("Download cancelled.");
+      } else if(err && err.code === "too_large"){
+        setStatus("File is too large to save here.");
+      } else {
+        setStatus("Couldn't save the file (" + (err && err.code || "error") + ").");
+      }
+    }
+  }
+
+  document.getElementById("exportHtmlBtn").addEventListener("click", async function(){
+    setStatus("Building HTML…");
+    var title = state.moduleName.trim() || "Untitled module";
+    var body = buildDocumentHTML();
+    var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+      '<title>' + escapeHtml(title) + '</title>' +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">' +
+      '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">' +
+      '<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"><\/script>' +
+      '<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"><\/script>' +
+      '<style>' +
+      'body{margin:0;background:#FAF7EF;color:#252119;font-family:Georgia,serif;}' +
+      '.po-content{max-width:720px;margin:0 auto;padding:48px 24px 100px;}' +
+      '.po-content h1{font-family:"Source Serif 4",serif;font-size:34px;margin:0 0 30px;padding-bottom:16px;border-bottom:2px solid #252119;}' +
+      '.po-content .k-title{font-family:"Source Serif 4",serif;font-size:22px;font-weight:700;color:#1F5C54;margin:34px 0 10px;}' +
+      '.po-content .k-body{font-size:16px;margin-bottom:16px;}' +
+      '.po-content .q-title{font-family:"Source Serif 4",serif;font-size:16.5px;font-weight:600;color:#B8863B;margin:20px 0 6px;}' +
+      '.po-content .q-body{font-size:15.5px;margin-bottom:8px;}' +
+      '.po-content .s-title{font-size:11.5px;letter-spacing:.03em;color:#5B5548;font-weight:700;margin:10px 0 4px;font-family:Arial,sans-serif;}' +
+      '.po-content .q-graph img{max-width:100%;margin:10px 0;border:1px solid #E4DCC8;border-radius:4px;}' +
+      '.po-content img{max-width:100%;}' +
+      '.po-content code{background:#F7E9E4;padding:1px 5px;border-radius:3px;}' +
+      '.po-content pre{background:#F7E9E4;padding:10px 12px;border-radius:4px;overflow-x:auto;}' +
+      '.solution-details{margin-top:10px;}' +
+      '.solution-details>summary{cursor:pointer;display:inline-block;list-style:none;font-family:Arial,sans-serif;font-size:11.5px;letter-spacing:.03em;font-weight:700;color:#5B5548;background:#FAF7EF;border:1px solid #CFC4A6;border-radius:3px;padding:5px 10px;}' +
+      '.solution-details>summary::-webkit-details-marker{display:none;}' +
+      '.solution-details>summary::marker{content:"";}' +
+      '.solution-details>summary:hover{border-color:#1F5C54;color:#153E38;}' +
+      '.solution-details[open]>summary{margin-bottom:10px;}' +
+      '.solution-details .s-title{margin-top:0;}' +
+      '</style></head><body><div class="po-content">' + body + '</div>' +
+      '<script>document.addEventListener("DOMContentLoaded",function(){' +
+      'if(window.renderMathInElement){renderMathInElement(document.body,{delimiters:[' +
+      '{left:"$$",right:"$$",display:true},{left:"\\\\[",right:"\\\\]",display:true},' +
+      '{left:"$",right:"$",display:false},{left:"\\\\(",right:"\\\\)",display:false}],throwOnError:false});}' +
+      'document.querySelectorAll(".solution-details").forEach(function(d){' +
+      'var sum=d.querySelector("summary"); if(!sum) return;' +
+      'd.addEventListener("toggle",function(){sum.textContent=d.open?"Hide solution":"Show solution";});' +
+      '});' +
+      '});<\/script></body></html>';
+    await offerDownload(slugify(title) + ".html", doc);
+  });
+
+  document.getElementById("exportPdfBtn").addEventListener("click", async function(){
+    setStatus("Building PDF…");
+    var title = state.moduleName.trim() || "Untitled module";
+    var container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "720px";
+    container.style.background = "#FFFFFF";
+    container.style.color = "#252119";
+    container.style.fontFamily = "Georgia, serif";
+    container.style.padding = "20px";
+    container.className = "po-content";
+    container.innerHTML = buildDocumentHTML({ openSolutions: true });
+    document.body.appendChild(container);
+    try{
+      if(window.renderMathInElement){
+        renderMathInElement(container, {
+          delimiters:[
+            {left:"$$", right:"$$", display:true},
+            {left:"\\[", right:"\\]", display:true},
+            {left:"$", right:"$", display:false},
+            {left:"\\(", right:"\\)", display:false}
+          ],
+          throwOnError:false
+        });
+      }
+    }catch(e){}
+
+    try{
+      var worker = html2pdf().set({
+        margin: 14,
+        filename: slugify(title) + ".pdf",
+        image: { type:"jpeg", quality:0.95 },
+        html2canvas: { scale:2, useCORS:true, backgroundColor:"#FFFFFF" },
+        jsPDF: { unit:"pt", format:"a4", orientation:"portrait" },
+        pagebreak: { mode:["avoid-all","css","legacy"] }
+      }).from(container);
+      var pdfBlob = await worker.outputPdf("blob");
+      document.body.removeChild(container);
+      await offerDownload(slugify(title) + ".pdf", pdfBlob);
+    }catch(e){
+      if(container.parentNode) document.body.removeChild(container);
+      setStatus("Couldn't build the PDF.");
+    }
+  });
+
+  // ---------------- init ----------------
+  if(!loadDraft()){
+    state.sections = [newSection()];
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
