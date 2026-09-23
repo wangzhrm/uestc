@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Room — instant video meetings</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#0e1b1c;
+    --bg:#f3efe6;
+    --panel:#ffffff;
+    --line:#d9d2c3;
+    --accent:#3d6b5c;
+    --accent-dim:#a9c4ba;
+    --warn:#b5502f;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.brand{font-family:'Space Grotesk',system-ui,sans-serif;}
+
+  /* ---------- Landing ---------- */
+  #landing{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:28px clamp(20px,5vw,64px) 0;
+  }
+  .brand{
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:-0.02em;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent);
+    display:inline-block;
+  }
+  main.hero{
+    flex:1;
+    display:flex;
+    align-items:center;
+    padding:0 clamp(20px,5vw,64px);
+  }
+  .hero-inner{
+    max-width:640px;
+    margin:0 auto;
+    width:100%;
+    text-align:left;
+  }
+  .hero-inner h1{
+    font-size:clamp(38px,6vw,58px);
+    line-height:1.05;
+    font-weight:700;
+    letter-spacing:-0.02em;
+    margin:0 0 18px;
+  }
+  .hero-inner p.lede{
+    font-size:18px;
+    line-height:1.55;
+    color:#3c4a45;
+    max-width:46ch;
+    margin:0 0 36px;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:28px;
+  }
+
+  button.primary{
+    appearance:none;
+    border:none;
+    background:var(--accent);
+    color:#fbf9f3;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:16px;
+    padding:15px 26px;
+    border-radius:9px;
+    cursor:pointer;
+    transition:transform .12s ease, background .12s ease;
+  }
+  button.primary:hover{ background:#325a4d; }
+  button.primary:active{ transform:scale(0.98); }
+
+  .or-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin:26px 0 16px;
+    color:#8a8272;
+    font-size:13px;
+  }
+  .or-row::before,.or-row::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+  }
+
+  .join-row{
+    display:flex;
+    gap:10px;
+  }
+  .join-row input{
+    flex:1;
+    padding:13px 14px;
+    border-radius:9px;
+    border:1px solid var(--line);
+    background:#fbf9f3;
+    font-size:15px;
+    font-family:inherit;
+    color:var(--ink);
+  }
+  .join-row input:focus{ outline:2px solid var(--accent-dim); border-color:var(--accent); }
+  .join-row button{
+    appearance:none;
+    border:1px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    padding:0 20px;
+    border-radius:9px;
+    cursor:pointer;
+  }
+  .join-row button:hover{ background:var(--ink); color:#fbf9f3; }
+
+  .share-box{ margin-top:22px; display:none; }
+  .share-box.show{ display:block; }
+  .share-box label{
+    font-size:12px;
+    color:#8a8272;
+    display:block;
+    margin-bottom:8px;
+  }
+  .share-line{
+    display:flex;
+    gap:8px;
+  }
+  .share-line input{
+    flex:1;
+    padding:12px 14px;
+    border-radius:9px;
+    border:1px solid var(--line);
+    background:#fbf9f3;
+    font-size:14px;
+    color:var(--ink);
+    font-family:'Inter',monospace;
+  }
+  .share-line button{
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:#fbf9f3;
+    border-radius:9px;
+    padding:0 16px;
+    font-size:14px;
+    font-weight:600;
+    font-family:'Space Grotesk',sans-serif;
+    cursor:pointer;
+  }
+  .copied{
+    font-size:13px;
+    color:var(--accent);
+    margin-top:8px;
+    height:16px;
+  }
+
+  footer{
+    padding:20px clamp(20px,5vw,64px) 28px;
+    font-size:13px;
+    color:#8a8272;
+  }
+
+  /* ---------- Meeting view ---------- */
+  #meeting{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:#0e1b1c;
+    flex-direction:column;
+  }
+  #meeting.show{ display:flex; }
+  #meeting-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 18px;
+    background:#0e1b1c;
+    color:#fbf9f3;
+  }
+  #meeting-bar .room-name{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:14px;
+    color:#a9c4ba;
+  }
+  #meeting-bar a{
+    color:#fbf9f3;
+    font-size:13px;
+    text-decoration:none;
+    border:1px solid #37504a;
+    padding:6px 12px;
+    border-radius:7px;
+  }
+  #meeting-bar a:hover{ background:#152826; }
+  #jitsi-container{ flex:1; }
+</style>
+</head>
+<body>
+
+<div id="landing">
+  <header>
+    <div class="brand"><span class="dot"></span>Room</div>
+  </header>
+
+  <main class="hero">
+    <div class="hero-inner">
+      <h1>Start talking in one click.</h1>
+      <p class="lede">Create a private video room, share the link, and meet — with live chat and screen share built in. Nothing to install, nothing to sign up for.</p>
+
+      <div class="panel">
+        <button class="primary" id="createBtn">Create a meeting</button>
+
+        <div class="share-box" id="shareBox">
+          <label>Send this link to whoever you're meeting with</label>
+          <div class="share-line">
+            <input type="text" id="shareUrl" readonly />
+            <button id="copyBtn">Copy</button>
+          </div>
+          <div class="copied" id="copiedMsg"></div>
+          <div style="margin-top:16px;">
+            <button class="primary" id="startNowBtn">Join now</button>
+          </div>
+        </div>
+
+        <div class="or-row">or join with a code</div>
+        <div class="join-row">
+          <input type="text" id="joinCode" placeholder="Paste a room link or code" />
+          <button id="joinBtn">Join</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>Video runs on the open Jitsi Meet network — rooms are not password-protected, so only share the link with people you trust.</footer>
+</div>
+
+<div id="meeting">
+  <div id="meeting-bar">
+    <span class="room-name" id="roomLabel"></span>
+    <a href="#" id="leaveLink">Leave meeting</a>
+  </div>
+  <div id="jitsi-container"></div>
+</div>
+
+<script src="https://meet.jit.si/external_api.js"></script>
+<script>
+  function randomRoomName(){
+    const words = ["amber","cedar","delta","ember","fable","glade","harbor","ivory","juniper","kestrel","lumen","maple","nectar","opal","pebble","quartz","ripple","sable","tundra","violet","willow","zephyr"];
+    const pick = () => words[Math.floor(Math.random()*words.length)];
+    const num = Math.floor(100 + Math.random()*900);
+    return `${pick()}-${pick()}-${num}`;
+  }
+
+  function roomFromInput(value){
+    value = value.trim();
+    try {
+      const u = new URL(value);
+      const r = u.searchParams.get("room");
+      if (r) return r;
+    } catch(e) { /* not a URL, treat as raw code */ }
+    return value;
+  }
+
+  function urlForRoom(room){
+    const base = location.origin + location.pathname;
+    return `${base}?room=${encodeURIComponent(room)}`;
+  }
+
+  function joinMeeting(room){
+    document.getElementById("landing").style.display = "none";
+    const meetingEl = document.getElementById("meeting");
+    meetingEl.classList.add("show");
+    document.getElementById("roomLabel").textContent = room;
+
+    new JitsiMeetExternalAPI("meet.jit.si", {
+      roomName: room,
+      parentNode: document.getElementById("jitsi-container"),
+      width: "100%",
+      height: "100%",
+      configOverwrite: { prejoinPageEnabled: true },
+    });
+  }
+
+  document.getElementById("createBtn").addEventListener("click", () => {
+    const room = randomRoomName();
+    const url = urlForRoom(room);
+    document.getElementById("shareUrl").value = url;
+    document.getElementById("shareBox").classList.add("show");
+    document.getElementById("startNowBtn").dataset.room = room;
+    history.replaceState(null, "", url);
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", () => {
+    const input = document.getElementById("shareUrl");
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+      document.getElementById("copiedMsg").textContent = "Link copied.";
+      setTimeout(() => document.getElementById("copiedMsg").textContent = "", 2000);
+    });
+  });
+
+  document.getElementById("startNowBtn").addEventListener("click", (e) => {
+    joinMeeting(e.target.dataset.room);
+  });
+
+  document.getElementById("joinBtn").addEventListener("click", () => {
+    const val = document.getElementById("joinCode").value;
+    if (!val.trim()) return;
+    const room = roomFromInput(val);
+    history.replaceState(null, "", urlForRoom(room));
+    joinMeeting(room);
+  });
+
+  document.getElementById("leaveLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    location.href = location.origin + location.pathname;
+  });
+
+  // Auto-join if a room is already in the URL (i.e. someone opened a shared link)
+  (function(){
+    const params = new URLSearchParams(location.search);
+    const room = params.get("room");
+    if (room) joinMeeting(room);
+  })();
+</script>
+
+</body>
+</html>
