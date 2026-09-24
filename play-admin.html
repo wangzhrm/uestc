@@ -1,192 +1,139 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Vocab Arena</title>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vocab Arena · Host Console</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-*{box-sizing:border-box;user-select:none}
-body{margin:0;overflow:hidden;background:#12122a;font-family:"Trebuchet MS",system-ui,sans-serif;color:#fff}
-canvas{position:fixed;inset:0;touch-action:none}
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(circle,#3a2a8c,#12122a);z-index:20;text-align:center;padding:20px}
-.ov h1{font-size:44px;margin:0}.ov input{width:260px;padding:12px;border-radius:12px;border:0;font-size:16px}
-.ov button{padding:12px 30px;border-radius:12px;border:0;background:linear-gradient(90deg,#ff4d8d,#ff9f43);color:#fff;font-size:18px;font-weight:bold;cursor:pointer}
-#lb0,#end{display:none}
-.chip{display:inline-block;margin:4px;padding:6px 12px;border-radius:20px;font-weight:bold;animation:bob 1s infinite alternate}
-@keyframes bob{to{transform:translateY(-6px)}}
-.hud{position:fixed;z-index:5;pointer-events:none;background:#000a;border-radius:14px;padding:8px 14px}
-#s0{left:12px;top:12px;border:2px solid #ffd54a}#sc{font-size:34px;font-weight:bold;color:#ffd54a;display:inline-block}
-.pop{animation:pop .4s}@keyframes pop{50%{transform:scale(1.6)}}
-#ph{left:50%;top:12px;transform:translateX(-50%);font-size:20px;font-weight:bold;white-space:nowrap}
-body.slay #ph{background:#b0102a}
-#lb{right:12px;top:12px;font-size:13px;min-width:140px}
-#fd{left:12px;bottom:90px;background:none;padding:0;font-size:13px}
-#fd div{background:#000a;padding:4px 10px;border-radius:8px;margin-top:4px;animation:fi .3s}
-@keyframes fi{from{opacity:0;transform:translateX(-20px)}}
-#out{left:50%;bottom:80px;transform:translateX(-50%);display:none;background:#b0102a}
-#cd{position:fixed;inset:0;z-index:8;pointer-events:none;display:none;text-align:center;padding-top:14vh;text-shadow:0 0 30px #f04}
-#cdn{font-size:180px;font-weight:bold;color:#ff4d6d;animation:pulse 1s infinite}
-@keyframes pulse{50%{transform:scale(1.25)}}
-#bn{position:fixed;left:0;right:0;top:35%;text-align:center;z-index:9;pointer-events:none;font-size:46px;font-weight:bold;transform:scale(0);text-shadow:0 0 20px #f04}
-#bn.show{animation:ban 2.4s}@keyframes ban{15%,80%{transform:scale(1)}100%{transform:scale(0)}}
-#bn small{display:block;font-size:20px}
-#ac{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:6}
-#ac button{display:none;font-size:20px;padding:14px 22px;border-radius:16px;border:0;font-weight:bold;cursor:pointer;animation:bob .5s infinite alternate}
-#bo{background:#ffd54a;color:#333}#bc{background:#ff4d6d;color:#fff}
-#ts{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#000c;padding:8px 18px;border-radius:12px;z-index:30;display:none}
-#qm{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:15}
-.qc{background:linear-gradient(#2b2470,#1a1650);border:3px solid #ffd54a;border-radius:24px;padding:28px;width:min(440px,92vw);text-align:center;animation:pop .35s}
-#qw{font-size:44px;font-weight:bold;margin-bottom:18px;color:#ffd54a}
-#qo button{display:block;width:100%;margin:10px 0;padding:14px;font-size:24px;border-radius:14px;border:0;background:#fff;color:#222;font-weight:bold;cursor:pointer}
-#qo button:hover:not(:disabled){background:#ffe680}
-#qo .ok{background:#3ddc97!important}#qo .no{background:#ff4d6d!important;color:#fff}
-#rk div{background:#ffffff22;margin:6px;padding:8px 20px;border-radius:12px;min-width:min(340px,86vw);font-size:20px;animation:fi .5s backwards}
-#rk .me{background:#ffd54a;color:#222;font-weight:bold}
+:root{--card:#1e1e40;--acc:#ffd54a;--ok:#3ddc97}
+*{box-sizing:border-box}
+body{margin:0;padding:18px;font-family:"Trebuchet MS",system-ui,sans-serif;background:radial-gradient(circle at 20% 0,#2f2270,#12122a 60%) fixed;color:#f3f3ff}
+h1{margin:0;font-size:30px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:16px}
+.c{background:var(--card);border-radius:16px;padding:16px;border:1px solid #3a3a70}
+.c h2{margin:0 0 10px;font-size:17px;color:var(--acc)}
+.sc{max-height:340px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:5px;border-bottom:1px solid #2f2f5c;text-align:left}
+input{background:#12122a;border:1px solid #444a8a;color:#fff;border-radius:8px;padding:6px 8px;width:100%}
+button{background:#3a3a80;color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:bold}
+button:hover{filter:brightness(1.25)}button:disabled{opacity:.4;cursor:not-allowed}
+.go{background:linear-gradient(90deg,#ff4d8d,#ff9f43);font-size:20px;padding:14px 28px;width:100%;margin-top:10px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555;margin-right:8px}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.row{display:flex;gap:10px;align-items:center;margin:8px 0}.row label{flex:1;font-size:14px}.row input{width:80px}
+#ov{position:fixed;inset:0;background:#12122a;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;z-index:9}
+#ov input{width:240px}
+#lv{display:none;margin-top:16px}
+#lph{font-size:24px;font-weight:bold}
 </style></head><body>
-<canvas id="c"></canvas>
+<div id="ov"><h1>🎮 Vocab Arena</h1><input id="lu" placeholder="Admin username"><input id="lp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')lg()"><button onclick="lg()">Log in</button></div>
 
-<div class="ov" id="lg"><h1>⚔️ Vocab Arena</h1><input id="u" placeholder="Username"><input id="p" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')login()"><button onclick="login()">Enter the arena</button><div id="er" style="color:#ff8fa3;display:none">Wrong username or password.</div></div>
-<div class="ov" id="lb0"><h1>🎮 Get ready!</h1><div id="lm" style="font-size:20px">Waiting for the teacher to start…</div><div id="ro"></div></div>
-
-<div class="hud" id="s0">Marks <span id="sc">100</span></div>
-<div class="hud" id="ph"></div><div class="hud" id="lb"></div><div class="hud" id="fd"></div><div class="hud" id="out">💀 You're out of duels — keep opening boxes!</div>
-<div id="cd"><div style="font-size:26px;font-weight:bold">⚔️ SLAUGHTER BEGINS IN</div><div id="cdn"></div></div>
-<div id="bn"></div><div id="ts"></div>
-<div id="ac"><button id="bo" onclick="openBox()">🎁 Open box (E)</button><button id="bc" onclick="chal()">⚔️ Challenge</button></div>
-<div id="qm"><div class="qc"><div id="qw"></div><div id="qo"></div></div></div>
-<div class="ov" id="end"><h1>🏁 Final Ranking</h1><div id="rk"></div><div>Waiting for the teacher to start a new round…</div></div>
+<h1>🎮 Vocab Arena · Host Console</h1>
+<div class="g">
+ <div class="c"><h2>Students (<span id="onc">0</span> online)</h2>
+  <div class="sc"><table><tr><th>Username</th><th>Password</th></tr><tbody id="st"></tbody></table></div></div>
+ <div class="c"><h2>Vocabulary (<span id="vc">0</span> words)</h2>
+  <div class="row"><input type="file" id="xl" accept=".xlsx,.xls" style="width:auto"><small>Column A = English, B = Chinese</small></div>
+  <div class="sc"><table><tr><th>English</th><th>中文</th><th></th></tr><tbody id="vb"></tbody></table></div>
+  <div class="row"><button onclick="vocab.push(['','']);rv()">+ Add row</button><button onclick="if(confirm('Clear all words?')){vocab=[['','']];rv();sv()}">Clear all</button></div></div>
+ <div class="c"><h2>Game settings</h2>
+  <div class="row"><label>Explore phase (minutes)</label><input id="em" type="number" min="0.5" step="0.5" value="2"></div>
+  <div class="row"><label>Slaughter phase (minutes) — "x"</label><input id="sm" type="number" min="0.5" step="0.5" value="3"></div>
+  <div class="row"><label>Number of boxes on map</label><input id="nb" type="number" min="3" value="12"></div>
+  <small>Only students who are logged in (green dot) when you press Start will play.</small>
+  <button class="go" id="go" onclick="start()">🚀 START GAME</button></div>
+</div>
+<div class="c" id="lv"><h2>Live game</h2><div id="lph"></div>
+ <div class="row"><button onclick="fin()">End game now</button><button onclick="G=null;live()">Back to lobby (new round)</button></div>
+ <div class="g"><div class="sc"><table><tr><th>#</th><th>Player</th><th>Marks</th><th>Status</th></tr><tbody id="sb"></tbody></table></div><div id="lg" class="sc"></div></div></div>
 
 <script>
-const $=id=>document.getElementById(id);
 const sb=supabase.createClient('https://btwdbphheotbqrmbswgk.supabase.co','sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k');
-const cv=$('c'),x=cv.getContext('2d'),SP=270;
-const AV=['🐱','🐶','🦊','🐼','🐸','🐵','🦁','🐯','🐰','🐨','🐷','🐙','🦄','🐧','🐢','🦉'];
-const hs=s=>[...s].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7)>>>0,av=n=>AV[hs(n)%AV.length],col=n=>`hsl(${hs(n)%360},80%,58%)`;
-const cl=(v,a,b)=>Math.min(b,Math.max(a,v)),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cl=(v,a,b)=>Math.min(b,Math.max(a,v)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const fmt=r=>{const s=Math.ceil(r/1000);return (s/60|0)+':'+String(s%60).padStart(2,'0')};
-let me,ch,S,off=0,pl={},M={x:0,y:0},inited=0,keys={},ptr=null,qb=null,picked,done=new Set(),ph0='',lastSend=0,lastPos='',shake=0,parts=[],fl=[],lastSec=-1,ac,near={b:-1,p:null},sv=-1,lbT=0,last=0;
-let sd=12345;const rnd=()=>(sd=sd*16807%2147483647)/2147483647;
-const DEC=[];for(let i=0;i<140;i++)DEC.push({x:rnd()*2400,y:rnd()*1600,e:['🌳','🌲','🌷','🍄','🪨','🌻','🌿'][i%7],s:24+rnd()*24|0});
+let vocab=JSON.parse(localStorage.va_vocab||'[["",""]]'),students=[],G=null,ch;
+const sv=()=>localStorage.va_vocab=JSON.stringify(vocab);
 const tx=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
 
-function beep(f,d=.12,t='sine',v=.12){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
-function toast(m){const t=$('ts');t.textContent=m;t.style.display='block';clearTimeout(t.h);t.h=setTimeout(()=>t.style.display='none',2200)}
-function banner(a,b){const e=$('bn');e.innerHTML=a+'<small>'+b+'</small>';e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
-function feed(t){const f=$('fd'),d=document.createElement('div');d.textContent=t;f.appendChild(d);while(f.children.length>5)f.firstChild.remove();setTimeout(()=>d.remove(),9000)}
-const burst=(px,py,c)=>{for(let i=0;i<26;i++)parts.push({x:px,y:py,vx:(Math.random()-.5)*9,vy:-Math.random()*7,c,l:40})};
-const float=(t,px,py,c)=>fl.push({t,x:px,y:py,c,l:60});
+function lg(){if($('lu').value==='wangzhrm'&&$('lp').value==='wang123'){sessionStorage.va_host=1;$('ov').remove();boot()}else alert('Wrong credentials')}
 
-async function login(){ac=ac||new AudioContext();
- const u=$('u').value.trim(),p=$('p').value;
- const{data}=await sb.from('student_accounts').select('username').eq('username',u).eq('password',p).maybeSingle();
- if(!data)return $('er').style.display='block';
- sessionStorage.va_u=u;enter(u)}
-if(sessionStorage.va_u)setTimeout(()=>enter(sessionStorage.va_u),0);
+function rv(){$('vb').innerHTML=vocab.map((r,i)=>`<tr><td><input value="${esc(r[0])}" oninput="vocab[${i}][0]=this.value;sv();cnt()"></td><td><input value="${esc(r[1])}" oninput="vocab[${i}][1]=this.value;sv();cnt()"></td><td><button onclick="vocab.splice(${i},1);rv();sv()">✕</button></td></tr>`).join('');cnt()}
+const cnt=()=>$('vc').textContent=vocab.filter(r=>r[0].trim()&&r[1].trim()).length;
 
-function enter(u){me=u;$('lg').style.display='none';$('lb0').style.display='flex';
- ch=sb.channel('vocab-arena',{config:{presence:{key:u},broadcast:{self:false}}});
- ch.on('presence',{event:'sync'},()=>$('ro').innerHTML=Object.keys(ch.presenceState()).filter(k=>k!=='HOST').map(k=>`<span class="chip" style="background:${col(k)}">${av(k)} ${esc(k)}</span>`).join(''))
- .on('broadcast',{event:'st'},({payload:m})=>onSt(m))
- .on('broadcast',{event:'q'},({payload:m})=>{if(m.u===me)showQ(m)})
- .on('broadcast',{event:'res'},({payload:m})=>{if(m.u===me)onRes(m)})
- .on('broadcast',{event:'duel'},({payload:m})=>onDuel(m))
- .on('broadcast',{event:'ev'},({payload:m})=>feed(m.t))
- .subscribe(s=>{if(s==='SUBSCRIBED')ch.track({u})});
- onresize();requestAnimationFrame(loop)}
+$('xl').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=q=>{const wb=XLSX.read(new Uint8Array(q.target.result),{type:'array'});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+  const add=rows.filter(r=>r[0]!=null&&r[1]!=null&&String(r[0]).trim()&&String(r[1]).trim()).map(r=>[String(r[0]).trim(),String(r[1]).trim()]);
+  vocab=vocab.filter(r=>r[0]||r[1]).concat(add);rv();sv();e.target.value='';alert(add.length+' words imported.')};
+ r.readAsArrayBuffer(f)};
 
-function onSt(m){
- S=m;off=m.n-Date.now();
- if(m.p==='lobby'){if(ph0!=='lobby'){pl={};inited=0;done.clear();ph0='lobby';$('end').style.display='none';document.body.classList.remove('slay');$('cd').style.display='none'}
-  $('lb0').style.display='flex';$('lm').textContent='Waiting for the teacher to start…';return}
- for(const k in m.pl){const[a,b,s,o]=m.pl[k];const p=pl[k]||(pl[k]={dx:a,dy:b});p.x=a;p.y=b;p.s=s;p.o=o}
- const mp=pl[me];
- if(!mp){$('lb0').style.display='flex';$('lm').textContent='A game is already running — wait for the next round!';return}
- $('lb0').style.display='none';
- if(!inited){M.x=mp.x;M.y=mp.y;inited=1}
- if(m.p!==ph0){ph0=m.p;
-  if(m.p==='slaughter'){banner('⚔️ SLAUGHTER PHASE ⚔️','Challenge other players — or get challenged!');document.body.classList.add('slay');$('cd').style.display='none';[200,150,100].forEach((f,i)=>setTimeout(()=>beep(f,.3,'sawtooth',.2),i*200))}
-  if(m.p==='ended')showEnd()}}
+const online=()=>new Set(Object.keys(ch?ch.presenceState():{}).filter(k=>k!=='HOST'));
+const pwOf=r=>{const k=Object.keys(r).find(k=>/pass|pwd|pin/i.test(k));return k?r[k]:null};
+async function loadStudents(){
+ const a=await sb.from('student_accounts').select('username,password').order('username');
+ const b=await sb.from('trading_students').select('*').order('username');
+ if(a.error)alert('Load student_accounts failed: '+a.error.message);
+ if(b.error)alert('Load trading_students failed: '+b.error.message);
+ students=(a.data||[]).map(s=>({username:s.username,password:s.password,src:''}))
+  .concat((b.data||[]).map(s=>({username:s.username,password:pwOf(s)??'(no password column found)',src:'Trading Sim'})));
+ rs()}
+function rs(){const on=online();
+ $('st').innerHTML=students.map(s=>`<tr><td><span class="dot ${on.has(s.username)?'on':''}"></span>${esc(s.username)}${s.src?` <small style="background:#e0a800;color:#332;padding:1px 6px;border-radius:5px">${s.src}</small>`:''}</td><td>${esc(s.password)}</td></tr>`).join('');
+ $('onc').textContent=on.size+' / '+students.length}
 
-function showEnd(){qb=null;$('qm').style.display='none';$('cd').style.display='none';
- const r=Object.entries(pl).sort((a,b)=>b[1].s-a[1].s||a[1].o-b[1].o);
- $('rk').innerHTML=r.map(([k,p],i)=>`<div class="${k===me?'me':''}" style="animation-delay:${(r.length-i)*.15}s">${['🥇','🥈','🥉'][i]||i+1+'.'} ${av(k)} ${esc(k)} <b style="float:right">${p.s}</b></div>`).join('');
- $('end').style.display='flex';[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.25),i*150))}
+function boot(){rv();
+ loadStudents();
+ ch=sb.channel('vocab-arena',{config:{presence:{key:'HOST'},broadcast:{self:false}}});
+ const act=()=>G&&(G.ph==='explore'||G.ph==='slaughter');
+ ch.on('presence',{event:'sync'},rs)
+ .on('broadcast',{event:'pos'},({payload:m})=>{const p=G&&G.P[m.u];if(p&&G.ph!=='ended'){p.x=cl(m.x,0,G.W);p.y=cl(m.y,0,G.H)}})
+ .on('broadcast',{event:'open'},({payload:m})=>{
+  if(!act())return;const p=G.P[m.u],b=G.boxes[m.b];if(!p||!b)return;
+  if(b.d.includes(m.u))return tx('res',{u:m.u,er:'You already answered this box!'});
+  if(dist(p,b)>200)return tx('res',{u:m.u,er:'Too far from the box'});
+  p.b=m.b;tx('q',{u:m.u,b:m.b,w:b.w,o:b.o})})
+ .on('broadcast',{event:'ans'},({payload:m})=>{
+  if(!act())return;const p=G.P[m.u],b=p&&G.boxes[m.b];if(!b||p.b!==m.b||b.d.includes(m.u))return;
+  p.b=null;b.d.push(m.u);const ok=b.o[m.i]===b.c;p.s=Math.max(0,p.s+(ok?10:-10));
+  tx('res',{u:m.u,b:m.b,ok,c:b.c,s:p.s})})
+ .on('broadcast',{event:'chal'},({payload:m})=>{
+  if(!G||G.ph!=='slaughter')return;const a=G.P[m.u],t=G.P[m.t],now=Date.now();
+  if(!a||!t||a.o||t.o||m.u===m.t||now<a.cd||dist(a,t)>220)return;
+  a.cd=now+1200;const w=a.s>t.s?a:t.s>a.s?t:Math.random()<.5?a:t,l=w===a?t:a;
+  w.s+=10;l.s=Math.max(0,l.s-10);l.o=1;
+  const wn=w===a?m.u:m.t,ln=w===a?m.t:m.u;
+  tx('duel',{a:m.u,t:m.t,w:wn});ev(`⚔️ ${wn} defeated ${ln}!`)})
+ .subscribe(s=>{if(s==='SUBSCRIBED')ch.track({host:1})});
+ setInterval(tick,200)}
 
-function showQ(m){qb=m.b;$('qw').textContent=m.w;const o=$('qo');o.innerHTML='';
- m.o.forEach((t,i)=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{picked=b;[...o.children].forEach(z=>z.disabled=1);tx('ans',{u:me,b:qb,i})};o.appendChild(b)});
- $('qm').style.display='flex';beep(520,.1)}
-const closeQ=()=>{$('qm').style.display='none';qb=null};
-function onRes(m){
- if(m.er){toast(m.er);closeQ();return}
- [...$('qo').children].forEach(b=>{b.disabled=1;if(b.textContent===m.c)b.classList.add('ok');else if(b===picked)b.classList.add('no')});
- done.add(m.b);const c=m.ok?'#3ddc97':'#ff4d6d';
- float(m.ok?'+10':'-10',M.x,M.y-40,c);burst(M.x,M.y,c);
- if(m.ok){beep(880,.2);setTimeout(()=>beep(1175,.25),120)}else{beep(160,.35,'sawtooth',.2);shake=12}
- setTimeout(closeQ,1100)}
-function onDuel(m){const a=pl[m.a],t=pl[m.t];if(!a||!t)return;
- burst((a.dx+t.dx)/2,(a.dy+t.dy)/2,'#ffd54a');beep(300,.15,'square');setTimeout(()=>beep(220,.2,'square'),120);
- if(m.a===me||m.t===me){shake=16;toast(m.w===me?'🏆 You won the duel! +10':'💀 You lost the duel! −10')}}
+function start(){
+ const v=vocab.filter(r=>r[0].trim()&&r[1].trim());
+ if(new Set(v.map(r=>r[1])).size<3)return alert('Add at least 3 words with different Chinese meanings.');
+ const names=[...online()];if(!names.length)return alert('No students are logged in yet.');
+ const W=2400,H=1600,n=+$('nb').value||12,boxes=[],P={};
+ for(let i=0;i<n;i++){const w=v[Math.random()*v.length|0];
+  const wr=shuf(v.map(r=>r[1]).filter((m,j,a)=>m!==w[1]&&a.indexOf(m)===j)).slice(0,2);
+  boxes.push({x:150+Math.random()*(W-300),y:150+Math.random()*(H-300),w:w[0],c:w[1],o:shuf([w[1],...wr]),d:[]})}
+ names.forEach(u=>P[u]={x:200+Math.random()*(W-400),y:200+Math.random()*(H-400),s:100,o:0,cd:0,b:null});
+ G={ph:'explore',e:Date.now()+(+$('em').value||2)*60000,slay:(+$('sm').value||3)*60000,W,H,boxes,P,log:[]};
+ ev('🚀 Game started with '+names.length+' players!')}
 
-const openBox=()=>{if(near.b>=0&&qb===null)tx('open',{u:me,b:near.b})};
-const chal=()=>{if(near.p&&qb===null)tx('chal',{u:me,t:near.p})};
-onkeydown=e=>{const k=e.key.toLowerCase();keys[k]=1;if(k==='e')openBox();if(k==='f'||k===' ')chal()};
-onkeyup=e=>keys[e.key.toLowerCase()]=0;
-cv.onpointerdown=e=>ptr={x:e.clientX,y:e.clientY};cv.onpointermove=e=>{if(ptr)ptr={x:e.clientX,y:e.clientY}};onpointerup=()=>ptr=null;
-onresize=()=>{cv.width=innerWidth;cv.height=innerHeight};
+function ev(t){G.log.unshift(t);tx('ev',{t});$('lg').innerHTML=G.log.slice(0,15).map(l=>`<div>${esc(l)}</div>`).join('')}
+function fin(){if(G&&G.ph!=='ended'){G.ph='ended';ev('🏁 Game over!')}}
 
-function cam(){const w=cv.width,h=cv.height;return{x:S.W<=w?(S.W-w)/2:cl(M.x-w/2,0,S.W-w),y:S.H<=h?(S.H-h)/2:cl(M.y-h/2,0,S.H-h)}}
+function tick(){
+ if(!G){tx('st',{p:'lobby',n:Date.now()});live();return}
+ const now=Date.now();
+ if(G.ph==='explore'&&now>=G.e){G.ph='slaughter';G.e=now+G.slay;ev('⚔️ SLAUGHTER PHASE BEGINS!')}
+ if(G.ph==='slaughter'){const all=Object.values(G.P),act=all.filter(p=>!p.o).length;if(now>=G.e||(all.length>1&&act<=1))fin()}
+ tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o]]))});
+ live()}
 
-function step(dt,t){
- const on=S.p==='explore'||S.p==='slaughter',mp=pl[me];
- if(on&&qb===null){
-  let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
-  if(!dx&&!dy&&ptr){const c=cam();dx=ptr.x+c.x-M.x;dy=ptr.y+c.y-M.y;if(Math.hypot(dx,dy)<14)dx=dy=0}
-  const l=Math.hypot(dx,dy);if(l){M.x=cl(M.x+dx/l*SP*dt,20,S.W-20);M.y=cl(M.y+dy/l*SP*dt,20,S.H-20)}}
- mp.dx=M.x;mp.dy=M.y;
- for(const k in pl)if(k!==me){const p=pl[k];p.dx+=(p.x-p.dx)*Math.min(1,dt*8);p.dy+=(p.y-p.dy)*Math.min(1,dt*8)}
- if(on&&t-lastSend>200){const k=(M.x|0)+','+(M.y|0);if(k!==lastPos||t-lastSend>1000){tx('pos',{u:me,x:M.x|0,y:M.y|0});lastPos=k;lastSend=t}}
- near={b:-1,p:null};
- if(on&&qb===null){let bd=90;S.b.forEach((b,i)=>{const d=Math.hypot(b[0]-M.x,b[1]-M.y);if(!done.has(i)&&d<bd){bd=d;near.b=i}});
-  if(S.p==='slaughter'&&!mp.o){bd=110;for(const k in pl){const o=pl[k];if(k===me||o.o)continue;const d=Math.hypot(o.dx-M.x,o.dy-M.y);if(d<bd){bd=d;near.p=k}}}}
- $('bo').style.display=near.b>=0?'block':'none';$('bc').style.display=near.p?'block':'none';
- if(near.p)$('bc').textContent='⚔️ Challenge '+near.p+' (F)'}
+function live(){$('lv').style.display=G?'block':'none';$('go').disabled=!!G;if(!G)return;
+ $('lph').textContent=({explore:'🔍 Explore phase',slaughter:'⚔️ Slaughter phase',ended:'🏁 Game over'})[G.ph]+(G.ph==='ended'?'':' — '+fmt(Math.max(0,G.e-Date.now())));
+ $('sb').innerHTML=Object.entries(G.P).sort((a,b)=>b[1].s-a[1].s).map(([n,p],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td>${p.s}</td><td>${p.o?'💀 out':'⚔️ active'}</td></tr>`).join('')}
 
-function draw(t){
- x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);
- if(!S||!inited||S.p==='lobby')return;
- const c=cam(),sl=S.p==='slaughter';let sx=0,sy=0;
- if(shake>0){sx=(Math.random()-.5)*shake;sy=(Math.random()-.5)*shake;shake*=.9;if(shake<.5)shake=0}
- x.translate(-c.x+sx,-c.y+sy);
- x.fillStyle=sl?'#3a1f2b':'#2f8f4e';x.fillRect(0,0,S.W,S.H);
- x.fillStyle=sl?'#4a2534':'#37a05a';
- for(let i=Math.max(0,c.x/100|0);i*100<Math.min(S.W,c.x+cv.width);i++)for(let j=Math.max(0,c.y/100|0);j*100<Math.min(S.H,c.y+cv.height);j++)if((i+j)&1)x.fillRect(i*100,j*100,100,100);
- x.strokeStyle='#ffd54a';x.lineWidth=6;x.strokeRect(0,0,S.W,S.H);
- x.textAlign='center';x.textBaseline='middle';
- DEC.forEach(d=>{if(d.x>c.x-50&&d.x<c.x+cv.width+50&&d.y>c.y-50&&d.y<c.y+cv.height+50){x.font=d.s+'px serif';x.fillText(d.e,d.x,d.y)}});
- S.b.forEach((b,i)=>{const dn=done.has(i);x.save();x.globalAlpha=dn?.4:1;x.shadowColor='#ffd54a';x.shadowBlur=dn?0:22+8*Math.sin(t/200+i);x.font='46px serif';x.fillText(dn?'📭':'🎁',b[0],b[1]+Math.sin(t/300+i)*4);x.restore()});
- Object.entries(pl).sort((a,b)=>a[1].dy-b[1].dy).forEach(([k,p])=>{
-  const px=p.dx,py=p.dy;
-  x.fillStyle='#0005';x.beginPath();x.ellipse(px,py+24,20,7,0,0,7);x.fill();
-  x.globalAlpha=p.o?.45:1;x.fillStyle=col(k);x.beginPath();x.arc(px,py,24,0,7);x.fill();
-  if(k===me){x.strokeStyle='#fff';x.lineWidth=3+Math.sin(t/150);x.stroke()}
-  x.font='30px serif';x.fillText(p.o?'💀':av(k),px,py+2);x.globalAlpha=1;
-  x.font='bold 13px Trebuchet MS';const lb=k+' · '+p.s,w=x.measureText(lb).width+12;
-  x.fillStyle='#000a';x.fillRect(px-w/2,py-46,w,18);x.fillStyle='#fff';x.fillText(lb,px,py-37);
-  if(near.p===k){x.strokeStyle='#ff4d6d';x.setLineDash([6,6]);x.lineWidth=3;x.beginPath();x.arc(px,py,34,0,7);x.stroke();x.setLineDash([])}});
- parts=parts.filter(p=>--p.l>0);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.25;x.globalAlpha=p.l/40;x.fillStyle=p.c;x.fillRect(p.x,p.y,7,7)});
- fl=fl.filter(f=>--f.l>0);fl.forEach(f=>{f.y-=1.2;x.globalAlpha=Math.min(1,f.l/25);x.font='bold 36px Trebuchet MS';x.strokeStyle='#000';x.lineWidth=5;x.strokeText(f.t,f.x,f.y);x.fillStyle=f.c;x.fillText(f.t,f.x,f.y)});
- x.globalAlpha=1;x.setTransform(1,0,0,1,0,0);
- if(sl){const g=x.createRadialGradient(cv.width/2,cv.height/2,cv.height*.3,cv.width/2,cv.height/2,cv.height*.95);g.addColorStop(0,'rgba(255,0,40,0)');g.addColorStop(1,`rgba(255,0,40,${.35+.15*Math.sin(t/200)})`);x.fillStyle=g;x.fillRect(0,0,cv.width,cv.height)}}
-
-function hud(t){
- if(!S||S.p==='lobby'||!pl[me])return;
- const r=Math.max(0,S.e-(Date.now()+off)),sec=Math.ceil(r/1000),m=pl[me];
- $('ph').textContent=S.p==='explore'?'🔍 EXPLORE '+fmt(r):S.p==='slaughter'?'⚔️ SLAUGHTER '+fmt(r):'🏁 GAME OVER';
- if(sv!==m.s){sv=m.s;const e=$('sc');e.textContent=m.s;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')}
- const cd=S.p==='explore'&&sec<=10&&r>0;$('cd').style.display=cd?'block':'none';
- if(cd){$('cdn').textContent=sec;if(sec!==lastSec){lastSec=sec;beep(500+(10-sec)*70,.15,'square',.1)}}
- $('out').style.display=m.o&&S.p!=='ended'?'block':'none';
- if(t-lbT>300){lbT=t;$('lb').innerHTML='<b>🏆 Top players</b>'+Object.entries(pl).sort((a,b)=>b[1].s-a[1].s).slice(0,6).map(([k,p],i)=>`<div style="${k===me?'color:#ffd54a;font-weight:bold':''}">${i+1}. ${p.o?'💀':av(k)} ${esc(k)} <span style="float:right;margin-left:12px">${p.s}</span></div>`).join('')}}
-
-function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
- if(S&&inited&&S.p!=='lobby')step(dt,t);
- draw(t);hud(t);requestAnimationFrame(loop)}
+if(sessionStorage.va_host){$('ov').remove();boot()}
 </script></body></html>
