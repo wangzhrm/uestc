@@ -77,9 +77,9 @@ async function login(){ac=ac||new AudioContext();
  if(!ok){const b=await sb.from('trading_students').select('*').eq('username',u);
   ok=(b.data||[]).some(r=>{const k=Object.keys(r).find(k=>/pass|pwd|pin/i.test(k));return k&&String(r[k])===p})}
  if(!ok)return $('er').style.display='block';
- localStorage.va_u=u;enter(u)}
+ sessionStorage.va_u=u;enter(u)}
 // localStorage (not sessionStorage) so a closed tab/browser can resume the same player
-if(localStorage.va_u)setTimeout(()=>enter(localStorage.va_u),0);
+if(sessionStorage.va_u)setTimeout(()=>enter(sessionStorage.va_u),0);
 
 function enter(u){me=u;$('lg').style.display='none';$('lb0').style.display='flex';
  ch=sb.channel('vocab-arena',{config:{presence:{key:u},broadcast:{self:false}}});
@@ -110,11 +110,12 @@ function showEnd(){qb=null;$('qm').style.display='none';$('cd').style.display='n
  $('rk').innerHTML=r.map(([k,p],i)=>`<div class="${k===me?'me':''}" style="animation-delay:${(r.length-i)*.15}s">${['🥇','🥈','🥉'][i]||i+1+'.'} ${av(k)} ${esc(k)} <b style="float:right">${p.s}</b></div>`).join('');
  $('end').style.display='flex';[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.25),i*150))}
 
-function showQ(m){qb=m.b;$('qw').textContent=m.w;const o=$('qo');o.innerHTML='';
+function showQ(m){clearTimeout(ot);qb=m.b;$('qw').textContent=m.w;const o=$('qo');o.innerHTML='';
  m.o.forEach((t,i)=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{picked=b;[...o.children].forEach(z=>z.disabled=1);tx('ans',{u:me,b:qb,i})};o.appendChild(b)});
  $('qm').style.display='flex';beep(520,.1)}
 const closeQ=()=>{$('qm').style.display='none';qb=null};
 function onRes(m){
+ clearTimeout(ot);
  if(m.er){if(m.b!=null)done.add(m.b);toast(m.er);closeQ();return}
  [...$('qo').children].forEach(b=>{b.disabled=1;if(b.textContent===m.c)b.classList.add('ok');else if(b===picked)b.classList.add('no')});
  done.add(m.b);const c=m.ok?'#3ddc97':'#ff4d6d';
@@ -125,7 +126,7 @@ function onDuel(m){const a=pl[m.a],t=pl[m.t];if(!a||!t)return;
  burst((a.dx+t.dx)/2,(a.dy+t.dy)/2,'#ffd54a');beep(300,.15,'square');setTimeout(()=>beep(220,.2,'square'),120);
  if(m.a===me||m.t===me){shake=16;toast(m.w===me?'🏆 You won the duel! +10':'💀 You lost the duel! −10')}}
 
-const openBox=()=>{if(near.b>=0&&qb===null)tx('open',{u:me,b:near.b})};
+let ot;const openBox=()=>{if(near.b>=0&&qb===null){tx('open',{u:me,b:near.b,x:M.x|0,y:M.y|0});clearTimeout(ot);ot=setTimeout(()=>{if(qb===null)toast('No reply from the teacher page — is the game running?')},2500)}};
 const chal=()=>{if(near.p&&qb===null)tx('chal',{u:me,t:near.p})};
 onkeydown=e=>{const k=e.key.toLowerCase();keys[k]=1;if(k==='e')openBox();if(k==='f'||k===' ')chal()};
 onkeyup=e=>keys[e.key.toLowerCase()]=0;
