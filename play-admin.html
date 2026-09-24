@@ -20,6 +20,7 @@ button:hover{filter:brightness(1.25)}button:disabled{opacity:.4;cursor:not-allow
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555;margin-right:8px}
 .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
 .row{display:flex;gap:10px;align-items:center;margin:8px 0}.row label{flex:1;font-size:14px}.row input{width:80px}
+#vb input{min-width:90px}#vb td:first-child input{min-width:160px}
 #ov{position:fixed;inset:0;background:#12122a;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;z-index:9}
 #ov input{width:240px}
 #lv{display:none;margin-top:16px}
@@ -31,15 +32,15 @@ button:hover{filter:brightness(1.25)}button:disabled{opacity:.4;cursor:not-allow
 <div class="g">
  <div class="c"><h2>Students (<span id="onc">0</span> online)</h2>
   <div class="sc"><table><tr><th>Username</th><th>Password</th></tr><tbody id="st"></tbody></table></div></div>
- <div class="c"><h2>Vocabulary (<span id="vc">0</span> words)</h2>
-  <div class="row"><input type="file" id="xl" accept=".xlsx,.xls" style="width:auto"><small>Column A = English, B = Chinese</small></div>
-  <div class="sc"><table><tr><th>English</th><th>中文</th><th></th></tr><tbody id="vb"></tbody></table></div>
-  <div class="row"><button onclick="vocab.push(['','']);rv()">+ Add row</button><button onclick="if(confirm('Clear all words?')){vocab=[['','']];rv();sv()}">Clear all</button></div></div>
+ <div class="c" style="grid-column:span 2"><h2>Questions (<span id="vc">0</span> complete)</h2>
+  <div class="row"><input type="file" id="xl" accept=".xlsx,.xls" style="width:auto"><small>Column A = question, B = <b>correct</b> option, C &amp; D = wrong options. The correct option is shuffled on the player page.</small></div>
+  <div class="sc"><table><tr><th>Question</th><th>✔ Correct (2nd)</th><th>Option 3</th><th>Option 4</th><th></th></tr><tbody id="vb"></tbody></table></div>
+  <div class="row"><button onclick="vocab.push(['','','','']);rv();sv()">+ Add row</button><button onclick="if(confirm('Clear all questions?')){vocab=[['','','','']];rv();sv()}">Clear all</button></div></div>
  <div class="c"><h2>Game settings</h2>
   <div class="row"><label>Explore phase (minutes)</label><input id="em" type="number" min="0.5" step="0.5" value="2"></div>
   <div class="row"><label>Slaughter phase (minutes) — "x"</label><input id="sm" type="number" min="0.5" step="0.5" value="3"></div>
   <div class="row"><label>Number of boxes on map</label><input id="nb" type="number" min="3" value="12"></div>
-  <small>Only students who are logged in (green dot) when you press Start will play.</small>
+  <small>Only students who are logged in (green dot) when you press Start will play. Players who disconnect stay in the game (static) and can log in again to resume.</small>
   <button class="go" id="go" onclick="start()">🚀 START GAME</button></div>
 </div>
 <div class="c" id="lv"><h2>Live game</h2><div id="lph"></div>
@@ -53,20 +54,22 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const cl=(v,a,b)=>Math.min(b,Math.max(a,v)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const fmt=r=>{const s=Math.ceil(r/1000);return (s/60|0)+':'+String(s%60).padStart(2,'0')};
-let vocab=JSON.parse(localStorage.va_vocab||'[["",""]]'),students=[],G=null,ch;
+let vocab=JSON.parse(localStorage.va_vocab||'[["","","",""]]').map(r=>[0,1,2,3].map(j=>r[j]||'')),students=[],G=null,ch;
+if(!vocab.length)vocab=[['','','','']];
 const sv=()=>localStorage.va_vocab=JSON.stringify(vocab);
+const full=r=>r.every(c=>String(c).trim());
 const tx=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
 
 function lg(){if($('lu').value==='wangzhrm'&&$('lp').value==='wang123'){sessionStorage.va_host=1;$('ov').remove();boot()}else alert('Wrong credentials')}
 
-function rv(){$('vb').innerHTML=vocab.map((r,i)=>`<tr><td><input value="${esc(r[0])}" oninput="vocab[${i}][0]=this.value;sv();cnt()"></td><td><input value="${esc(r[1])}" oninput="vocab[${i}][1]=this.value;sv();cnt()"></td><td><button onclick="vocab.splice(${i},1);rv();sv()">✕</button></td></tr>`).join('');cnt()}
-const cnt=()=>$('vc').textContent=vocab.filter(r=>r[0].trim()&&r[1].trim()).length;
+function rv(){$('vb').innerHTML=vocab.map((r,i)=>'<tr>'+[0,1,2,3].map(j=>`<td><input value="${esc(r[j])}" oninput="vocab[${i}][${j}]=this.value;sv();cnt()"></td>`).join('')+`<td><button onclick="vocab.splice(${i},1);if(!vocab.length)vocab=[['','','','']];rv();sv()">✕</button></td></tr>`).join('');cnt()}
+const cnt=()=>$('vc').textContent=vocab.filter(full).length;
 
 $('xl').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
  r.onload=q=>{const wb=XLSX.read(new Uint8Array(q.target.result),{type:'array'});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-  const add=rows.filter(r=>r[0]!=null&&r[1]!=null&&String(r[0]).trim()&&String(r[1]).trim()).map(r=>[String(r[0]).trim(),String(r[1]).trim()]);
-  vocab=vocab.filter(r=>r[0]||r[1]).concat(add);rv();sv();e.target.value='';alert(add.length+' words imported.')};
+  const add=rows.map(r=>[0,1,2,3].map(j=>r[j]==null?'':String(r[j]).trim())).filter(full);
+  vocab=vocab.filter(r=>r.some(c=>c)).concat(add);if(!vocab.length)vocab=[['','','','']];rv();sv();e.target.value='';alert(add.length+' questions imported (rows need all 4 columns filled).')};
  r.readAsArrayBuffer(f)};
 
 const online=()=>new Set(Object.keys(ch?ch.presenceState():{}).filter(k=>k!=='HOST'));
@@ -81,7 +84,7 @@ async function loadStudents(){
  rs()}
 function rs(){const on=online();
  $('st').innerHTML=students.map(s=>`<tr><td><span class="dot ${on.has(s.username)?'on':''}"></span>${esc(s.username)}${s.src?` <small style="background:#e0a800;color:#332;padding:1px 6px;border-radius:5px">${s.src}</small>`:''}</td><td>${esc(s.password)}</td></tr>`).join('');
- $('onc').textContent=on.size+' / '+students.length}
+ $('onc').textContent=on.size+' / '+students.length;if(G)live()}
 
 function boot(){rv();
  loadStudents();
@@ -91,7 +94,7 @@ function boot(){rv();
  .on('broadcast',{event:'pos'},({payload:m})=>{const p=G&&G.P[m.u];if(p&&G.ph!=='ended'){p.x=cl(m.x,0,G.W);p.y=cl(m.y,0,G.H)}})
  .on('broadcast',{event:'open'},({payload:m})=>{
   if(!act())return;const p=G.P[m.u],b=G.boxes[m.b];if(!p||!b)return;
-  if(b.d.includes(m.u))return tx('res',{u:m.u,er:'You already answered this box!'});
+  if(b.d.includes(m.u))return tx('res',{u:m.u,b:m.b,er:'You already answered this box!'});
   if(dist(p,b)>200)return tx('res',{u:m.u,er:'Too far from the box'});
   p.b=m.b;tx('q',{u:m.u,b:m.b,w:b.w,o:b.o})})
  .on('broadcast',{event:'ans'},({payload:m})=>{
@@ -109,13 +112,13 @@ function boot(){rv();
  setInterval(tick,200)}
 
 function start(){
- const v=vocab.filter(r=>r[0].trim()&&r[1].trim());
- if(new Set(v.map(r=>r[1])).size<3)return alert('Add at least 3 words with different Chinese meanings.');
+ const v=vocab.filter(full).map(r=>r.map(c=>String(c).trim()));
+ if(!v.length)return alert('Add at least 1 complete question (question + correct option + 2 wrong options).');
  const names=[...online()];if(!names.length)return alert('No students are logged in yet.');
  const W=2400,H=1600,n=+$('nb').value||12,boxes=[],P={};
  for(let i=0;i<n;i++){const w=v[Math.random()*v.length|0];
-  const wr=shuf(v.map(r=>r[1]).filter((m,j,a)=>m!==w[1]&&a.indexOf(m)===j)).slice(0,2);
-  boxes.push({x:150+Math.random()*(W-300),y:150+Math.random()*(H-300),w:w[0],c:w[1],o:shuf([w[1],...wr]),d:[]})}
+  boxes.push({x:150+Math.random()*(W-300),y:150+Math.random()*(H-300),w:w[0],c:w[1],o:shuf([w[1],w[2],w[3]]),d:[]})}
+ // Roster is fixed at start: players are never removed if they disconnect.
  names.forEach(u=>P[u]={x:200+Math.random()*(W-400),y:200+Math.random()*(H-400),s:100,o:0,cd:0,b:null});
  G={ph:'explore',e:Date.now()+(+$('em').value||2)*60000,slay:(+$('sm').value||3)*60000,W,H,boxes,P,log:[]};
  ev('🚀 Game started with '+names.length+' players!')}
@@ -131,9 +134,9 @@ function tick(){
  tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o]]))});
  live()}
 
-function live(){$('lv').style.display=G?'block':'none';$('go').disabled=!!G;if(!G)return;
+function live(){$('lv').style.display=G?'block':'none';$('go').disabled=!!G;if(!G)return;const on=online();
  $('lph').textContent=({explore:'🔍 Explore phase',slaughter:'⚔️ Slaughter phase',ended:'🏁 Game over'})[G.ph]+(G.ph==='ended'?'':' — '+fmt(Math.max(0,G.e-Date.now())));
- $('sb').innerHTML=Object.entries(G.P).sort((a,b)=>b[1].s-a[1].s).map(([n,p],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td>${p.s}</td><td>${p.o?'💀 out':'⚔️ active'}</td></tr>`).join('')}
+ $('sb').innerHTML=Object.entries(G.P).sort((a,b)=>b[1].s-a[1].s).map(([n,p],i)=>`<tr><td>${i+1}</td><td><span class="dot ${on.has(n)?'on':''}"></span>${esc(n)}</td><td>${p.s}</td><td>${p.o?'💀 out':'⚔️ active'}${on.has(n)?'':' · offline'}</td></tr>`).join('')}
 
 if(sessionStorage.va_host){$('ov').remove();boot()}
 </script></body></html>
