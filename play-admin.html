@@ -108,6 +108,7 @@ function boot(){rv();
   a.cd=now+1200;const w=a.s>t.s?a:t.s>a.s?t:Math.random()<.5?a:t,l=w===a?t:a;
   w.s+=10;l.s=Math.max(0,l.s-10);l.o=1;
   const wn=w===a?m.u:m.t,ln=w===a?m.t:m.u;
+  G.duels.push({a:m.u,t:m.t,w:wn});
   tx('duel',{a:m.u,t:m.t,w:wn});ev(`⚔️ ${wn} defeated ${ln}!`)})
  .subscribe(s=>{console.log('[VocabArena] host channel status:',s);if(s==='SUBSCRIBED')ch.track({host:1})});
  setInterval(tick,200)}
@@ -123,7 +124,7 @@ function start(){
  const AVS=shuf([...'🐱🐶🦊🐼🐸🐵🦁🐯🐰🐨🐷🐙🦄🐧🐢🦉🐻🐮🐔🦋🐞🐳🐬🦈🐝🦀🐊🦒🦓🐘🦔🦜🦩🐲🐺🦖🦕🐌🦑']),H0=Math.random()*360,HS=shuf(names.map((_,i)=>i));
  // Random look per round, unrelated to the student's name
  names.forEach((u,i)=>P[u]={x:200+Math.random()*(W-400),y:200+Math.random()*(H-400),s:100,o:0,cd:0,b:null,a:AVS[i%AVS.length],h:Math.round((H0+HS[i]*360/names.length)%360)});
- G={ph:'explore',e:Date.now()+(+$('em').value||2)*60000,slay:(+$('sm').value||3)*60000,W,H,boxes,P,log:[]};
+ G={ph:'explore',e:Date.now()+(+$('em').value||2)*60000,slay:(+$('sm').value||3)*60000,W,H,boxes,P,log:[],duels:[]};
  ev('🚀 Game started with '+names.length+' players!')}
 
 function ev(t){G.log.unshift(t);tx('ev',{t});$('lg').innerHTML=G.log.slice(0,15).map(l=>`<div>${esc(l)}</div>`).join('')}
@@ -149,7 +150,7 @@ function tick(){
  if(G.ph==='explore'&&now>=G.e){G.ph='slaughter';G.e=now+G.slay;ev('⚔️ SLAUGHTER PHASE BEGINS!')}
  if(G.ph==='slaughter'){const all=Object.values(G.P),act=all.filter(p=>!p.o).length;if(now>=G.e||(all.length>1&&act<=1))fin()}
  ensureBoxes();
- tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o,p.a,p.h]]))});
+ tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o,p.a,p.h]])),dl:G.duels});
  live()}
 
 function live(){$('lv').style.display=G?'block':'none';$('go').disabled=!!G;if(!G)return;const on=online();
