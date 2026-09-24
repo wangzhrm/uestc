@@ -37,6 +37,8 @@ body.slay #ph{background:#b0102a}
 #qo .ok{background:#3ddc97!important}#qo .no{background:#ff4d6d!important;color:#fff}
 #rk div{background:#ffffff22;margin:6px;padding:8px 20px;border-radius:12px;min-width:min(340px,86vw);font-size:20px;animation:fi .5s backwards}
 #rk .me{background:#ffd54a;color:#222;font-weight:bold}
+#dl h2{margin:16px 0 4px;font-size:18px;color:#ffd54a}
+#dl div{background:#ffffff14;margin:4px auto;padding:6px 16px;border-radius:10px;max-width:min(360px,86vw);font-size:15px}
 </style></head><body>
 <canvas id="c"></canvas>
 
@@ -49,7 +51,7 @@ body.slay #ph{background:#b0102a}
 <div id="bn"></div><div id="ts"></div>
 <div id="ac"><button id="bo" onclick="openBox()">🎁 Open box (E)</button><button id="bc" onclick="chal()">⚔️ Challenge</button></div>
 <div id="qm"><div class="qc"><div id="qw"></div><div id="qo"></div></div></div>
-<div class="ov" id="end"><h1>🏁 Final Ranking</h1><div id="rk"></div><div>Waiting for the teacher to start a new round…</div></div>
+<div class="ov" id="end"><h1>🏁 Final Ranking</h1><div id="rk"></div><div id="dl" style="margin-top:6px"></div><div>Waiting for the teacher to start a new round…</div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -59,7 +61,7 @@ const AV=['🐱','🐶','🦊','🐼','🐸','🐵','🦁','🐯','🐰','🐨',
 const hs=s=>[...s].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7)>>>0,av=n=>pl[n]&&pl[n].a||'🙂',col=n=>`hsl(${pl[n]?pl[n].h:0},80%,58%)`;
 const cl=(v,a,b)=>Math.min(b,Math.max(a,v)),esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=r=>{const s=Math.ceil(r/1000);return (s/60|0)+':'+String(s%60).padStart(2,'0')};
-let me,ch,S,off=0,pl={},M={x:0,y:0},inited=0,keys={},ptr=null,qb=null,picked,done=new Set(),ph0='',lastSend=0,lastPos='',shake=0,parts=[],fl=[],lastSec=-1,ac,near={b:-1,p:null},sv=-1,lbT=0,last=0;
+let me,ch,S,off=0,pl={},M={x:0,y:0},inited=0,keys={},ptr=null,qb=null,picked,done=new Set(),ph0='',lastSend=0,lastPos='',shake=0,parts=[],fl=[],lastSec=-1,ac,near={b:-1,p:null},sv=-1,lbT=0,last=0,known={},outMsg="💀 You're out of duels — keep opening boxes!";
 let sd=12345;const rnd=()=>(sd=sd*16807%2147483647)/2147483647;
 const DEC=[];for(let i=0;i<140;i++)DEC.push({x:rnd()*2400,y:rnd()*1600,e:['🌳','🌲','🌷','🍄','🪨','🌻','🌿'][i%7],s:24+rnd()*24|0});
 const tx=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
@@ -94,9 +96,10 @@ function enter(u){me=u;$('lg').style.display='none';$('lb0').style.display='flex
 
 function onSt(m){
  S=m;off=m.n-Date.now();
- if(m.p==='lobby'){if(ph0!=='lobby'){pl={};inited=0;done.clear();ph0='lobby';$('end').style.display='none';document.body.classList.remove('slay');$('cd').style.display='none'}
+ if(m.p==='lobby'){if(ph0!=='lobby'){pl={};inited=0;done.clear();known={};outMsg="💀 You're out of duels — keep opening boxes!";ph0='lobby';$('end').style.display='none';document.body.classList.remove('slay');$('cd').style.display='none'}
   $('lb0').style.display='flex';$('lm').textContent='Waiting for the teacher to start…';return}
  for(const k in m.pl){const[a,b,s,o,e,h]=m.pl[k];const p=pl[k]||(pl[k]={dx:a,dy:b});p.x=a;p.y=b;p.s=s;p.o=o;p.a=e;p.h=h}
+ (m.dl||[]).forEach(d=>{if(d.a===me)known[d.t]=1;if(d.t===me)known[d.a]=1});
  const mp=pl[me];
  if(!mp){$('lb0').style.display='flex';$('lm').textContent='A game is already running — wait for the next round!';return}
  $('lb0').style.display='none';
@@ -108,6 +111,8 @@ function onSt(m){
 function showEnd(){qb=null;$('qm').style.display='none';$('cd').style.display='none';
  const r=Object.entries(pl).sort((a,b)=>b[1].s-a[1].s||a[1].o-b[1].o);
  $('rk').innerHTML=r.map(([k,p],i)=>`<div class="${k===me?'me':''}" style="animation-delay:${(r.length-i)*.15}s">${['🥇','🥈','🥉'][i]||i+1+'.'} ${av(k)} ${esc(k)} <b style="float:right">${p.s}</b></div>`).join('');
+ const dl=S&&S.dl||[];
+ $('dl').innerHTML=dl.length?'<h2>⚔️ Duel Log</h2>'+dl.map(d=>{const loser=d.w===d.a?d.t:d.a;return `<div>🗡️ ${esc(d.w)} defeated ${esc(loser)}</div>`}).join(''):'';
  $('end').style.display='flex';[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.25),i*150))}
 
 function showQ(m){clearTimeout(ot);otries=0;qb=m.b;$('qw').textContent=m.w;const o=$('qo');o.innerHTML='';
@@ -124,7 +129,10 @@ function onRes(m){
  setTimeout(closeQ,1100)}
 function onDuel(m){const a=pl[m.a],t=pl[m.t];if(!a||!t)return;
  burst((a.dx+t.dx)/2,(a.dy+t.dy)/2,'#ffd54a');beep(300,.15,'square');setTimeout(()=>beep(220,.2,'square'),120);
- if(m.a===me||m.t===me){shake=16;toast(m.w===me?'🏆 You won the duel! +10':'💀 You lost the duel! −10')}}
+ if(m.a===me||m.t===me){
+  const opp=m.a===me?m.t:m.a;known[opp]=1;shake=16;
+  if(m.w===me)toast('🏆 You defeated '+opp+'! +10');
+  else{outMsg='💀 Defeated by '+opp+' — you can still watch the arena.';toast('💀 You were defeated by '+opp+'! −10')}}}
 
 let ot,otries=0;
 function sendOpen(bi){tx('open',{u:me,b:bi,x:M.x|0,y:M.y|0});clearTimeout(ot);
@@ -173,7 +181,7 @@ function draw(t){
   x.globalAlpha=p.o?.45:1;x.fillStyle=col(k);x.beginPath();x.arc(px,py,24,0,7);x.fill();
   if(k===me){x.strokeStyle='#fff';x.lineWidth=3+Math.sin(t/150);x.stroke()}
   x.font='30px serif';x.fillText(p.o?'💀':av(k),px,py+2);x.globalAlpha=1;
-  if(k===me){x.font='bold 13px Trebuchet MS';const lb='You · '+p.s,w=x.measureText(lb).width+12;
+  if(k===me||known[k]){x.font='bold 13px Trebuchet MS';const lb=k===me?('You · '+p.s):k,w=x.measureText(lb).width+12;
    x.fillStyle='#000a';x.fillRect(px-w/2,py-46,w,18);x.fillStyle='#fff';x.fillText(lb,px,py-37)}
   if(near.p===k){x.strokeStyle='#ff4d6d';x.setLineDash([6,6]);x.lineWidth=3;x.beginPath();x.arc(px,py,34,0,7);x.stroke();x.setLineDash([])}});
  parts=parts.filter(p=>--p.l>0);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.25;x.globalAlpha=p.l/40;x.fillStyle=p.c;x.fillRect(p.x,p.y,7,7)});
@@ -188,7 +196,7 @@ function hud(t){
  if(sv!==m.s){sv=m.s;const e=$('sc');e.textContent=m.s;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')}
  const cd=S.p==='explore'&&sec<=10&&r>0;$('cd').style.display=cd?'block':'none';
  if(cd){$('cdn').textContent=sec;if(sec!==lastSec){lastSec=sec;beep(500+(10-sec)*70,.15,'square',.1)}}
- $('out').style.display=m.o&&S.p!=='ended'?'block':'none'}
+ if(m.o){$('out').textContent=outMsg;$('out').style.display=S.p!=='ended'?'block':'none'}else $('out').style.display='none'}
 
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
  if(S&&inited&&S.p!=='lobby')step(dt,t);
