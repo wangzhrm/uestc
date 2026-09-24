@@ -10,21 +10,18 @@ canvas{position:fixed;inset:0;touch-action:none}
 .ov h1{font-size:44px;margin:0}.ov input{width:260px;padding:12px;border-radius:12px;border:0;font-size:16px}
 .ov button{padding:12px 30px;border-radius:12px;border:0;background:linear-gradient(90deg,#ff4d8d,#ff9f43);color:#fff;font-size:18px;font-weight:bold;cursor:pointer}
 #lb0,#end{display:none}
-.chip{display:inline-block;margin:4px;padding:6px 12px;border-radius:20px;font-weight:bold;animation:bob 1s infinite alternate}
-@keyframes bob{to{transform:translateY(-6px)}}
 .hud{position:fixed;z-index:5;pointer-events:none;background:#000a;border-radius:14px;padding:8px 14px}
 #s0{left:12px;top:12px;border:2px solid #ffd54a}#sc{font-size:34px;font-weight:bold;color:#ffd54a;display:inline-block}
 .pop{animation:pop .4s}@keyframes pop{50%{transform:scale(1.6)}}
 #ph{left:50%;top:12px;transform:translateX(-50%);font-size:20px;font-weight:bold;white-space:nowrap}
 body.slay #ph{background:#b0102a}
-#lb{right:12px;top:12px;font-size:13px;min-width:140px}
-#fd{left:12px;bottom:90px;background:none;padding:0;font-size:13px}
-#fd div{background:#000a;padding:4px 10px;border-radius:8px;margin-top:4px;animation:fi .3s}
+#lb,#fd{display:none!important}
 @keyframes fi{from{opacity:0;transform:translateX(-20px)}}
 #out{left:50%;bottom:80px;transform:translateX(-50%);display:none;background:#b0102a}
 #cd{position:fixed;inset:0;z-index:8;pointer-events:none;display:none;text-align:center;padding-top:14vh;text-shadow:0 0 30px #f04}
 #cdn{font-size:180px;font-weight:bold;color:#ff4d6d;animation:pulse 1s infinite}
 @keyframes pulse{50%{transform:scale(1.25)}}
+@keyframes bob{to{transform:translateY(-6px)}}
 #bn{position:fixed;left:0;right:0;top:35%;text-align:center;z-index:9;pointer-events:none;font-size:46px;font-weight:bold;transform:scale(0);text-shadow:0 0 20px #f04}
 #bn.show{animation:ban 2.4s}@keyframes ban{15%,80%{transform:scale(1)}100%{transform:scale(0)}}
 #bn small{display:block;font-size:20px}
@@ -33,9 +30,9 @@ body.slay #ph{background:#b0102a}
 #bo{background:#ffd54a;color:#333}#bc{background:#ff4d6d;color:#fff}
 #ts{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#000c;padding:8px 18px;border-radius:12px;z-index:30;display:none}
 #qm{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:15}
-.qc{background:linear-gradient(#2b2470,#1a1650);border:3px solid #ffd54a;border-radius:24px;padding:28px;width:min(440px,92vw);text-align:center;animation:pop .35s}
-#qw{font-size:44px;font-weight:bold;margin-bottom:18px;color:#ffd54a}
-#qo button{display:block;width:100%;margin:10px 0;padding:14px;font-size:24px;border-radius:14px;border:0;background:#fff;color:#222;font-weight:bold;cursor:pointer}
+.qc{background:linear-gradient(#2b2470,#1a1650);border:3px solid #ffd54a;border-radius:24px;padding:28px;width:min(480px,92vw);max-height:92vh;overflow:auto;text-align:center;animation:pop .35s}
+#qw{font-size:30px;font-weight:bold;margin-bottom:18px;color:#ffd54a;word-break:break-word}
+#qo button{display:block;width:100%;margin:10px 0;padding:14px;font-size:20px;border-radius:14px;border:0;background:#fff;color:#222;font-weight:bold;cursor:pointer;word-break:break-word}
 #qo button:hover:not(:disabled){background:#ffe680}
 #qo .ok{background:#3ddc97!important}#qo .no{background:#ff4d6d!important;color:#fff}
 #rk div{background:#ffffff22;margin:6px;padding:8px 20px;border-radius:12px;min-width:min(340px,86vw);font-size:20px;animation:fi .5s backwards}
@@ -44,7 +41,7 @@ body.slay #ph{background:#b0102a}
 <canvas id="c"></canvas>
 
 <div class="ov" id="lg"><h1>⚔️ Vocab Arena</h1><input id="u" placeholder="Username"><input id="p" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')login()"><button onclick="login()">Enter the arena</button><div id="er" style="color:#ff8fa3;display:none">Wrong username or password.</div></div>
-<div class="ov" id="lb0"><h1>🎮 Get ready!</h1><div id="lm" style="font-size:20px">Waiting for the teacher to start…</div><div id="ro"></div></div>
+<div class="ov" id="lb0"><h1>🎮 Get ready!</h1><div id="lm" style="font-size:20px">Waiting for the teacher to start…</div><div id="ro" style="font-size:18px"></div></div>
 
 <div class="hud" id="s0">Marks <span id="sc">100</span></div>
 <div class="hud" id="ph"></div><div class="hud" id="lb"></div><div class="hud" id="fd"></div><div class="hud" id="out">💀 You're out of duels — keep opening boxes!</div>
@@ -70,7 +67,7 @@ const tx=(e,p)=>ch.send({type:'broadcast',event:e,payload:p});
 function beep(f,d=.12,t='sine',v=.12){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
 function toast(m){const t=$('ts');t.textContent=m;t.style.display='block';clearTimeout(t.h);t.h=setTimeout(()=>t.style.display='none',2200)}
 function banner(a,b){const e=$('bn');e.innerHTML=a+'<small>'+b+'</small>';e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
-function feed(t){const f=$('fd'),d=document.createElement('div');d.textContent=t;f.appendChild(d);while(f.children.length>5)f.firstChild.remove();setTimeout(()=>d.remove(),9000)}
+function feed(t){}
 const burst=(px,py,c)=>{for(let i=0;i<26;i++)parts.push({x:px,y:py,vx:(Math.random()-.5)*9,vy:-Math.random()*7,c,l:40})};
 const float=(t,px,py,c)=>fl.push({t,x:px,y:py,c,l:60});
 
@@ -80,12 +77,13 @@ async function login(){ac=ac||new AudioContext();
  if(!ok){const b=await sb.from('trading_students').select('*').eq('username',u);
   ok=(b.data||[]).some(r=>{const k=Object.keys(r).find(k=>/pass|pwd|pin/i.test(k));return k&&String(r[k])===p})}
  if(!ok)return $('er').style.display='block';
- sessionStorage.va_u=u;enter(u)}
-if(sessionStorage.va_u)setTimeout(()=>enter(sessionStorage.va_u),0);
+ localStorage.va_u=u;enter(u)}
+// localStorage (not sessionStorage) so a closed tab/browser can resume the same player
+if(localStorage.va_u)setTimeout(()=>enter(localStorage.va_u),0);
 
 function enter(u){me=u;$('lg').style.display='none';$('lb0').style.display='flex';
  ch=sb.channel('vocab-arena',{config:{presence:{key:u},broadcast:{self:false}}});
- ch.on('presence',{event:'sync'},()=>$('ro').innerHTML=Object.keys(ch.presenceState()).filter(k=>k!=='HOST').map(k=>`<span class="chip" style="background:${col(k)}">${av(k)} ${esc(k)}</span>`).join(''))
+ ch.on('presence',{event:'sync'},()=>$('ro').innerHTML=Object.keys(ch.presenceState()).filter(k=>k!=='HOST').length+' players joined')
  .on('broadcast',{event:'st'},({payload:m})=>onSt(m))
  .on('broadcast',{event:'q'},({payload:m})=>{if(m.u===me)showQ(m)})
  .on('broadcast',{event:'res'},({payload:m})=>{if(m.u===me)onRes(m)})
@@ -102,7 +100,7 @@ function onSt(m){
  const mp=pl[me];
  if(!mp){$('lb0').style.display='flex';$('lm').textContent='A game is already running — wait for the next round!';return}
  $('lb0').style.display='none';
- if(!inited){M.x=mp.x;M.y=mp.y;inited=1}
+ if(!inited){M.x=mp.x;M.y=mp.y;mp.dx=mp.x;mp.dy=mp.y;inited=1}
  if(m.p!==ph0){ph0=m.p;
   if(m.p==='slaughter'){banner('⚔️ SLAUGHTER PHASE ⚔️','Challenge other players — or get challenged!');document.body.classList.add('slay');$('cd').style.display='none';[200,150,100].forEach((f,i)=>setTimeout(()=>beep(f,.3,'sawtooth',.2),i*200))}
   if(m.p==='ended')showEnd()}}
@@ -117,7 +115,7 @@ function showQ(m){qb=m.b;$('qw').textContent=m.w;const o=$('qo');o.innerHTML='';
  $('qm').style.display='flex';beep(520,.1)}
 const closeQ=()=>{$('qm').style.display='none';qb=null};
 function onRes(m){
- if(m.er){toast(m.er);closeQ();return}
+ if(m.er){if(m.b!=null)done.add(m.b);toast(m.er);closeQ();return}
  [...$('qo').children].forEach(b=>{b.disabled=1;if(b.textContent===m.c)b.classList.add('ok');else if(b===picked)b.classList.add('no')});
  done.add(m.b);const c=m.ok?'#3ddc97':'#ff4d6d';
  float(m.ok?'+10':'-10',M.x,M.y-40,c);burst(M.x,M.y,c);
@@ -138,6 +136,7 @@ function cam(){const w=cv.width,h=cv.height;return{x:S.W<=w?(S.W-w)/2:cl(M.x-w/2
 
 function step(dt,t){
  const on=S.p==='explore'||S.p==='slaughter',mp=pl[me];
+ if(!mp)return;
  if(on&&qb===null){
   let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
   if(!dx&&!dy&&ptr){const c=cam();dx=ptr.x+c.x-M.x;dy=ptr.y+c.y-M.y;if(Math.hypot(dx,dy)<14)dx=dy=0}
@@ -149,7 +148,7 @@ function step(dt,t){
  if(on&&qb===null){let bd=90;S.b.forEach((b,i)=>{const d=Math.hypot(b[0]-M.x,b[1]-M.y);if(!done.has(i)&&d<bd){bd=d;near.b=i}});
   if(S.p==='slaughter'&&!mp.o){bd=110;for(const k in pl){const o=pl[k];if(k===me||o.o)continue;const d=Math.hypot(o.dx-M.x,o.dy-M.y);if(d<bd){bd=d;near.p=k}}}}
  $('bo').style.display=near.b>=0?'block':'none';$('bc').style.display=near.p?'block':'none';
- if(near.p)$('bc').textContent='⚔️ Challenge '+near.p+' (F)'}
+ if(near.p)$('bc').textContent='⚔️ Challenge (F)'}
 
 function draw(t){
  x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,cv.width,cv.height);
@@ -170,8 +169,8 @@ function draw(t){
   x.globalAlpha=p.o?.45:1;x.fillStyle=col(k);x.beginPath();x.arc(px,py,24,0,7);x.fill();
   if(k===me){x.strokeStyle='#fff';x.lineWidth=3+Math.sin(t/150);x.stroke()}
   x.font='30px serif';x.fillText(p.o?'💀':av(k),px,py+2);x.globalAlpha=1;
-  x.font='bold 13px Trebuchet MS';const lb=k+' · '+p.s,w=x.measureText(lb).width+12;
-  x.fillStyle='#000a';x.fillRect(px-w/2,py-46,w,18);x.fillStyle='#fff';x.fillText(lb,px,py-37);
+  if(k===me){x.font='bold 13px Trebuchet MS';const lb='You',w=x.measureText(lb).width+12;
+   x.fillStyle='#000a';x.fillRect(px-w/2,py-46,w,18);x.fillStyle='#fff';x.fillText(lb,px,py-37)}
   if(near.p===k){x.strokeStyle='#ff4d6d';x.setLineDash([6,6]);x.lineWidth=3;x.beginPath();x.arc(px,py,34,0,7);x.stroke();x.setLineDash([])}});
  parts=parts.filter(p=>--p.l>0);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.25;x.globalAlpha=p.l/40;x.fillStyle=p.c;x.fillRect(p.x,p.y,7,7)});
  fl=fl.filter(f=>--f.l>0);fl.forEach(f=>{f.y-=1.2;x.globalAlpha=Math.min(1,f.l/25);x.font='bold 36px Trebuchet MS';x.strokeStyle='#000';x.lineWidth=5;x.strokeText(f.t,f.x,f.y);x.fillStyle=f.c;x.fillText(f.t,f.x,f.y)});
@@ -185,8 +184,7 @@ function hud(t){
  if(sv!==m.s){sv=m.s;const e=$('sc');e.textContent=m.s;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')}
  const cd=S.p==='explore'&&sec<=10&&r>0;$('cd').style.display=cd?'block':'none';
  if(cd){$('cdn').textContent=sec;if(sec!==lastSec){lastSec=sec;beep(500+(10-sec)*70,.15,'square',.1)}}
- $('out').style.display=m.o&&S.p!=='ended'?'block':'none';
- if(t-lbT>300){lbT=t;$('lb').innerHTML='<b>🏆 Top players</b>'+Object.entries(pl).sort((a,b)=>b[1].s-a[1].s).slice(0,6).map(([k,p],i)=>`<div style="${k===me?'color:#ffd54a;font-weight:bold':''}">${i+1}. ${p.o?'💀':av(k)} ${esc(k)} <span style="float:right;margin-left:12px">${p.s}</span></div>`).join('')}}
+ $('out').style.display=m.o&&S.p!=='ended'?'block':'none'}
 
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
  if(S&&inited&&S.p!=='lobby')step(dt,t);
