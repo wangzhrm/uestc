@@ -94,6 +94,7 @@ function boot(){rv();
  .on('broadcast',{event:'pos'},({payload:m})=>{const p=G&&G.P[m.u];if(p&&G.ph!=='ended'){p.x=cl(m.x,0,G.W);p.y=cl(m.y,0,G.H)}})
  .on('broadcast',{event:'open'},({payload:m})=>{
   if(!act())return;const p=G.P[m.u],b=G.boxes[m.b];if(!p||!b)return;
+  if(m.x!=null){p.x=cl(m.x,0,G.W);p.y=cl(m.y,0,G.H)}
   if(b.d.includes(m.u))return tx('res',{u:m.u,b:m.b,er:'You already answered this box!'});
   if(dist(p,b)>200)return tx('res',{u:m.u,er:'Too far from the box'});
   p.b=m.b;tx('q',{u:m.u,b:m.b,w:b.w,o:b.o})})
