@@ -109,7 +109,7 @@ function boot(){rv();
   w.s+=10;l.s=Math.max(0,l.s-10);l.o=1;
   const wn=w===a?m.u:m.t,ln=w===a?m.t:m.u;
   tx('duel',{a:m.u,t:m.t,w:wn});ev(`⚔️ ${wn} defeated ${ln}!`)})
- .subscribe(s=>{if(s==='SUBSCRIBED')ch.track({host:1})});
+ .subscribe(s=>{console.log('[VocabArena] host channel status:',s);if(s==='SUBSCRIBED')ch.track({host:1})});
  setInterval(tick,200)}
 
 function start(){
@@ -120,11 +120,27 @@ function start(){
  for(let i=0;i<n;i++){const w=v[Math.random()*v.length|0];
   boxes.push({x:150+Math.random()*(W-300),y:150+Math.random()*(H-300),w:w[0],c:w[1],o:shuf([w[1],w[2],w[3]]),d:[]})}
  // Roster is fixed at start: players are never removed if they disconnect.
- names.forEach(u=>P[u]={x:200+Math.random()*(W-400),y:200+Math.random()*(H-400),s:100,o:0,cd:0,b:null});
+ const AVS=shuf([...'🐱🐶🦊🐼🐸🐵🦁🐯🐰🐨🐷🐙🦄🐧🐢🦉🐻🐮🐔🦋🐞🐳🐬🦈🐝🦀🐊🦒🦓🐘🦔🦜🦩🐲🐺🦖🦕🐌🦑']),H0=Math.random()*360,HS=shuf(names.map((_,i)=>i));
+ // Random look per round, unrelated to the student's name
+ names.forEach((u,i)=>P[u]={x:200+Math.random()*(W-400),y:200+Math.random()*(H-400),s:100,o:0,cd:0,b:null,a:AVS[i%AVS.length],h:Math.round((H0+HS[i]*360/names.length)%360)});
  G={ph:'explore',e:Date.now()+(+$('em').value||2)*60000,slay:(+$('sm').value||3)*60000,W,H,boxes,P,log:[]};
  ev('🚀 Game started with '+names.length+' players!')}
 
 function ev(t){G.log.unshift(t);tx('ev',{t});$('lg').innerHTML=G.log.slice(0,15).map(l=>`<div>${esc(l)}</div>`).join('')}
+function ensureBoxes(){
+ // Keep a healthy supply of unopened boxes during explore, so players are never left with nothing to open.
+ if(!G||G.ph!=='explore'||G.boxes.length>=400)return;
+ const onlineCount=Math.max(1,online().size);
+ const remaining=G.boxes.filter(b=>b.d.length<onlineCount).length;
+ const target=Math.max(6,+$('nb').value||12);
+ if(remaining<Math.ceil(target/2)){
+  const v=vocab.filter(full).map(r=>r.map(c=>String(c).trim()));
+  if(!v.length)return;
+  const add=Math.min(Math.ceil(target/2),400-G.boxes.length);
+  for(let i=0;i<add;i++){const w=v[Math.random()*v.length|0];
+   G.boxes.push({x:150+Math.random()*(G.W-300),y:150+Math.random()*(G.H-300),w:w[0],c:w[1],o:shuf([w[1],w[2],w[3]]),d:[]})}
+ }}
+
 function fin(){if(G&&G.ph!=='ended'){G.ph='ended';ev('🏁 Game over!')}}
 
 function tick(){
@@ -132,7 +148,8 @@ function tick(){
  const now=Date.now();
  if(G.ph==='explore'&&now>=G.e){G.ph='slaughter';G.e=now+G.slay;ev('⚔️ SLAUGHTER PHASE BEGINS!')}
  if(G.ph==='slaughter'){const all=Object.values(G.P),act=all.filter(p=>!p.o).length;if(now>=G.e||(all.length>1&&act<=1))fin()}
- tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o]]))});
+ ensureBoxes();
+ tx('st',{p:G.ph,e:G.e,n:now,W:G.W,H:G.H,b:G.boxes.map(b=>[b.x|0,b.y|0]),pl:Object.fromEntries(Object.entries(G.P).map(([k,p])=>[k,[p.x|0,p.y|0,p.s,p.o,p.a,p.h]]))});
  live()}
 
 function live(){$('lv').style.display=G?'block':'none';$('go').disabled=!!G;if(!G)return;const on=online();
