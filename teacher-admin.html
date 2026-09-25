@@ -2,22 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manage Class Types - Multi-School</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
     .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     h2 { color: #2c3e50; margin-top: 0; }
-    input, button, select { padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; }
-    .form-row { display: grid; grid-template-columns: 1.5fr 2fr 1fr auto; gap: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+    input, button, select { padding: 8px 10px; margin: 2px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; }
+    .form-row { display: grid; grid-template-columns: 1.2fr 2fr 0.8fr 0.6fr auto; gap: 10px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; align-items: center; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; vertical-align: middle; }
     th { background: #34495e; color: white; border-radius: 4px 4px 0 0; }
-    .tag-school { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; color: white; }
-    .School_A { background: #2a9d8f; }
-    .School_B { background: #e76f51; }
-    .btn-add { background: #2a9d8f; color: white; border: none; cursor: pointer; font-weight: bold; }
+    .tag-school { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
+    .color-picker { width: 45px; height: 35px; border: 1px solid #ccc; border-radius: 6px; padding: 2px; cursor: pointer; background: transparent; }
+    .btn-add { background: #2a9d8f; color: white; border: none; cursor: pointer; font-weight: bold; padding: 9px 15px; }
+    .btn-edit { background: #3498db; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
+    .btn-save { background: #27ae60; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
+    .btn-cancel { background: #95a5a6; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
     .btn-del { background: #e63946; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
+    .btn-order { background: #ecf0f1; border: 1px solid #bdc3c7; color: #2c3e50; padding: 3px 8px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 0.85rem; }
+    .btn-order:disabled { opacity: 0.3; cursor: not-allowed; }
+    .edit-input-name { width: 90%; }
+    .edit-input-hrs { width: 60px; }
+    .edit-select-school { width: 100%; }
+    .order-col { display: flex; gap: 4px; align-items: center; }
   </style>
 </head>
 <body>
@@ -31,61 +40,127 @@
       </select>
       <input type="text" id="className" placeholder="Class Name (e.g. Math 101)" required />
       <input type="number" id="classHours" placeholder="Hrs" step="0.25" min="0.25" required />
+      <input type="color" id="classColor" class="color-picker" value="#2a9d8f" title="Choose class color" />
       <button type="submit" class="btn-add">Add Type</button>
     </div>
   </form>
   <table id="classTable">
     <thead>
-      <tr><th>School</th><th>Class Type</th><th>Hrs/Session</th><th>Action</th></tr>
+      <tr>
+        <th style="width: 12%;">Order</th>
+        <th style="width: 18%;">School</th>
+        <th style="width: 30%;">Class Type</th>
+        <th style="width: 15%;">Hrs/Session</th>
+        <th style="width: 8%;">Color</th>
+        <th style="width: 17%;">Action</th>
+      </tr>
     </thead>
     <tbody></tbody>
   </table>
 </div>
+
 <script>
 (function () {
-  // ============================================
-  // Supabase setup (replaces AV.init)
-  // ============================================
   const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
   const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const CLASS_TYPES_TABLE = "teacher_class_types";
+  const DEFAULT_COLOR = "#2a9d8f";
+  let currentClasses = [];
+
+  function getContrastTextColor(hexColor) {
+    const hex = (hexColor || DEFAULT_COLOR).replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16) || 0;
+    const g = parseInt(hex.substr(2, 2), 16) || 0;
+    const b = parseInt(hex.substr(4, 2), 16) || 0;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 128 ? "#111111" : "#ffffff";
+  }
+
+  // Ensures all records have unique, incremental display_order numbers (1, 2, 3...)
+  async function normalizeOrdersIfNeeded(results) {
+    let needsNormalization = false;
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].display_order !== i + 1) {
+        needsNormalization = true;
+        break;
+      }
+    }
+
+    if (!needsNormalization) return results;
+
+    // Update in database so all display_order values are distinct and sequential
+    const updatePromises = results.map((item, index) => {
+      item.display_order = index + 1;
+      return sb.from(CLASS_TYPES_TABLE).update({ display_order: index + 1 }).eq('id', item.id);
+    });
+
+    await Promise.all(updatePromises);
+    return results;
+  }
 
   async function loadClassTypes() {
     const { data: results, error } = await sb
       .from(CLASS_TYPES_TABLE)
       .select("*")
-      .order("school", { ascending: true })
-      .order("name", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("Error loading class types:", error);
       return;
     }
 
+    currentClasses = await normalizeOrdersIfNeeded(results || []);
+    
     const tbody = document.querySelector('#classTable tbody');
     tbody.innerHTML = '';
 
-    (results || []).forEach(obj => {
+    currentClasses.forEach((obj, index) => {
       const tr = document.createElement('tr');
+      tr.id = `row-${obj.id}`;
       const school = obj.school || 'School_A';
+      const color = obj.color || DEFAULT_COLOR;
+      const textColor = getContrastTextColor(color);
+
+      const isFirst = index === 0;
+      const isLast = index === currentClasses.length - 1;
+
       tr.innerHTML = `
-        <td><span class="tag-school ${school}">${school.replace('_',' ')}</span></td>
+        <td>
+          <div class="order-col">
+            <button class="btn-order" onclick="moveRow(${index}, -1)" ${isFirst ? 'disabled' : ''}>▲</button>
+            <button class="btn-order" onclick="moveRow(${index}, 1)" ${isLast ? 'disabled' : ''}>▼</button>
+          </div>
+        </td>
+        <td><span class="tag-school" style="background-color: ${color}; color: ${textColor};">${school.replace('_',' ')}</span></td>
         <td><strong>${obj.name}</strong></td>
         <td>${obj.hours_per_session} h</td>
-        <td><button class="btn-del" onclick="deleteClass(${obj.id})">Delete</button></td>
+        <td><div style="width: 24px; height: 24px; border-radius: 4px; background-color: ${color}; border: 1px solid #ccc;"></div></td>
+        <td>
+          <button class="btn-edit" onclick="enableEdit(${obj.id}, '${escapeHtml(obj.name)}', ${obj.hours_per_session}, '${school}', '${color}')">Edit</button>
+          <button class="btn-del" onclick="deleteClass(${obj.id})">Delete</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
+  function escapeHtml(str) {
+    return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+  }
+
   document.getElementById('addClassForm').addEventListener('submit', async e => {
     e.preventDefault();
+    const nextOrder = currentClasses.length + 1;
+
     const payload = {
       school: document.getElementById('classSchool').value,
       name: document.getElementById('className').value.trim(),
-      hours_per_session: parseFloat(document.getElementById('classHours').value)
+      hours_per_session: parseFloat(document.getElementById('classHours').value),
+      color: document.getElementById('classColor').value,
+      display_order: nextOrder
     };
 
     const { error } = await sb.from(CLASS_TYPES_TABLE).insert(payload);
@@ -96,7 +171,95 @@
     }
     loadClassTypes();
     e.target.reset();
+    document.getElementById('classColor').value = DEFAULT_COLOR;
   });
+
+  async function moveRow(currentIndex, direction) {
+    const targetIndex = currentIndex + direction;
+    if (targetIndex < 0 || targetIndex >= currentClasses.length) return;
+
+    const currentItem = currentClasses[currentIndex];
+    const targetItem = currentClasses[targetIndex];
+
+    // Explicitly swap display_order integers (e.g. swap position 2 and 3)
+    const newCurrentOrder = targetIndex + 1;
+    const newTargetOrder = currentIndex + 1;
+
+    const [res1, res2] = await Promise.all([
+      sb.from(CLASS_TYPES_TABLE).update({ display_order: newCurrentOrder }).eq('id', currentItem.id),
+      sb.from(CLASS_TYPES_TABLE).update({ display_order: newTargetOrder }).eq('id', targetItem.id)
+    ]);
+
+    if (res1.error || res2.error) {
+      console.error("Error swapping orders:", res1.error || res2.error);
+      alert("Error reordering items");
+      return;
+    }
+
+    loadClassTypes();
+  }
+
+  function enableEdit(id, name, hours, school, color) {
+    const tr = document.getElementById(`row-${id}`);
+    tr.innerHTML = `
+      <td>-</td>
+      <td>
+        <select id="edit-school-${id}" class="edit-select-school">
+          <option value="School_A" ${school === 'School_A' ? 'selected' : ''}>School A</option>
+          <option value="School_B" ${school === 'School_B' ? 'selected' : ''}>School B</option>
+        </select>
+      </td>
+      <td>
+        <input type="text" id="edit-name-${id}" class="edit-input-name" value="${name}" required />
+      </td>
+      <td>
+        <input type="number" id="edit-hrs-${id}" class="edit-input-hrs" value="${hours}" step="0.25" min="0.25" required /> h
+      </td>
+      <td>
+        <input type="color" id="edit-color-${id}" class="color-picker" value="${color || DEFAULT_COLOR}" />
+      </td>
+      <td>
+        <button class="btn-save" onclick="saveEdit(${id})">Save</button>
+        <button class="btn-cancel" onclick="loadClassTypes()">Cancel</button>
+      </td>
+    `;
+  }
+
+  async function saveEdit(id) {
+    const newSchool = document.getElementById(`edit-school-${id}`).value;
+    const newName = document.getElementById(`edit-name-${id}`).value.trim();
+    const newHrs = parseFloat(document.getElementById(`edit-hrs-${id}`).value);
+    const newColor = document.getElementById(`edit-color-${id}`).value;
+
+    if (!newName) {
+      alert("Class name cannot be empty.");
+      return;
+    }
+    if (isNaN(newHrs) || newHrs <= 0) {
+      alert("Please enter a valid number of hours.");
+      return;
+    }
+
+    const payload = {
+      school: newSchool,
+      name: newName,
+      hours_per_session: newHrs,
+      color: newColor
+    };
+
+    const { error } = await sb
+      .from(CLASS_TYPES_TABLE)
+      .update(payload)
+      .eq('id', id);
+
+    if (error) {
+      console.error("Error updating class type:", error);
+      alert("Error saving changes");
+      return;
+    }
+
+    loadClassTypes();
+  }
 
   async function deleteClass(id) {
     if (confirm("Permanently delete this class type?")) {
@@ -110,8 +273,10 @@
     }
   }
 
-  // Expose to global scope since it's called from an inline onclick="..."
+  window.enableEdit = enableEdit;
+  window.saveEdit = saveEdit;
   window.deleteClass = deleteClass;
+  window.moveRow = moveRow;
 
   loadClassTypes();
 })();
