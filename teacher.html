@@ -119,15 +119,23 @@ function toggleSchool() {
 }
 
 async function initApp() {
+  // Querying class types. If your table uses display_order / sort_order, change the column here:
   const { data, error } = await sb
     .from(CLASS_TYPES_TABLE)
     .select("*")
     .eq("school", currentSchool)
-    .order("id", { ascending: true }); // Maintained order from management table
+    .order("display_order", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true }); 
 
   if (error) {
-    console.error("Error loading class types:", error);
-    classTypes = [];
+    // Fallback query if 'display_order' column doesn't exist
+    const { data: fallbackData } = await sb
+      .from(CLASS_TYPES_TABLE)
+      .select("*")
+      .eq("school", currentSchool)
+      .order("id", { ascending: true });
+    
+    classTypes = (fallbackData || []).map(parseType);
   } else {
     classTypes = (data || []).map(parseType);
   }
@@ -348,7 +356,6 @@ async function saveDayData() {
 
 function renderSummaryTable(mTotals, totalHrs) {
   let tbl = "<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>";
-  // Iterates strictly in the order of classTypes as fetched from Supabase
   classTypes.forEach((c) => {
     if (mTotals[c.key] && mTotals[c.key].q > 0) {
       tbl += `<tr>
