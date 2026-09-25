@@ -26,12 +26,15 @@
   .date-number { font-weight: bold; font-size: 0.9em; color: #7f8c8d; margin-bottom: 4px; }
   
   .tag { display: block; padding: 2px 4px; border-radius: 3px; margin-bottom: 2px; color: white; font-size: 0.75em; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-  .tag-0 { background-color: #3498db; }
-  .tag-1 { background-color: #9b59b6; }
-  .tag-2 { background-color: #f1c40f; color: #333; }
-  .tag-3 { background-color: #e67e22; }
-  .tag-4 { background-color: #1abc9c; }
-  .tag-default { background-color: #95a5a6; }
+
+  .color-badge {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
 
   .ot-indicator { font-size: 0.7em; margin-top: auto; border-top: 1px solid #eee; padding-top: 2px; display: flex; justify-content: space-between; }
   .text-ot { color: #2a9d8f; font-weight: bold; margin-right: 4px; }
@@ -80,7 +83,7 @@
       <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">TO (h)</label><input type="number" id="inputTimeoff" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
     </div>
 
-    <!-- Ledger Section -->
+    <!-- Ledger Info Box -->
     <div id="ledgerInfo" class="ledger-info" style="display:none;"></div>
 
     <div style="margin-top:20px; display:flex; gap:10px;">
@@ -92,9 +95,6 @@
 
 <script>
 (function () {
-// ============================================
-// Supabase setup (replaces AV.init)
-// ============================================
 const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -123,7 +123,7 @@ async function initApp() {
     .from(CLASS_TYPES_TABLE)
     .select("*")
     .eq("school", currentSchool)
-    .order("id", { ascending: true });
+    .order("id", { ascending: true }); // Maintained order from management table
 
   if (error) {
     console.error("Error loading class types:", error);
@@ -134,8 +134,15 @@ async function initApp() {
   renderCalendar();
 }
 
-function parseType(o) {
-  return { name: o.name, key: o.name.replace(/\W/g,"_"), hours: Number(o.hours_per_session) };
+function parseType(o, idx) {
+  const safeKey = o.id ? `type_${o.id}` : (o.name ? o.name.replace(/\W/g, "_") : `type_${idx}`);
+  return { 
+    id: o.id,
+    name: o.name, 
+    key: safeKey, 
+    hours: Number(o.hours_per_session) || 0,
+    color: o.color || "#34495e"
+  };
 }
 
 function renderCalendar() {
@@ -177,7 +184,7 @@ async function refreshData() {
 
   let totalBal = 0, mHrs = 0;
   const mTotals = {};
-  classTypes.forEach(c => mTotals[c.key] = {q:0, h:0});
+  classTypes.forEach(c => mTotals[c.key] = { q: 0, h: 0 });
 
   globalOtStatus = {};
   globalTimeoffSources = {};
@@ -216,27 +223,34 @@ async function refreshData() {
     if (d.getMonth() === month && d.getFullYear() === year) {
       const cls = r.classes || {};
       const sEl = document.getElementById(`sum-${dateKey}`);
-      if(sEl) {
-        let hContent = "";
-        classTypes.forEach((c, idx) => {
-          if(cls[c.key]) {
-            const colorClass = idx < 5 ? `tag-${idx}` : 'tag-default';
-            hContent += `<div class="tag ${colorClass}">${c.name} x${cls[c.key]}</div>`;
-            mTotals[c.key].q += cls[c.key]; mTotals[c.key].h += (cls[c.key] * c.hours);
-            mHrs += (cls[c.key] * c.hours);
-          }
-        });
+      let hContent = "";
+
+      classTypes.forEach((c) => {
+        const legacyKey = c.name ? c.name.replace(/\W/g, "_") : c.key;
+        const rawVal = cls[c.key] !== undefined ? cls[c.key] : cls[legacyKey];
+        const count = Math.max(0, parseInt(rawVal || 0, 10));
+
+        if (count > 0) {
+          hContent += `<div class="tag" style="background-color: ${c.color};">${c.name} x${count}</div>`;
+          
+          mTotals[c.key].q += count; 
+          mTotals[c.key].h += (count * c.hours);
+          mHrs += (count * c.hours);
+        }
+      });
+
+      if (sEl) {
         sEl.innerHTML = hContent;
       }
       
       const otEl = document.getElementById(`ot-${dateKey}`);
-      if(otEl) {
+      if (otEl) {
         let ih = "";
-        if(ot > 0) {
+        if (ot > 0) {
           const isSpent = globalOtStatus[dateKey] && globalOtStatus[dateKey].available === 0;
           ih += `<span class="text-ot ${isSpent ? 'spent-ot' : ''}">+${ot}</span>`;
         }
-        if(to > 0) ih += `<span class="text-to">-${to}</span>`;
+        if (to > 0) ih += `<span class="text-to">-${to}</span>`;
         otEl.innerHTML = ih;
       }
     }
@@ -255,7 +269,7 @@ async function openModal(dateStr) {
   document.getElementById("modalDate").textContent = dateStr;
   let html = "<table><tr><th>Type</th><th>Quantity</th></tr>";
   classTypes.forEach(c => {
-    html += `<tr><td>${c.name}</td><td><input type="number" id="sel_${c.key}" value="0" min="0" style="width:60px; padding:5px;"></td></tr>`;
+    html += `<tr><td><span class="color-badge" style="background-color: ${c.color};"></span>${c.name}</td><td><input type="number" id="sel_${c.key}" value="0" min="0" style="width:60px; padding:5px;"></td></tr>`;
   });
   html += "</table>";
   document.getElementById("modalTable").innerHTML = html;
@@ -283,9 +297,14 @@ async function openModal(dateStr) {
 
   if (error) console.error("Error loading day record:", error);
 
-  if(record) {
+  if (record) {
     const cls = record.classes || {};
-    classTypes.forEach(c => { if(document.getElementById(`sel_${c.key}`)) document.getElementById(`sel_${c.key}`).value = cls[c.key] || 0; });
+    classTypes.forEach(c => { 
+      const el = document.getElementById(`sel_${c.key}`);
+      const legacyKey = c.name ? c.name.replace(/\W/g, "_") : c.key;
+      const val = cls[c.key] !== undefined ? cls[c.key] : cls[legacyKey];
+      if (el) el.value = val || 0; 
+    });
     document.getElementById("inputOvertime").value = record.overtime || 0;
     document.getElementById("inputTimeoff").value = record.timeoff || 0;
   } else {
@@ -300,7 +319,9 @@ async function saveDayData() {
   btn.disabled = true; btn.textContent = "...";
   try {
     const cls = {};
-    classTypes.forEach(c => { cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value) || 0; });
+    classTypes.forEach(c => { 
+      cls[c.key] = parseInt(document.getElementById(`sel_${c.key}`).value, 10) || 0; 
+    });
 
     const payload = {
       date: selectedDate,
@@ -327,8 +348,17 @@ async function saveDayData() {
 
 function renderSummaryTable(mTotals, totalHrs) {
   let tbl = "<table><tr><th>Type</th><th>Qty</th><th>Hrs</th></tr>";
-  classTypes.forEach(c => {
-    if(mTotals[c.key].q > 0) tbl += `<tr><td>${c.name}</td><td>${mTotals[c.key].q}</td><td>${mTotals[c.key].h.toFixed(1)}</td></tr>`;
+  // Iterates strictly in the order of classTypes as fetched from Supabase
+  classTypes.forEach((c) => {
+    if (mTotals[c.key] && mTotals[c.key].q > 0) {
+      tbl += `<tr>
+        <td style="text-align: left; padding-left: 12px;">
+          <span class="color-badge" style="background-color: ${c.color};"></span>${c.name}
+        </td>
+        <td>${mTotals[c.key].q}</td>
+        <td>${mTotals[c.key].h.toFixed(1)}</td>
+      </tr>`;
+    }
   });
   tbl += `<tr style='font-weight:bold; background:#f0f7ff'><td colspan="2">Total</td><td>${totalHrs.toFixed(1)}h</td></tr></table>`;
   document.getElementById("monthlySummaryContainer").innerHTML = tbl;
