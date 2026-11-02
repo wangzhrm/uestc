@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Peer Rating</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: "Trebuchet MS", system-ui, sans-serif; }
+    body { margin: 0; background: #12122a; color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .card { background: linear-gradient(#2b2470, #1a1650); border: 2px solid #ffd54a; border-radius: 20px; padding: 30px; width: min(480px, 90vw); text-align: center; box-shadow: 0 10px 30px #0008; }
+    h1 { margin-top: 0; color: #ffd54a; font-size: 28px; }
+    .field { margin-bottom: 16px; text-align: left; }
+    label { display: block; font-size: 14px; color: #cfcfff; margin-bottom: 6px; font-weight: bold; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a458c; background: #12122a; color: #fff; font-size: 16px; outline: none; }
+    input[type="text"]:focus, input[type="password"]:focus { border-color: #ffd54a; }
+    
+    /* Button feedback states */
+    button { width: 100%; padding: 12px; border-radius: 12px; border: 0; background: linear-gradient(90deg, #ff4d8d, #ff9f43); color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: transform 0.1s ease, opacity 0.2s; }
+    button:hover { opacity: 0.9; }
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .slider-val { font-size: 48px; font-weight: bold; color: #ffd54a; margin: 15px 0; }
+    input[type="range"] { width: 100%; height: 10px; border-radius: 5px; accent-color: #ff9f43; cursor: pointer; }
+    #err { color: #ff8fa3; margin-top: 10px; display: none; }
+    #msg { color: #3ddc97; margin-top: 10px; font-weight: bold; }
+    #ratingApp { display: none; }
+    .logout-btn { background: #ff4d6d !important; font-size: 14px; padding: 6px 14px; width: auto; float: right; border-radius: 8px; margin-top: -10px; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SECTION -->
+  <div class="card" id="loginBox">
+    <h1>⚔️ Student Login</h1>
+    <div class="field">
+      <label>Username</label>
+      <input id="u" type="text" placeholder="Username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="p" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button id="loginBtn" onclick="login()">Log In</button>
+    <div id="err">Invalid username or password.</div>
+  </div>
+
+  <!-- RATING FORM SECTION -->
+  <div class="card" id="ratingApp">
+    <button class="logout-btn" onclick="logout()">Logout</button>
+    <h1>Rate Current Student</h1>
+    <p id="welcomeMsg" style="color:#aaa; font-size: 14px; margin-top: -10px;"></p>
+
+    <div class="field" style="margin-top: 25px;">
+      <label>Marks / Score (0 - 100):</label>
+      <div class="slider-val" id="scoreVal">50</div>
+      <input type="range" id="scoreSlider" min="0" max="100" value="50" oninput="$('scoreVal').textContent = this.value">
+    </div>
+
+    <button id="submitBtn" onclick="submitRating()">Submit Rating</button>
+    <div id="msg"></div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const sb = supabase.createClient('https://btwdbphheotbqrmbswgk.supabase.co', 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k');
+let loggedInUser = '';
+
+async function login() {
+  const u = $('u').value.trim();
+  const p = $('p').value;
+  const btn = $('loginBtn');
+  $('err').style.display = 'none';
+
+  if (!u || !p) {
+    $('err').textContent = 'Please enter both username and password.';
+    $('err').style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Logging in...';
+
+  let ok = !!(await sb.from('student_accounts').select('username').eq('username', u).eq('password', p).maybeSingle()).data;
+  if (!ok) {
+    const b = await sb.from('trading_students').select('*').eq('username', u);
+    ok = (b.data || []).some(r => {
+      const k = Object.keys(r).find(key => /pass|pwd|pin/i.test(key));
+      return k && String(r[k]) === p;
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Log In';
+
+  if (!ok) {
+    $('err').textContent = 'Invalid username or password.';
+    $('err').style.display = 'block';
+    return;
+  }
+
+  loggedInUser = u;
+  sessionStorage.va_u = u;
+  initApp();
+}
+
+if (sessionStorage.va_u) {
+  loggedInUser = sessionStorage.va_u;
+  setTimeout(initApp, 0);
+}
+
+function initApp() {
+  $('loginBox').style.display = 'none';
+  $('ratingApp').style.display = 'block';
+  $('welcomeMsg').textContent = `Logged in as: ${loggedInUser}`;
+}
+
+async function submitRating() {
+  const score = parseInt($('scoreSlider').value, 10);
+  const msg = $('msg');
+  const btn = $('submitBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  msg.textContent = '';
+
+  const { error } = await sb.from('student_ratings').upsert(
+    { rater: loggedInUser, target: 'current_student', score: score, updated_at: new Date() },
+    { onConflict: 'rater,target' }
+  );
+
+  btn.disabled = false;
+  btn.textContent = 'Submit Rating';
+
+  if (error) {
+    console.error(error);
+    msg.style.color = '#ff8fa3';
+    msg.textContent = 'Failed to submit rating. Please try again.';
+  } else {
+    msg.style.color = '#3ddc97';
+    msg.textContent = `Successfully submitted ${score} marks!`;
+    setTimeout(() => { msg.textContent = ''; }, 3000);
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('va_u');
+  location.reload();
+}
+</script>
+</body>
+</html>

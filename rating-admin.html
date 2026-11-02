@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rating Admin Console</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: "Trebuchet MS", system-ui, sans-serif; }
+    body { margin: 0; background: #0d0d1e; color: #fff; min-height: 100vh; padding: 20px; }
+    .center-box { display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .card { background: linear-gradient(#2b2470, #1a1650); border: 2px solid #ffd54a; border-radius: 20px; padding: 30px; width: min(400px, 90vw); text-align: center; }
+    .field { margin-bottom: 16px; text-align: left; }
+    label { display: block; font-size: 14px; color: #cfcfff; margin-bottom: 6px; font-weight: bold; }
+    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a458c; background: #12122a; color: #fff; font-size: 16px; outline: none; }
+    input:focus { border-color: #ffd54a; }
+    
+    /* Button feedback states */
+    button { padding: 10px 20px; border-radius: 10px; border: 0; background: linear-gradient(90deg, #ff4d8d, #ff9f43); color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; transition: transform 0.1s ease, opacity 0.2s; }
+    button:hover { opacity: 0.9; }
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .danger-btn { background: linear-gradient(90deg, #ff4d6d, #b0102a); }
+    .secondary-btn { background: #4a458c; }
+    #adminDashboard { display: none; max-width: 900px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3a2a8c; padding-bottom: 16px; margin-bottom: 24px; }
+    h1 { margin: 0; color: #ffd54a; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; background: #19183b; border-radius: 12px; overflow: hidden; margin-bottom: 30px; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #2b2763; }
+    th { background: #262259; color: #ffd54a; }
+    tr:hover { background: #221f4c; }
+    .summary-card { background: #1e1b4b; border-radius: 12px; padding: 20px; border: 2px solid #ffd54a; margin-bottom: 25px; display: inline-block; min-width: 240px; text-align: center; }
+    .summary-card div { font-size: 42px; font-weight: bold; color: #ffd54a; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- ADMIN LOGIN SECTION -->
+  <div class="center-box" id="adminLogin">
+    <div class="card">
+      <h1>👑 Admin Login</h1>
+      <div class="field" style="margin-top:20px;">
+        <label>Admin Username</label>
+        <input id="au" type="text" value="wangzhrm">
+      </div>
+      <div class="field">
+        <label>Admin Password</label>
+        <input id="ap" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')adminLogin()">
+      </div>
+      <button style="width:100%" id="adminLoginBtn" onclick="adminLogin()">Access Dashboard</button>
+      <div id="aerr" style="color:#ff8fa3;margin-top:10px;display:none">Invalid admin credentials.</div>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD SECTION -->
+  <div id="adminDashboard">
+    <header>
+      <h1>📊 Active Student Peer Rating</h1>
+      <button class="secondary-btn" onclick="logoutAdmin()">Logout</button>
+    </header>
+
+    <div class="controls">
+      <button id="refreshBtn" onclick="loadScores()">🔄 Refresh Scores</button>
+      <button class="danger-btn" id="clearBtn" onclick="clearAllScores()">🗑️ Remove Existing Scores (Next Student)</button>
+    </div>
+
+    <h2>Average Score for Current Student</h2>
+    <div id="averagesContainer"></div>
+
+    <h2>Marks Given by Each Student</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Rater (Student Username)</th>
+          <th>Score Given</th>
+          <th>Submitted At</th>
+        </tr>
+      </thead>
+      <tbody id="ratingsTable">
+        <tr><td colspan="3">Loading ratings...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const sb = supabase.createClient('https://btwdbphheotbqrmbswgk.supabase.co', 'sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k');
+
+function adminLogin() {
+  const u = $('au').value.trim();
+  const p = $('ap').value;
+  if (u === 'wangzhrm' && p === 'wang123') {
+    sessionStorage.va_admin = '1';
+    showDashboard();
+  } else {
+    $('aerr').style.display = 'block';
+  }
+}
+
+if (sessionStorage.va_admin === '1') {
+  setTimeout(showDashboard, 0);
+}
+
+function showDashboard() {
+  $('adminLogin').style.display = 'none';
+  $('adminDashboard').style.display = 'block';
+  loadScores();
+}
+
+async function loadScores() {
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Loading...';
+
+  const { data, error } = await sb.from('student_ratings').select('*').eq('target', 'current_student').order('created_at', { ascending: false });
+
+  btn.disabled = false;
+  btn.textContent = '🔄 Refresh Scores';
+
+  if (error) {
+    console.error(error);
+    alert('Error fetching score records: ' + error.message);
+    return;
+  }
+
+  const tbody = $('ratingsTable');
+  tbody.innerHTML = '';
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">No ratings recorded yet for the current student.</td></tr>';
+    $('averagesContainer').innerHTML = `
+      <div class="summary-card" style="border-color:#555;">
+        <div style="color:#888; font-size:16px;">Average Score</div>
+        <div>0.0</div>
+        <small style="color:#aaa;">0 ratings</small>
+      </div>
+    `;
+    return;
+  }
+
+  let totalSum = 0;
+  data.forEach(row => {
+    totalSum += row.score;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${row.rater}</strong></td>
+      <td><span style="color:#ffd54a; font-weight:bold; font-size:18px;">${row.score}</span></td>
+      <td>${new Date(row.updated_at || row.created_at).toLocaleTimeString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const avg = (totalSum / data.length).toFixed(1);
+  $('averagesContainer').innerHTML = `
+    <div class="summary-card">
+      <div style="font-size:16px; color:#cfcfff;">Current Student Average</div>
+      <div>${avg}</div>
+      <small style="color:#aaa;">Total Submissions: ${data.length}</small>
+    </div>
+  `;
+}
+
+async function clearAllScores() {
+  if (!confirm('Are you sure you want to wipe all existing scores? This will clear out the current ratings so students can rate the next student.')) {
+    return;
+  }
+
+  const btn = $('clearBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Removing...';
+
+  const { error } = await sb.from('student_ratings').delete().eq('target', 'current_student');
+
+  btn.disabled = false;
+  btn.textContent = '🗑️ Remove Existing Scores (Next Student)';
+
+  if (error) {
+    console.error(error);
+    alert('Failed to delete records: ' + error.message);
+  } else {
+    alert('Ratings reset successfully! You can now move on to the next student.');
+    loadScores();
+  }
+}
+
+function logoutAdmin() {
+  sessionStorage.removeItem('va_admin');
+  location.reload();
+}
+</script>
+</body>
+</html>
