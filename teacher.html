@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Teaching Calendar & OT Tracker</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -83,7 +82,6 @@
       <div style="flex:1"><label style="font-size:0.7rem; font-weight:bold; color:#666;">TO (h)</label><input type="number" id="inputTimeoff" step="0.5" style="width:100%; padding:8px; border:1px solid #ddd;"></div>
     </div>
 
-    <!-- Ledger Info Box -->
     <div id="ledgerInfo" class="ledger-info" style="display:none;"></div>
 
     <div style="margin-top:20px; display:flex; gap:10px;">
@@ -95,12 +93,31 @@
 
 <script>
 (function () {
-const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
-const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const TCB_ENV = "civil-prawn-d0gflguvzee35fad8";
+const TCB_REST_URL = `https://${TCB_ENV}.api.tcloudbasegateway.com/v1/rdb/rest`;
+const TCB_PUBLISHABLE_KEY = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZkN2IyMmIyLWI4NjktNDNjNy04NGY0LWY0NTE2MDgxNDRhNSJ9.eyJpc3MiOiJodHRwczovL2NpdmlsLXByYXduLWQwZ2ZsZ3V2emVlMzVmYWQ4LmFwLXNoYW5naGFpLnRjYi1hcGkudGVuY2VudGNsb3VkYXBpLmNvbSIsInN1YiI6ImFub24iLCJhdWQiOiJjaXZpbC1wcmF3bi1kMGdmbGd1dnplZTM1ZmFkOCIsImV4cCI6NDA5ODg1NDQzMywiaWF0IjoxNzk1MTcxMjMzLCJub25jZSI6IlpOYXlDMXJ5VERxTmg1UFpFM0pxN3ciLCJhdF9oYXNoIjoiWk5heUMxcnlURHFOaDVQWkUzSnE3dyIsIm5hbWUiOiJBbm9ueW1vdXMiLCJzY29wZSI6ImFub255bW91cyIsInByb2plY3RfaWQiOiJjaXZpbC1wcmF3bi1kMGdmbGd1dnplZTM1ZmFkOCIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.udoyytgC9Z6QZjHnz7-v9rtM7K2C6PVYhVX9KgOrx76Q_j4phvYpItbrMc8eAfRiewAzXvyW2heL2U3mTofad8-q10i5R8TyJ6ZsR80qzsTs6CcAk699o3uAhB0E5QTa7GqEDrhlnVtu9Bi9-DroWgMMgV6CXgLCz-d0h1YQq1AReBNe1JNJv7MYMQG08YGmUEqgfgGlKwB-G7YJ5Ya6b3WLEVNLRBAPHOCMa8ExCiy9fAK1oDRyBlLq4ieH7pOaMriPYm7Y7C0XyemeLQ_0E5PDRPg9QNTCenwDG3usKCKV9hZGeiVmTKZHPYFBMgwM-iBlOslXPAjDW3Au8u85Jw";
 
 const RECORDS_TABLE = "teacher_records";
 const CLASS_TYPES_TABLE = "teacher_class_types";
+
+async function tcbReq(path, options = {}) {
+  const res = await fetch(`${TCB_REST_URL}/${path}`, {
+    ...options,
+    headers: {
+      apikey: TCB_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${TCB_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch (e) {}
+  if (!res.ok) {
+    throw new Error((json && json.message) || text || res.statusText);
+  }
+  return json;
+}
 
 let currentSchool = "School_A";
 let year = new Date().getFullYear();
@@ -119,25 +136,18 @@ function toggleSchool() {
 }
 
 async function initApp() {
-  // Querying class types. If your table uses display_order / sort_order, change the column here:
-  const { data, error } = await sb
-    .from(CLASS_TYPES_TABLE)
-    .select("*")
-    .eq("school", currentSchool)
-    .order("display_order", { ascending: true, nullsFirst: false })
-    .order("id", { ascending: true }); 
-
-  if (error) {
-    // Fallback query if 'display_order' column doesn't exist
-    const { data: fallbackData } = await sb
-      .from(CLASS_TYPES_TABLE)
-      .select("*")
-      .eq("school", currentSchool)
-      .order("id", { ascending: true });
-    
-    classTypes = (fallbackData || []).map(parseType);
-  } else {
+  const es = encodeURIComponent(currentSchool);
+  try {
+    const data = await tcbReq(`${CLASS_TYPES_TABLE}?select=*&school=eq.${es}&order=display_order.asc.nullslast,id.asc`);
     classTypes = (data || []).map(parseType);
+  } catch (error) {
+    try {
+      const fallbackData = await tcbReq(`${CLASS_TYPES_TABLE}?select=*&school=eq.${es}&order=id.asc`);
+      classTypes = (fallbackData || []).map(parseType);
+    } catch (e2) {
+      console.error("Error loading class types:", e2);
+      classTypes = [];
+    }
   }
   renderCalendar();
 }
@@ -179,13 +189,11 @@ function parseDateStr(str) {
 }
 
 async function refreshData() {
-  const { data: records, error } = await sb
-    .from(RECORDS_TABLE)
-    .select("*")
-    .eq("school", currentSchool)
-    .order("date", { ascending: true });
-
-  if (error) {
+  let records = [];
+  try {
+    const es = encodeURIComponent(currentSchool);
+    records = await tcbReq(`${RECORDS_TABLE}?select=*&school=eq.${es}&order=date.asc`) || [];
+  } catch (error) {
     console.error("Error loading records:", error);
     return;
   }
@@ -198,7 +206,7 @@ async function refreshData() {
   globalTimeoffSources = {};
   let otQueue = [];
 
-  (records || []).forEach(r => {
+  records.forEach(r => {
     if (!r.date) return;
     const d = parseDateStr(r.date);
     const dateKey = formatDate(d);
@@ -296,14 +304,15 @@ async function openModal(dateStr) {
   ledgerDiv.innerHTML = ledgerHtml;
   ledgerDiv.style.display = ledgerHtml ? "block" : "none";
 
-  const { data: record, error } = await sb
-    .from(RECORDS_TABLE)
-    .select("*")
-    .eq("date", dateStr)
-    .eq("school", currentSchool)
-    .maybeSingle();
-
-  if (error) console.error("Error loading day record:", error);
+  let record = null;
+  try {
+    const ed = encodeURIComponent(dateStr);
+    const es = encodeURIComponent(currentSchool);
+    const rows = await tcbReq(`${RECORDS_TABLE}?select=*&date=eq.${ed}&school=eq.${es}&limit=1`);
+    record = (rows && rows[0]) || null;
+  } catch (error) {
+    console.error("Error loading day record:", error);
+  }
 
   if (record) {
     const cls = record.classes || {};
@@ -339,11 +348,13 @@ async function saveDayData() {
       timeoff: Number(document.getElementById("inputTimeoff").value) || 0
     };
 
-    const { error } = await sb
-      .from(RECORDS_TABLE)
-      .upsert(payload, { onConflict: "date,school" });
-
-    if (error) throw error;
+    await tcbReq(`${RECORDS_TABLE}?on_conflict=date,school`, {
+      method: "POST",
+      headers: {
+        Prefer: "resolution=merge-duplicates,return=minimal"
+      },
+      body: JSON.stringify(payload)
+    });
 
     closeModal(); initApp();
   } catch (e) {
