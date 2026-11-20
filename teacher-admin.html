@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manage Class Types - Multi-School</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 950px; margin: 20px auto; padding: 0 15px; background: #f4f7f6; color: #333; }
     .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -61,13 +60,32 @@
 
 <script>
 (function () {
-  const SUPABASE_URL = "https://btwdbphheotbqrmbswgk.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_9lY3A1HrgERNIC597NEAKQ_YTCmkh2k";
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const TCB_ENV = "civil-prawn-d0gflguvzee35fad8";
+  const TCB_REST_URL = `https://${TCB_ENV}.api.tcloudbasegateway.com/v1/rdb/rest`;
+  const TCB_PUBLISHABLE_KEY = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZkN2IyMmIyLWI4NjktNDNjNy04NGY0LWY0NTE2MDgxNDRhNSJ9.eyJpc3MiOiJodHRwczovL2NpdmlsLXByYXduLWQwZ2ZsZ3V2emVlMzVmYWQ4LmFwLXNoYW5naGFpLnRjYi1hcGkudGVuY2VudGNsb3VkYXBpLmNvbSIsInN1YiI6ImFub24iLCJhdWQiOiJjaXZpbC1wcmF3bi1kMGdmbGd1dnplZTM1ZmFkOCIsImV4cCI6NDA5ODg1NDQzMywiaWF0IjoxNzk1MTcxMjMzLCJub25jZSI6IlpOYXlDMXJ5VERxTmg1UFpFM0pxN3ciLCJhdF9oYXNoIjoiWk5heUMxcnlURHFOaDVQWkUzSnE3dyIsIm5hbWUiOiJBbm9ueW1vdXMiLCJzY29wZSI6ImFub255bW91cyIsInByb2plY3RfaWQiOiJjaXZpbC1wcmF3bi1kMGdmbGd1dnplZTM1ZmFkOCIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJyb2xlIjoiYW5vbiIsImlzX2Fub255bW91cyI6dHJ1ZSwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiYW5vbnltb3VzIiwicHJvdmlkZXJzIjpbImFub255bW91cyJdfSwidXNlcl9tZXRhZGF0YSI6eyJuYW1lIjoiQW5vbnltb3VzIn0sInVzZXJfdHlwZSI6IiIsImNsaWVudF90eXBlIjoiY2xpZW50X3VzZXIiLCJpc19zeXN0ZW1fYWRtaW4iOmZhbHNlfQ.udoyytgC9Z6QZjHnz7-v9rtM7K2C6PVYhVX9KgOrx76Q_j4phvYpItbrMc8eAfRiewAzXvyW2heL2U3mTofad8-q10i5R8TyJ6ZsR80qzsTs6CcAk699o3uAhB0E5QTa7GqEDrhlnVtu9Bi9-DroWgMMgV6CXgLCz-d0h1YQq1AReBNe1JNJv7MYMQG08YGmUEqgfgGlKwB-G7YJ5Ya6b3WLEVNLRBAPHOCMa8ExCiy9fAK1oDRyBlLq4ieH7pOaMriPYm7Y7C0XyemeLQ_0E5PDRPg9QNTCenwDG3usKCKV9hZGeiVmTKZHPYFBMgwM-iBlOslXPAjDW3Au8u85Jw";
 
   const CLASS_TYPES_TABLE = "teacher_class_types";
   const DEFAULT_COLOR = "#2a9d8f";
   let currentClasses = [];
+
+  async function tcbReq(path, options = {}) {
+    const res = await fetch(`${TCB_REST_URL}/${path}`, {
+      ...options,
+      headers: {
+        apikey: TCB_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${TCB_PUBLISHABLE_KEY}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (e) {}
+    if (!res.ok) {
+      throw new Error((json && json.message) || text || res.statusText);
+    }
+    return json;
+  }
 
   function getContrastTextColor(hexColor) {
     const hex = (hexColor || DEFAULT_COLOR).replace("#", "");
@@ -78,7 +96,6 @@
     return yiq >= 128 ? "#111111" : "#ffffff";
   }
 
-  // Ensures all records have unique, incremental display_order numbers (1, 2, 3...)
   async function normalizeOrdersIfNeeded(results) {
     let needsNormalization = false;
     for (let i = 0; i < results.length; i++) {
@@ -90,10 +107,13 @@
 
     if (!needsNormalization) return results;
 
-    // Update in database so all display_order values are distinct and sequential
     const updatePromises = results.map((item, index) => {
       item.display_order = index + 1;
-      return sb.from(CLASS_TYPES_TABLE).update({ display_order: index + 1 }).eq('id', item.id);
+      return tcbReq(`${CLASS_TYPES_TABLE}?id=eq.${encodeURIComponent(item.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ display_order: index + 1 })
+      });
     });
 
     await Promise.all(updatePromises);
@@ -101,18 +121,15 @@
   }
 
   async function loadClassTypes() {
-    const { data: results, error } = await sb
-      .from(CLASS_TYPES_TABLE)
-      .select("*")
-      .order("display_order", { ascending: true })
-      .order("id", { ascending: true });
-
-    if (error) {
+    let results = [];
+    try {
+      results = await tcbReq(`${CLASS_TYPES_TABLE}?select=*&order=display_order.asc,id.asc`) || [];
+    } catch (error) {
       console.error("Error loading class types:", error);
       return;
     }
 
-    currentClasses = await normalizeOrdersIfNeeded(results || []);
+    currentClasses = await normalizeOrdersIfNeeded(results);
     
     const tbody = document.querySelector('#classTable tbody');
     tbody.innerHTML = '';
@@ -135,11 +152,11 @@
           </div>
         </td>
         <td><span class="tag-school" style="background-color: ${color}; color: ${textColor};">${school.replace('_',' ')}</span></td>
-        <td><strong>${obj.name}</strong></td>
+        <td><strong>${escapeHtml(obj.name)}</strong></td>
         <td>${obj.hours_per_session} h</td>
         <td><div style="width: 24px; height: 24px; border-radius: 4px; background-color: ${color}; border: 1px solid #ccc;"></div></td>
         <td>
-          <button class="btn-edit" onclick="enableEdit(${obj.id}, '${escapeHtml(obj.name)}', ${obj.hours_per_session}, '${school}', '${color}')">Edit</button>
+          <button class="btn-edit" onclick="enableEdit(${obj.id}, '${escapeJs(obj.name)}', ${obj.hours_per_session}, '${school}', '${color}')">Edit</button>
           <button class="btn-del" onclick="deleteClass(${obj.id})">Delete</button>
         </td>
       `;
@@ -148,7 +165,13 @@
   }
 
   function escapeHtml(str) {
-    return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    return String(str ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function escapeJs(str) {
+    return String(str ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   }
 
   document.getElementById('addClassForm').addEventListener('submit', async e => {
@@ -163,15 +186,19 @@
       display_order: nextOrder
     };
 
-    const { error } = await sb.from(CLASS_TYPES_TABLE).insert(payload);
-    if (error) {
+    try {
+      await tcbReq(`${CLASS_TYPES_TABLE}`, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      loadClassTypes();
+      e.target.reset();
+      document.getElementById('classColor').value = DEFAULT_COLOR;
+    } catch (error) {
       console.error(error);
       alert("Error adding class type");
-      return;
     }
-    loadClassTypes();
-    e.target.reset();
-    document.getElementById('classColor').value = DEFAULT_COLOR;
   });
 
   async function moveRow(currentIndex, direction) {
@@ -181,22 +208,27 @@
     const currentItem = currentClasses[currentIndex];
     const targetItem = currentClasses[targetIndex];
 
-    // Explicitly swap display_order integers (e.g. swap position 2 and 3)
     const newCurrentOrder = targetIndex + 1;
     const newTargetOrder = currentIndex + 1;
 
-    const [res1, res2] = await Promise.all([
-      sb.from(CLASS_TYPES_TABLE).update({ display_order: newCurrentOrder }).eq('id', currentItem.id),
-      sb.from(CLASS_TYPES_TABLE).update({ display_order: newTargetOrder }).eq('id', targetItem.id)
-    ]);
-
-    if (res1.error || res2.error) {
-      console.error("Error swapping orders:", res1.error || res2.error);
+    try {
+      await Promise.all([
+        tcbReq(`${CLASS_TYPES_TABLE}?id=eq.${encodeURIComponent(currentItem.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ display_order: newCurrentOrder })
+        }),
+        tcbReq(`${CLASS_TYPES_TABLE}?id=eq.${encodeURIComponent(targetItem.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ display_order: newTargetOrder })
+        })
+      ]);
+      loadClassTypes();
+    } catch (error) {
+      console.error("Error swapping orders:", error);
       alert("Error reordering items");
-      return;
     }
-
-    loadClassTypes();
   }
 
   function enableEdit(id, name, hours, school, color) {
@@ -210,7 +242,7 @@
         </select>
       </td>
       <td>
-        <input type="text" id="edit-name-${id}" class="edit-input-name" value="${name}" required />
+        <input type="text" id="edit-name-${id}" class="edit-input-name" value="${escapeHtml(name)}" required />
       </td>
       <td>
         <input type="number" id="edit-hrs-${id}" class="edit-input-hrs" value="${hours}" step="0.25" min="0.25" required /> h
@@ -247,29 +279,31 @@
       color: newColor
     };
 
-    const { error } = await sb
-      .from(CLASS_TYPES_TABLE)
-      .update(payload)
-      .eq('id', id);
-
-    if (error) {
+    try {
+      await tcbReq(`${CLASS_TYPES_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      loadClassTypes();
+    } catch (error) {
       console.error("Error updating class type:", error);
       alert("Error saving changes");
-      return;
     }
-
-    loadClassTypes();
   }
 
   async function deleteClass(id) {
     if (confirm("Permanently delete this class type?")) {
-      const { error } = await sb.from(CLASS_TYPES_TABLE).delete().eq('id', id);
-      if (error) {
+      try {
+        await tcbReq(`${CLASS_TYPES_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          headers: { Prefer: "return=minimal" }
+        });
+        loadClassTypes();
+      } catch (error) {
         console.error(error);
         alert("Error deleting class type");
-        return;
       }
-      loadClassTypes();
     }
   }
 
